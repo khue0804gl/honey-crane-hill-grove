@@ -1,0 +1,19 @@
+  const openArena = () => {
+      if (!currentProfileId || !gameStarted) return showAlert("Vui lòng tải một sinh mệnh trước khi vào Chiến Trường!");
+      const currentProfile = profiles.find(p => p.id === currentProfileId);
+      const savedStrategy = currentProfile?.pvpStrategy || 'Tùy cơ ứng biến, tung chiêu phòng thủ khi yếu máu, dùng sát chiêu mạnh nhất khi có cơ hội.';
+
+      setArenaState(prev => ({
+          ...prev, tab: 'board', leaderboard: [], isLoadingBoard: false, viewingHistoryFor: null,
+          myProfileId: currentProfileId, mySnapshot: { ...gameState }, myStrategy: savedStrategy,
+          opponentSnapshot: null, opponentId: null, logs: [],
+          myHP: 100, myMaxHP: 100, myMP: 50, myMaxMP: 50, myStamina: 100, myMaxStamina: 100,
+          oppHP: 100, oppMaxHP: 100, oppMP: 50, oppMaxMP: 50, oppStamina: 100, oppMaxStamina: 100,
+          options: ['Tấn công chớp nhoáng', 'Phòng thủ phản công', 'Dùng tuyệt kỹ mạnh nhất', 'Thăm dò đối thủ'],
+          isGenerating: false, customAction: '',
+          selectedItems: (gameState.inventory || []).map(i => i.name),
+          selectedSkills: (gameState.journal?.skills || []).map(s => s.name)
+      }));
+      setIsArenaOpen(true);
+      fetchLeaderboard();
+  };

@@ -1,0 +1,354 @@
+  const handleTravelToLocationNode = (targetNodeId: string, method: 'walk' | 'mount' | 'fly' | 'teleport' = 'walk', chosenDistanceLi?: number) => {
+    if (isGenerating) return showAlert("Thiên Đạo đang tính toán, không thể khởi hành lúc này!");
+
+    const activeGraph = getActiveWorldGraph(gameState.timelineId);
+    let targetNode: LocationNode | undefined = activeGraph[targetNodeId];
+    if (!targetNode) {
+      const storyLoc = (gameState.encyclopedia || []).find(e => e.type === 'location' && (e.id === targetNodeId || e.name === targetNodeId));
+      if (storyLoc) {
+        targetNode = {
+          id: storyLoc.id || targetNodeId,
+          name: storyLoc.name,
+          region: "NgoaiCanhDLC",
+          regionName: "Vùng Đất Mới Khám Phá",
+          coordinates: storyLoc.coordinates || { x: 5, y: 5, z: 0 },
+          tier: "HaViDien",
+          rulingFaction: storyLoc.rulingFaction || "Tán Tu Tự Do",
+          auraDensity: storyLoc.auraDensity || 2600,
+          description: storyLoc.desc || "Địa danh được khai phá trong quá trình hành tẩu giang hồ.",
+          facilities: storyLoc.facilities || ["QuanTro"],
+          connectedPaths: [],
+          fixedNpcIds: [],
+          isStoryDiscovered: true
+        };
+      }
+    }
+    if (!targetNode) return showAlert("Không tìm thấy tọa độ địa danh này!");
+
+    const activeTimeline = getActiveTimeline(gameState.timelineId);
+    const curLocId = gameState.currentLocationNodeId || Object.keys(activeGraph).find(k => activeGraph[k].name === gameState.currentLocation) || activeTimeline.defaultStartNodeId;
+    const currentNode = activeGraph[curLocId] || Object.values(activeGraph)[0];
+
+    if (!gameState.inTransit && targetNode.id === currentNode.id && targetNode.name === gameState.currentLocation) {
+      return showAlert(`Bạn đang ở ngay tại ${targetNode.name}, không cần di chuyển!`);
+    }
+
+    const curStageId = getStageConfig(gameState.cultivationLevel).id || 1;
+    const targetFog = gameState.fogKnowledge?.[targetNode.id];
+    const fogLevel: FogLevel = targetFog ? targetFog.level : (targetNode.id === currentNode.id ? 2 : 0);
+
+    // V1.82: HARD CODE GUARD CHO NGƯ TỘC THUẦN CHỦNG (CHƯA ĐẠT KIM ĐAN CẤM LÊN BỜ)
+    if (gameState.backgroundId === 'bg_yeu_thuan_ngu' && curStageId < 4) {
+      const isTargetWater = /(hải|biển|thâm hải|đáy|hồ|thủy|vực sâu|hải uyên)/i.test(targetNode.name) || /(hải|biển|thủy)/i.test(targetNode.description || '');
+      if (!isTargetWater) {
+        return showAlert(`[BẢN MỆNH THÂM HẢI]\nNgư Tộc thuần chủng khi chưa đột phá Kim Đan Kỳ (giai đoạn 4) chưa thể hoàn mỹ hóa hình để hô hấp trên cạn!\nCơ thể linh ngư lên bờ sẽ lập tức bị ngạt thở khô cạn tinh huyết mà chết. Hãy tu luyện dưới đáy biển sâu cho đến khi vượt qua Hóa Hình Lôi Kiếp!`);
+      }
+    }
+
+    // KIỂM TRA ĐIỀU KIỆN 0: CHỐNG GIAN LẬN SƯƠNG MÙ (FOG OF WAR INTERCEPTOR)
+    if (fogLevel === 0) {
+      return showAlert(`[MÂY MÙ VÔ TRI - CẤP 0]\nĐịa danh [${targetNode.name}] hiện đang bị sương mù che khuất hoàn toàn!\nNhân vật của bạn chưa từng đặt chân tới, chưa có bất kỳ manh mối hay tọa độ không gian nào trong Thần Thức.\n\nDù bạn có nhớ tên ngoài đời cũng KHÔNG THỂ khởi hành hay thuấn di tới đích! Hãy đến Quán Trà nghe ngóng tin tức, tìm người hỏi thăm đường đi, hoặc mua Bản Đồ Da Dê để mở khóa manh mối.`);
+    }
+
+    // Nếu chỉ mới nghe đồn cấp 1 mà đòi đi một mạch đến nơi
+    if (fogLevel === 1 && !chosenDistanceLi && method !== 'teleport') {
+      return showAlert(`[MANH MỐI TIN ĐỒN - CẤP 1]\nBạn chỉ mới nghe lữ khách nhắc loáng thoáng về [${targetNode.name}], chưa có tọa độ chính xác!\nKhông thể đi một mạch thẳng tắp đến đích. Bạn cần chọn đi từng chặng (30 dặm hoặc 50 dặm) để vừa đi vừa hỏi thăm đường mòn dân địa phương.`);
+    }
+
+    // KIỂM TRA ĐIỀU KIỆN 0.5: RÀO CẢN VI DIỆN TAM GIỚI (MẶT ĐẤT vs THƯỢNG GIỚI vs ĐỊA NGỤC)
+    const curZ = currentNode.coordinates?.z ?? (gameState.coordinates?.z ?? 0);
+    const targetZ = targetNode.coordinates?.z ?? 0;
+
+    const isCurrentUnderground = curZ < 0;
+    const isCurrentSky = curZ > 0;
+    const isTargetUnderground = targetZ < 0;
+    const isTargetSky = targetZ > 0;
+
+    const isPlaneMismatch = (isCurrentUnderground !== isTargetUnderground) || (isCurrentSky !== isTargetSky);
+
+    if (isPlaneMismatch && method !== 'teleport') {
+      if (isTargetSky && !isCurrentSky) {
+        return showAlert(`[BÍCH CHƯỚNG THƯỢNG GIỚI]\n[${targetNode.name}] nằm ở Thượng Giới lơ lửng trên chín tầng mây (${targetNode.regionName})!\nBạn không thể đi bộ hay cưỡi ngựa thông thường để leo lên đó. Muốn lên Thượng Giới, bạn cần đột phá Phi Thăng (vượt qua Lôi Kiếp Phi Thăng) hoặc bước vào Cổng Xuyên Không / Kẽ Nứt Hư Không!`);
+      }
+      if (isTargetUnderground && !isCurrentUnderground) {
+        return showAlert(`[CỔNG VONG XUYÊN - MINH GIỚI]\n[${targetNode.name}] nằm sâu dưới Cửu U Địa Ngục (${targetNode.regionName}) cách biệt cõi trần!\nNgười sống không thể đi bộ theo số dặm thông thường mà xuống được. Phải đi qua Cổng Luân Hồi tại nơi cực âm (như Bãi Tha Ma Thi Âm Tông), hoặc khi nhục thân tử vong hồn về Quỷ Môn Quan!`);
+      }
+      if (!isTargetSky && !isTargetUnderground && (isCurrentSky || isCurrentUnderground)) {
+        return showAlert(`[BÍCH CHƯỚNG VỊ DIỆN]\nBạn đang ở cõi ngoài (Thượng Giới/Địa Ngục), muốn trở về Mặt Đất Cửu Châu phải đi qua Kẽ Nứt Không Gian hoặc dùng thuật Hạ Giới, không thể đi bộ theo dặm đường!`);
+      }
+    }
+
+    // KIỂM TRA ĐIỀU KIỆN 1: GÓI DLC BẮT BUỘC
+    if (targetNode.requiredDLC && !(gameState.activeDLCs || []).includes(targetNode.requiredDLC)) {
+      return showAlert(`Khu vực [${targetNode.name}] thuộc về cõi vi diện của gói mở rộng [${targetNode.requiredDLC}]! Bạn cần mở DLC này trong phần Cài Đặt mới có thể kích hoạt không gian này.`);
+    }
+
+    // KIỂM TRA ĐIỀU KIỆN 2: CẢNH GIỚI TỐI THIỂU
+    if (targetNode.requiredLevelId && curStageId < targetNode.requiredLevelId) {
+      const hasKamui = gameState.traits?.some(t => t.name === 'Thuấn Di Bản Năng' || t.name === 'Chí Tôn Vô Cực Mệnh');
+      if (!hasKamui) {
+        return showAlert(`CẢNH BÁO UY ÁP: Khu vực [${targetNode.name}] yêu cầu cảnh giới tối thiểu [${targetNode.requiredLevelName || 'Cường Giả'}]! Tu vi hiện tại của bạn chưa đủ, nếu cố tình tiến vào sẽ bị áp lực không gian nghiền nát kinh mạch.`);
+      }
+    }
+
+    // TÍNH TỔNG KHOẢNG CÁCH GIỮA HAI TÂM ĐỊA DANH
+    let totalDistLi = 100;
+    const directPath = currentNode.connectedPaths?.find(p => p.targetId === targetNode!.id);
+    if (directPath) {
+      totalDistLi = directPath.distanceLi;
+    } else {
+      const dx = (targetNode.coordinates.x ?? 0) - (currentNode.coordinates.x ?? 0);
+      const dy = (targetNode.coordinates.y ?? 0) - (currentNode.coordinates.y ?? 0);
+      const dz = (targetNode.coordinates.z ?? 0) - (currentNode.coordinates.z ?? 0);
+      totalDistLi = Math.max(20, Math.round(Math.sqrt(dx * dx + dy * dy) * 100 + Math.abs(dz) * 100));
+    }
+
+    // XÁC ĐỊNH CỰ LY BƯỚC ĐI TRONG LƯỢT NÀY
+    const currentTraveled = gameState.inTransit ? gameState.inTransit.traveledLi : 0;
+    const remainingToGoal = Math.max(1, totalDistLi - currentTraveled);
+
+    if (curStageId <= 1 && method === 'walk' && remainingToGoal > 50 && chosenDistanceLi === undefined) {
+      return showAlert(`[GIỚI HẠN PHÀM NHÂN]\nNhân vật của bạn đang là Phàm Nhân, nhục thân phàm thai không thể đi bộ một mạch ${remainingToGoal} dặm!\n\nMỗi chặng phàm nhân chỉ có thể đi tối đa 50 dặm rồi phải dừng chân nghỉ ngơi hồi phục thể lực.\nVui lòng chọn "Thăm Dò 30 Dặm" hoặc "Đi 50 Dặm"!`);
+    }
+
+    let actualDistanceThisStep = remainingToGoal;
+    if (chosenDistanceLi !== undefined && chosenDistanceLi > 0) {
+      actualDistanceThisStep = Math.min(remainingToGoal, chosenDistanceLi);
+    }
+
+    const newTraveledLi = currentTraveled + actualDistanceThisStep;
+    const isArrived = newTraveledLi >= totalDistLi || method === 'teleport';
+
+    let speed = Math.max(1, totalSpd);
+    let staminaCost = 0;
+    let energyCost = 0;
+    let travelMins = 0;
+    let methodDesc = "";
+
+    if (method === 'teleport') {
+      const hasKamui = gameState.traits?.some(t => t.name === 'Thuấn Di Bản Năng' || t.name === 'Chí Tôn Vô Cực Mệnh');
+      if (curStageId < 6 && !hasKamui) {
+        return showAlert("Thuấn di / Phá không đòi hỏi cảnh giới Hóa Thần Kỳ trở lên hoặc sở hữu Khí vận [Thuấn Di Bản Năng]!");
+      }
+
+      // NẾU THUẤN DI ĐẾN NƠI CHỈ MỚI NGHE ĐỒN (CẤP 1): BỊ LỆCH TỌA ĐỘ HOẶC RƠI VÀO KHÔNG GIAN LOẠN LƯU
+      if (fogLevel === 1) {
+        const isFellIntoVoid = Math.random() < 0.4; // 40% rơi vào hư không loạn lưu
+
+        if (isFellIntoVoid) {
+          const hasQuyKhuVoidImmune = prev.traits?.some(t => t && (t.name === 'Đại Đạo Quy Khư' || t.id === 9832));
+          const voidDmg = hasQuyKhuVoidImmune ? 0 : Math.floor(currentMaxHp * 0.25);
+          setGameState(prev => ({
+            ...prev,
+            currentLocation: "Không Gian Loạn Lưu",
+            coordinates: { x: 9999, y: 9999, z: 0 },
+            inTransit: null,
+            health: Math.max(1, prev.health - voidDmg),
+            spiritualEnergy: Math.max(0, prev.spiritualEnergy - (hasQuyKhuVoidImmune ? 0 : Math.floor(currentMaxMp * 0.4))),
+            stamina: Math.max(0, prev.stamina - (hasQuyKhuVoidImmune ? 0 : 30))
+          }));
+
+          setStoryLog(logs => [
+            ...logs,
+            {
+              type: 'system',
+              text: hasQuyKhuVoidImmune
+                ? `[Đại Đạo Quy Khư • Thân Dung Hư Vô] Địa danh [${targetNode.name}] chỉ là tin đồn cấp 1, không gian sụp đổ cuốn ngươi vào [Không Gian Loạn Lưu]! Nhưng thân thể ngươi vốn dung hợp hư vô cội nguồn, bão táp hư không hoàn toàn vô hại!`
+                : `⚠️ [TAI NẠN KHÔNG GIAN] Địa danh [${targetNode.name}] chỉ là tin đồn cấp 1, Thần Thức không có điểm neo tọa độ chuẩn xác! Cố tình Thuấn Di khiến không gian sụp đổ, ngươi bị cuốn phăng vào [Không Gian Loạn Lưu]! Bão tố hư không cắt xé làm ngươi mất ${formatLargeNumber(voidDmg)} HP! Hãy mau chóng tìm đường thoát ra!`,
+              chapter: gameState.chapterCount
+            }
+          ].slice(-50));
+
+          return showAlert(hasQuyKhuVoidImmune
+            ? `[ĐẠI ĐẠO QUY KHƯ • BẤT NHIỄM HƯ KHÔNG]\nKhông gian sụp đổ cuốn ngươi văng vào [Không Gian Loạn Lưu]!\nNhưng do sở hữu [Đại Đạo Quy Khư], thân thể đồng hóa cùng hư vô, bão táp hư không hoàn toàn vô hiệu (0 HP mất)!`
+            : `[TAI NẠN KHÔNG GIAN]\nĐịa danh [${targetNode.name}] chưa có tọa độ chính xác (Cấp 1 Nghe Đồn)!\n\nThuấn di mù quáng khiến Thần Thức mất phương hướng, khe nứt không gian bạo liệt cuốn ngươi văng vào [Không Gian Loạn Lưu]!\nBị bão hư không giảo sát mất ${formatLargeNumber(voidDmg)} HP! Mau tìm kẽ nứt không gian để thoát thân!`);
+        } else {
+          // Bị lệch tọa độ sang vùng hoang vu lân cận
+          const driftX = Number((targetNode.coordinates.x + (Math.random() * 80 - 40)).toFixed(2));
+          const driftY = Number((targetNode.coordinates.y + (Math.random() * 80 - 40)).toFixed(2));
+          const driftCostHp = Math.floor(currentMaxHp * 0.1);
+
+          setGameState(prev => ({
+            ...prev,
+            currentLocation: `Vùng Hoang Dã Lân Cận ${targetNode.name} (Lệch Tọa Độ)`,
+            coordinates: { x: driftX, y: driftY, z: targetNode.coordinates.z || 0 },
+            inTransit: null,
+            health: Math.max(1, prev.health - driftCostHp),
+            spiritualEnergy: Math.max(0, prev.spiritualEnergy - Math.floor(currentMaxMp * 0.3)),
+            stamina: Math.max(0, prev.stamina - 20)
+          }));
+
+          setStoryLog(logs => [
+            ...logs,
+            {
+              type: 'system',
+              text: `⚠️ [LỆCH TỌA ĐỘ THUẤN DI] Thuấn di vào vùng sương mù cấp 1 khiến điểm đến bị sai lệch! Rơi xuống vùng rừng núi hoang dã cách [${targetNode.name}] hơn 50 dặm, nhục thân chấn động mất ${formatLargeNumber(driftCostHp)} HP!`,
+              chapter: gameState.chapterCount
+            }
+          ].slice(-50));
+
+          return showAlert(`[LỆCH TỌA ĐỘ KHÔNG GIAN]\nDo [${targetNode.name}] chưa được khắc họa tọa độ chuẩn xác (Cấp 1 Tin Đồn), thuật Thuấn Di đã bị nhiễu loạn!\n\nNgươi bị rơi chệch hướng xuống một cánh rừng hoang vu cách đó hơn 50 dặm. Nhục thân chấn động mất ${formatLargeNumber(driftCostHp)} HP!`);
+        }
+      }
+
+      energyCost = Math.min(Math.floor(currentMaxMp * 0.35), Math.max(20, Math.round(actualDistanceThisStep * 0.4)));
+      staminaCost = 15;
+      travelMins = 2;
+      methodDesc = "Thuấn Di Phá Không";
+    } else if (method === 'fly') {
+      if (curStageId < 3) {
+        return showAlert("Ngự kiếm phi hành đòi hỏi cảnh giới Trúc Cơ Kỳ trở lên để ngự khí bay lượn!");
+      }
+      speed = Math.max(50, speed * 3.5);
+      energyCost = Math.min(Math.floor(currentMaxMp * 0.25), Math.max(10, Math.round(actualDistanceThisStep * 0.1)));
+      staminaCost = Math.min(30, Math.max(5, Math.round(actualDistanceThisStep * 0.05)));
+      travelMins = Math.max(1, Math.round((actualDistanceThisStep / speed) * 60));
+      methodDesc = "Ngự Kiếm Phi Hành";
+    } else if (method === 'mount') {
+      if (!gameState.mount) {
+        return showAlert("Bạn chưa trang bị Kỵ Thú nào! Hãy chọn Đi Bộ hoặc mở Vạn Thú Viện trang bị thú cưỡi.");
+      }
+      speed = Math.max(15, speed + (Number(gameState.mount.speedBonus) || 20)) * 1.5;
+      staminaCost = Math.min(40, Math.max(5, Math.round(actualDistanceThisStep * 0.1)));
+      travelMins = Math.max(1, Math.round((actualDistanceThisStep / speed) * 60));
+      methodDesc = `Cưỡi Kỵ Thú [${gameState.mount.name}]`;
+    } else {
+      speed = Math.max(5, speed);
+      staminaCost = curStageId <= 1 
+        ? Math.max(5, Math.round(actualDistanceThisStep * 1.5)) 
+        : Math.min(80, Math.max(5, Math.round(actualDistanceThisStep * 0.25)));
+      travelMins = Math.max(1, Math.round((actualDistanceThisStep / speed) * 60));
+      methodDesc = "Đi Bộ Đường Trường";
+    }
+
+    if (gameState.stamina < staminaCost) {
+      return showAlert(`Thể lực không đủ để khởi hành! Cần ít nhất ${staminaCost} Thể lực (Hiện có: ${gameState.stamina}). Hãy dừng chân nghỉ ngơi hoặc nhóm lửa phục hồi.`);
+    }
+    if (gameState.spiritualEnergy < energyCost) {
+      return showAlert(`Năng lượng không đủ để thi triển ${methodDesc}! Cần ít nhất ${energyCost} năng lượng (Hiện có: ${gameState.spiritualEnergy}).`);
+    }
+
+    // TÍNH TOÁN TỌA ĐỘ VÀ VỊ TRÍ HIỂN THỊ
+    const startCoord = gameState.inTransit ? gameState.inTransit.startCoords : currentNode.coordinates;
+    const targetCoord = targetNode.coordinates;
+    const progressRatio = Math.min(1, newTraveledLi / totalDistLi);
+
+    // Tính tọa độ nội suy thực tế có dấu thập phân
+    const interpolatedX = Number((startCoord.x + (targetCoord.x - startCoord.x) * progressRatio).toFixed(2));
+    const interpolatedY = Number((startCoord.y + (targetCoord.y - startCoord.y) * progressRatio).toFixed(2));
+    const currentZ = targetCoord.z ?? currentPlaneZ;
+
+    const ageAdded = travelMins / 518400;
+    const curYear = Math.floor(Math.max(0, (Number(gameState.age) || 18) - (Number(gameState.startAge) || 18))) + 1;
+
+    setGameState(prev => {
+      const newStamina = Math.max(0, prev.stamina - staminaCost);
+      const newMp = Math.max(0, prev.spiritualEnergy - energyCost);
+      const newFog = { ...(prev.fogKnowledge || {}) };
+      const newVisited = { ...(prev.visitedGridCells || {}) };
+
+      // Cơ chế Du Mục Minecraft: Quét mở toàn bộ các ô trong tầm mắt suốt dọc đường đi
+      const travelVisionRadius = getVisionRadiusByStage(curStageId, totalSpP, method === 'fly');
+      const interpRoundX = Math.round(interpolatedX);
+      const interpRoundY = Math.round(interpolatedY);
+
+      for (let vx = -travelVisionRadius; vx <= travelVisionRadius; vx++) {
+        for (let vy = -travelVisionRadius; vy <= travelVisionRadius; vy++) {
+          newVisited[`${interpRoundX + vx},${interpRoundY + vy},${currentZ}`] = true;
+        }
+      }
+
+      // Quét các điểm nút địa danh nằm trong tầm mắt dọc đường đi để mở manh mối cấp 1 nếu chưa biết
+      Object.values(activeGraph).forEach(node => {
+        const distToNode = Math.max(Math.abs((node.coordinates.x ?? 0) - interpRoundX), Math.abs((node.coordinates.y ?? 0) - interpRoundY));
+        if (distToNode <= travelVisionRadius && (!newFog[node.id] || newFog[node.id].level === 0)) {
+          newFog[node.id] = { level: 1, clue: `Đi ngang qua phương này, phóng tầm mắt nhìn thấy bóng dáng [${node.name}].`, discoveredYear: curYear };
+        }
+      });
+
+      // Nếu đã đến đích
+      if (isArrived) {
+        // Mở khóa hoàn toàn cấp 2 (Đã Khắc Họa xác thực) cho địa danh đích
+        newFog[targetNode!.id] = { level: 2, discoveredYear: curYear };
+
+        const pKey = `${currentNode.name}|${targetNode!.name}`;
+        const rKey = `${targetNode!.name}|${currentNode.name}`;
+        const newTravelRecords = { ...(prev.travelRecords || {}) };
+        newTravelRecords[pKey] = [{ mode: methodDesc, minutes: travelMins }];
+        newTravelRecords[rKey] = [{ mode: methodDesc, minutes: travelMins }];
+
+        const newKnownRealms = { ...(prev.knownRealms || {}) };
+        const prevAccumulated = newKnownRealms[prev.currentLocation]?.accumulated || 0;
+        if (!newKnownRealms[targetNode!.name]) {
+          newKnownRealms[targetNode!.name] = { ratio: targetNode!.tier === 'HaViDien' ? 1 : targetNode!.tier === 'TrungViDien' ? 2 : 5, accumulated: prevAccumulated + ageAdded, aura: targetNode!.auraDensity, integrity: 5000, pollution: 0 };
+        } else {
+          newKnownRealms[targetNode!.name].accumulated = (newKnownRealms[targetNode!.name].accumulated || 0) + ageAdded;
+        }
+
+        return {
+          ...prev,
+          currentLocation: targetNode!.name,
+          currentLocationNodeId: targetNode!.id,
+          coordinates: { x: targetCoord.x, y: targetCoord.y, z: currentZ },
+          inTransit: null,
+          stamina: newStamina,
+          spiritualEnergy: newMp,
+          travelRecords: newTravelRecords,
+          knownRealms: newKnownRealms,
+          fogKnowledge: newFog,
+          visitedGridCells: newVisited
+        };
+      }
+
+      // Nếu đang đi dở lưng chừng đường (Lộ Trình Đệm - In-Transit)
+      // Mở tin đồn cấp 1 cho đích đến nếu chưa biết
+      if (!newFog[targetNode!.id] || newFog[targetNode!.id].level === 0) {
+        newFog[targetNode!.id] = { level: 1, clue: targetNode!.rumorHint || `Nghe đồn về phương xa có [${targetNode!.name}].`, discoveredYear: curYear };
+      }
+
+      const inTransitData: InTransitState = {
+        fromNodeId: currentNode.id,
+        fromName: currentNode.name,
+        toNodeId: targetNode!.id,
+        toName: targetNode!.name,
+        startCoords: startCoord,
+        targetCoords: targetCoord,
+        totalDistanceLi: totalDistLi,
+        traveledLi: newTraveledLi,
+        travelMethod: method,
+        campName: `Trạm Dừng Tránh Bão (Mốc ${newTraveledLi}/${totalDistLi} dặm)`,
+        campDescription: `Hốc đá sườn núi kín gió trên đường từ ${currentNode.name} sang ${targetNode!.name}. Có thể nhóm lửa phục hồi thể lực.`,
+        isCamped: false
+      };
+
+      return {
+        ...prev,
+        currentLocation: `Đang trên đường: ${currentNode.name} ➔ ${targetNode!.name} (${newTraveledLi}/${totalDistLi} dặm)`,
+        coordinates: { x: interpolatedX, y: interpolatedY, z: currentZ },
+        inTransit: inTransitData,
+        stamina: newStamina,
+        spiritualEnergy: newMp,
+        fogKnowledge: newFog,
+        visitedGridCells: newVisited
+      };
+    });
+
+    setSelectedNodeId(targetNode.id);
+    setSelectedGridCell(null);
+
+    let logMsg = "";
+    if (isArrived) {
+      logMsg = `[Chạm Đích Toàn Cảnh] Đã vượt qua toàn bộ chặng đường, bình an đặt chân đến [${targetNode.name}] (${targetNode.regionName}). Bản đồ chính thức khắc họa tường tận địa danh này! Mất ${travelMins} phút, tốn ${staminaCost} Thể lực.`;
+    } else {
+      logMsg = `[Hành Trình Dã Ngoại] Đã di chuyển được ${newTraveledLi}/${totalDistLi} dặm hướng về [${targetNode.name}]. Tọa độ hiện tại: (${interpolatedX}, ${interpolatedY}). Đã dừng chân tại [Hốc đá sườn núi tránh bão]. Có thể dựng lều nghỉ ngơi, nhóm lửa hoặc tiếp tục hành trình!`;
+    }
+
+    setStoryLog(logs => [
+      ...logs,
+      {
+        type: 'system',
+        text: logMsg,
+        chapter: gameState.chapterCount
+      }
+    ].slice(-50));
+  };

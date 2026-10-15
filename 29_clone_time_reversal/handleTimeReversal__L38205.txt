@@ -1,0 +1,59 @@
+  const handleTimeReversal = () => {
+      if (checkSpam() || isGenerating) return;
+      
+      // Đọc từ Ổ cứng thay vì RAM
+      let snapshot = null;
+      try {
+          const savedSnap = localStorage.getItem(`tuTienSnapshot_${currentProfileId}`);
+          if (savedSnap) snapshot = JSON.parse(savedSnap);
+      } catch(e) {}
+
+      // Ưu tiên đọc từ RAM nếu có (Giảm thiểu lỗi Quota Ổ cứng không lưu được do file quá lớn)
+      snapshot = timeMachineBuffer[currentProfileId] || snapshot;
+
+      if (!snapshot) return showAlert("Không tìm thấy điểm neo thời gian nào trong ký ức!");
+
+      // Khóa Chống Nghịch Lý Đa Thiết Bị (Anti-Desync Lock)
+      if (gameState.chapterCount - snapshot.chapterCount !== 1) {
+          // Xóa luôn snapshot rác này
+          localStorage.removeItem(`tuTienSnapshot_${currentProfileId}`);
+          setTimeMachineBuffer(prev => { const next = {...prev}; delete next[currentProfileId]; return next; });
+          return showAlert(`[CẢNH BÁO NGHỊCH LÝ THỜI KHÔNG]\n\nĐiểm neo trong máy của bạn là Chương ${snapshot.chapterCount}, nhưng hiện tại bạn đang ở Chương ${gameState.chapterCount}.\n\nĐiều này thường xảy ra khi bạn chơi trên thiết bị khác rồi đồng bộ Đám mây về lại máy này. Để bảo vệ an toàn dữ liệu, hệ thống đã hủy bỏ điểm neo cũ!`);
+      }
+
+      showConfirm("Bạn có chắc chắn muốn thi triển Nghịch Chuyển Thời Không?\n\nHành động này sẽ đưa bạn lùi lại đúng 1 chương trước đó. Mọi nhân quả, vật phẩm và sinh tử trong chương vừa rồi sẽ bị xóa bỏ hoàn toàn!", () => {
+          try {
+              // V12.18 FIX LỖI NHÂN QUẢ: Ngắt lập tức Sáng Thế Ngầm của tương lai để chúng không ghi đè dữ liệu lên thái độ NPC ở quá khứ!
+              if (abortExpansionRef.current) abortExpansionRef.current.abort();
+              if (expansionState.controller) expansionState.controller.abort();
+              setExpansionState({ isExpanding: false, timeLeft: 0, totalTime: 0, controller: null, npcsProcessed: 0, processed: { journal: 0, sect: 0, comp: 0 }, totals: { journal: 0, sect: 0, comp: 0 } });
+
+              const restoredState = JSON.parse(LZString.decompressFromBase64(snapshot.gameStateStr));
+              const restoredLogs = JSON.parse(LZString.decompressFromBase64(snapshot.storyLogStr));
+              
+              setIsMoreMenuOpen(false);
+              
+              const rollbackLog = { type: 'system', text: `[Nghịch Chuyển Thời Không] Đoạn tuyệt tương lai! Nhục thân và linh hồn đã lùi về quá khứ thành công! Đã khởi tạo dòng thời gian mới bám sát nhân quả năm xưa.`, chapter: restoredState.chapterCount };
+              
+              const profileToLoad = {
+                  id: currentProfileId,
+                  gameStateStr: snapshot.gameStateStr,
+                  name: restoredState.name,
+                  gameMode: restoredState.gameMode || 'chan_thuc',
+                  cultivationLevel: restoredState.cultivationLevel,
+                  currentOptions: snapshot.currentOptions,
+                  storyLog: restoredLogs
+              };
+              
+              // GỌI HÀM LOAD PROFILE ĐỂ CHẠY LƯỚI LỌC DỌN DẸP NHÂN BẢN NPC VÀ XÓA RÁC HOÀN TOÀN
+              executeLoadProfile(profileToLoad, rollbackLog);
+              
+              if (snapshot.currentOptions) {
+                  setCurrentOptions(snapshot.currentOptions);
+              }
+              
+          } catch (e) {
+              showAlert("Lỗi nghịch chuyển: " + e.message);
+          }
+      });
+  };

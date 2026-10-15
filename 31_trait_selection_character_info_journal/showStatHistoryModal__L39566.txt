@@ -1,0 +1,4 @@
+  const showStatHistoryModal = (title, historyArr, introText = null) => {
+    if ((!historyArr || historyArr.length === 0) && !introText) return showAlert(`Chưa có ghi chép nào về ${title}.`);
+    setStatHistoryModal({ isOpen: true, title, history: historyArr || [], activeRecord: null, introText });
+  };

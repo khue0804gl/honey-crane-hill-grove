@@ -1,0 +1,982 @@
+  const runWorldExpansion = async (durationSeconds, currentCoreMemory) => {
+      let currentChronicles = [];
+      const currentAction = lastActionRef.current || 'Đang tĩnh tại quan sát thiên địa.';
+      
+      abortExpansionRef.current = new AbortController();
+      let endTime = Date.now() + (durationSeconds * 1000); // Đổi thành let để có thể gia hạn thời gian
+      
+      let rawChars = [];
+      const currentGraveyard = Array.isArray(gameState.journal?.graveyard) ? gameState.journal.graveyard : [];
+      const isCharDead = (name: string, isDeadFlag: boolean) => {
+          if (isDeadFlag) return true;
+          const cName = String(name || '').replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim().toLowerCase();
+          return currentGraveyard.includes(cName);
+      };
+
+      (gameState.companions || []).filter(c => c.hp > 0 && !isCharDead(c.name, c.isDead)).forEach(c => rawChars.push({ id: c.id || c.name, name: c.name, level: c.level, role: c.type || 'Tùy tùng', relationType: 'Tùy tùng', hostility: 0, affinity: 100, isPinned: c.isPinned, traits: c.traits, race: c.race || 'Nhân Tộc', state: c.status || c.desc || 'Bình thường', source: 'Lực lượng Tùy tùng', alignment: 'Trung thành tuyệt đối', lastUpdated: c.lastUpdated || 0, age: c.age || 'Không rõ', gender: c.gender || 'Chưa rõ', personality: c.personality || 'Chấp hành mệnh lệnh', background: c.desc || 'Tùy tùng của NVC', longTermGoal: c.longTermGoal || '', historySummary: c.historySummary || '' }));
+      (gameState.sect?.npcs || []).filter(n => !isCharDead(n.name, n.isDead)).forEach(n => rawChars.push({ id: n.id, name: n.name, level: n.level, role: n.role, relationType: n.relationType || 'Đệ tử tông môn', hostility: n.hostility || 0, affinity: n.affinity || 0, isPinned: n.isPinned, traits: n.traits, race: n.race || 'Nhân Tộc', state: n.state || 'Bình thường', source: 'Sổ Tông Môn', alignment: n.alignment || 'Thuộc hạ', lastUpdated: n.lastUpdated || 0, age: n.age || 'Không rõ', gender: n.gender || 'Chưa rõ', personality: n.personality || 'Khó đoán', background: n.background || 'Đệ tử tông môn', longTermGoal: n.longTermGoal || '', historySummary: n.historySummary || '' }));
+      (gameState.journal?.npcs || []).filter(n => !isCharDead(n.name, n.isDead)).forEach(n => rawChars.push({ id: n.id, name: n.name, level: n.level, role: n.role || n.relationType || 'Người quen', relationType: n.relationType || 'Người quen', hostility: n.hostility || 0, affinity: n.affinity || 0, isPinned: n.isPinned, traits: n.traits, race: n.race || 'Nhân Tộc', state: n.state || 'Bình thường', source: 'Hồng Trần Lục', alignment: n.alignment || 'Trung lập', lastUpdated: n.lastUpdated || 0, age: n.age || 'Không rõ', gender: n.gender || 'Chưa rõ', personality: n.personality || 'Khó đoán', background: n.background || 'Người qua đường', longTermGoal: n.longTermGoal || '', historySummary: n.historySummary || '' }));
+
+      // V9.20 FIX: Màng Lọc Tiết Kiệm Token (Chống Spam Diễn Hóa Ngầm)
+      // Loại bỏ những NPC vừa được cập nhật trong vòng 2 phút qua (120000ms)
+      const COOLDOWN_MS = 120000;
+      let eligibleChars = rawChars.filter(c => (Date.now() - c.lastUpdated) > COOLDOWN_MS);
+
+      // V11.78 FIX: Sửa lỗi gọi nhầm hàm setLogs thành setStoryLog và dọn dẹp state UI
+      // Nếu tất cả NPC đều đã được diễn hóa gần đây, ngắt kết nối API ngay lập tức để giữ Token!
+      if (eligibleChars.length === 0 && rawChars.length > 0) {
+          setExpansionState({ isExpanding: false, timeLeft: 0, totalTime: 0, controller: null, npcsProcessed: 0, processed: { journal: 0, sect: 0, comp: 0 }, totals: { journal: 0, sect: 0, comp: 0 } });
+          abortExpansionRef.current = null;
+          return;
+      }
+
+      // Tráo đổi danh sách hợp lệ cho thuật toán bên dưới tự động bốc người
+      rawChars = eligibleChars;
+
+      let uniqueCharsObj = {};
+      rawChars.forEach(c => {
+          // V10.97 FIX LỖ HỔNG SỐ 2: Gộp mảng theo ID (Chống nhân bản người trùng tên)
+          const charKey = c.id || c.name;
+          if (!uniqueCharsObj[charKey]) {
+              uniqueCharsObj[charKey] = c;
+          } else {
+              let existing = uniqueCharsObj[charKey];
+              if (!existing.source.includes(c.source)) existing.source += ` & ${c.source}`;
+              existing.lastUpdated = Math.max(existing.lastUpdated, c.lastUpdated);
+              uniqueCharsObj[charKey] = existing;
+          }
+      });
+      let allLivingChars = Object.values(uniqueCharsObj);
+
+      // V8.79 FIX: Tự động đếm Tổng Số Lượng NPC từng phe phái trước khi bắt đầu để UI vẽ thanh tiến độ
+      let totals = { journal: 0, sect: 0, comp: 0 };
+      allLivingChars.forEach(c => {
+          if (c.source.includes('Lực lượng Tùy tùng')) totals.comp++;
+          else if (c.source.includes('Sổ Tông Môn')) totals.sect++;
+          else totals.journal++;
+      });
+      setExpansionState(prev => ({ ...prev, totals, processed: { journal: 0, sect: 0, comp: 0 } }));
+
+      // HỆ THỐNG AI NPC NÒNG CỐT (LỌC RA NHÂN VẬT NÒNG CỐT ĐỂ GỬI AI, VÀ NHÂN VẬT PHỤ ĐỂ DÙNG RNG MÔ PHỎNG)
+      const isImportantNPC = (npc) => {
+          const role = String(npc.role || '').toLowerCase();
+          const rel = String(npc.relationType || '').toLowerCase();
+          const align = String(npc.alignment || '').toLowerCase();
+          if (/(chưởng môn|phó môn chủ|thái thượng|đại trưởng lão|trưởng lão|chấp sự|thánh tử|thánh nữ|thiên kiêu|minh chủ|đế|hoàng|vương|tướng|chủ)/.test(role)) return true;
+          if (/(kẻ thù|tử địch|cừu hận|truy nã)/.test(rel) || /(ma đạo|tà tu|phản đồ)/.test(align) || Number(npc.hostility) >= 50) return true;
+          if (/(đạo lữ|thê tử|phu quân|con ruột|huyết mạch)/.test(rel) || Number(npc.affinity) >= 80) return true;
+          if (npc.isPinned) return true;
+          return false;
+      };
+
+      let importantChars = [];
+      let minorChars = [];
+      allLivingChars.forEach(c => {
+          if (isImportantNPC(c)) importantChars.push(c);
+          else minorChars.push(c);
+      });
+
+      // XỬ LÝ MÔ PHỎNG RNG NGAY TỨC KHẮC CHO NHÂN VẬT PHỤ (GIẢI PHÓNG HIỆU NĂNG KHÔNG CẦN QUA AI)
+      if (minorChars.length > 0) {
+          const rngNpcUpdates = [];
+          minorChars.forEach(mc => {
+              const stCfg = getStageConfig(mc.level || 'Phàm Nhân');
+              const mcMaxAge = calculateMaxAge(mc.level, mc.traits, 'bg_0', 0, mc.race);
+              const mcAge = Number(mc.age) || 20;
+              let newState = mc.state || "Bình thường";
+              let isDead = false;
+              let deathReason = "";
+              
+              if (mcAge >= mcMaxAge && mcMaxAge < 999999) {
+                  isDead = true;
+                  deathReason = "Cạn kiệt thọ nguyên, thọ tận hóa đạo.";
+                  newState = "Đã thọ tận hóa đạo do hết thọ nguyên.";
+              } else if (stCfg.id >= 4 && Math.random() < 0.05) {
+                  isDead = true;
+                  deathReason = "Gặp nạn trong bí cảnh / Bị yêu thú cắn xé.";
+                  newState = "Tử nạn bất ngờ trên giang hồ.";
+              } else if (Math.random() < 0.2) {
+                  newState = "Đang điên cuồng làm nhiệm vụ / Khám phá bí cảnh.";
+              } else if (Math.random() < 0.4) {
+                  newState = "Bế quan tĩnh tọa, củng cố tu vi.";
+              } else {
+                  newState = "Sinh hoạt bình thường tại địa phương.";
+              }
+              
+              rngNpcUpdates.push({ id: mc.id, name: mc.name, state: newState, isDead: isDead, deathReason: deathReason });
+          });
+
+          // Cập nhật State ngầm cho các nhân vật phụ
+          setGameState(prev => {
+              let newJournal = { ...prev.journal, npcs: Array.isArray(prev.journal?.npcs) ? JSON.parse(JSON.stringify(prev.journal.npcs)) : [] };
+              let newSect = prev.sect ? { ...prev.sect, npcs: Array.isArray(prev.sect.npcs) ? JSON.parse(JSON.stringify(prev.sect.npcs)) : [] } : null;
+              let newComps = Array.isArray(prev.companions) ? JSON.parse(JSON.stringify(prev.companions)) : [];
+
+              rngNpcUpdates.forEach(update => {
+                  const updateTarget = (arr) => {
+                      const idx = arr.findIndex(n => n.id === update.id);
+                      if (idx >= 0) {
+                          arr[idx].state = update.state;
+                          arr[idx].isDead = update.isDead;
+                          if (update.isDead) {
+                              arr[idx].deathReason = update.deathReason;
+                              arr[idx].deathTimeStr = getRealmTimeStr(prev.currentLocation || 'Thế giới hiện tại', prev.knownRealms);
+                              arr[idx].deathAge = Math.floor(prev.age);
+                              arr[idx].relationType = "Âm Dương Cách Biệt";
+                          }
+                          arr[idx].lastUpdated = Date.now();
+                          return true;
+                      }
+                      return false;
+                  };
+                  if (!updateTarget(newJournal.npcs)) {
+                      if (newSect && !updateTarget(newSect.npcs)) {
+                          updateTarget(newComps);
+                      }
+                  }
+              });
+
+              return { ...prev, journal: newJournal, sect: newSect, companions: newComps };
+          });
+      }
+
+      // Ưu tiên diễn hóa người vừa tương tác gần nhất (CHỈ DÀNH CHO NHÂN VẬT NÒNG CỐT)
+      importantChars.sort((a, b) => b.lastUpdated - a.lastUpdated);
+      
+      // V13.6 FIX: Giới hạn tối đa 30 nhân vật nòng cốt mỗi đợt để tránh quá tải
+      if (importantChars.length > 30) {
+          importantChars = importantChars.slice(0, 30);
+      }
+
+      let processedCounts = { journal: minorChars.filter(c => !c.source.includes('Sổ Tông Môn') && !c.source.includes('Tùy tùng')).length, sect: minorChars.filter(c => c.source.includes('Sổ Tông Môn')).length, comp: minorChars.filter(c => c.source.includes('Tùy tùng')).length };
+      let loopIndex = 1;
+      
+      while (Date.now() < endTime) {
+          if (abortExpansionRef.current?.signal.aborted) break;
+          
+          const controller = new AbortController();
+          setExpansionState(prev => ({ ...prev, controller: controller }));
+          
+          const focusChars = importantChars.splice(0, Math.floor(Math.random() * 3) + 3);
+          
+          if (focusChars.length === 0) {
+              break;
+          }
+
+          // V8.79 FIX: Theo dõi xem đợt này đã bốc trúng bao nhiêu người thuộc phe nào để cộng dồn lên UI
+          focusChars.forEach(c => {
+              if (c.source.includes('Lực lượng Tùy tùng')) processedCounts.comp++;
+              else if (c.source.includes('Sổ Tông Môn')) processedCounts.sect++;
+              else processedCounts.journal++;
+          });
+          
+          // V11.52 FIX: Cập nhật Ký ức Sáng Thế Ngầm theo thời gian thực trong vòng lặp
+          const combinedChronicles = [...(gameState.hiddenChronicles || []), ...currentChronicles];
+          const pastWorldEvents = combinedChronicles
+              .slice(-10)
+              .map(c => c.isObj ? `* ${c.details}` : `* ${String(c).substring(0, 100)}`)
+              .join('\n'); 
+
+          const evolvingWorldContext = currentChronicles.length > 0 
+              ? `\n[CHUỖI NHÂN QUẢ VỪA TIẾP NỐI]: ${currentChronicles.slice(-3).map(c => c.isObj ? c.details : c).join(' ➔ ')}` 
+              : "";
+
+          const charFocusContext = `\n[HỒ SƠ NHÂN VẬT NÒNG CỐT (ĐƯỢC CHỌN ĐỂ AI DIỄN HÓA)]\n${focusChars.map(c => `- [ID: ${c.id || 'Không rõ'}] Tên nhân vật: "${c.name}" | Giới tính: ${c.gender} | Danh phận: ${c.source} | Cảnh giới: ${c.level} | Tuổi: ${c.age} | Quan hệ (Ân Oán): ${c.role} (Ghét: ${c.hostility||0}, Yêu: ${c.affinity||0}) | Phe phái: ${c.alignment} | Tính cách: ${c.personality} | Lai lịch (Bí Mật): ${c.background} | Tuyệt học: ${(c.skills || []).map(s=>s.name).join(', ') || 'Chưa rõ'} | Tham Vọng / Mục Tiêu: ${c.longTermGoal || 'Chưa có'} | Trạng thái gần đây: ${c.state} | Ký ức tích lũy: ${c.historySummary || 'Chưa có biến cố'}`).join('\n')}`;
+
+          const lastTimeRecord = (gameState.timeHistory && gameState.timeHistory.length > 0) ? gameState.timeHistory[0] : null;
+          const currentTimeStr = getRealmTimeStr(gameState.currentLocation || 'Thế giới hiện tại', gameState.knownRealms);
+          const timeGapContext = lastTimeRecord ? `\n[KHOẢNG THỜI GIAN VỪA TRÔI QUA (RẤT QUAN TRỌNG)]: NVC vừa trải qua hành động làm tốn thời gian: "${lastTimeRecord.reason}". Hiện tại đang là: ${currentTimeStr}.` : `\n[KHOẢNG THỜI GIAN VỪA TRÔI QUA]: Một thời gian ngắn vừa trôi qua. Hiện tại là: ${currentTimeStr}.`;
+
+          // V10.08: MA TRẬN TOÁN HỌC SÁNG THẾ (REACT FATE ENGINE)
+          // React tự động đổ xúc xắc định đoạt số phận của NPC TRƯỚC KHI GIAO CHO AI!
+          let reactMathFate = "\n[LỆNH THÉP TỪ HỆ THỐNG TOÁN HỌC TỐI CAO - BẮT BUỘC TUÂN THỦ]:\nHệ thống (Vật lý) đã đổ xúc xắc định đoạt số phận của các NPC trong đợt này. BẠN BẮT BUỘC PHẢI miêu tả cốt truyện bám sát 100% vào các KẾT QUẢ TOÁN HỌC dưới đây (Cấm tự bịa kết quả khác):\n";
+
+          focusChars.forEach(c => {
+              const stCfg = getStageConfig(c.level || 'Phàm Nhân');
+              let fateStr = "";
+              const isMortal = stCfg.id <= 1;
+
+              // 1. Sinh Lão Bệnh Tử (Thọ Nguyên)
+              const cAge = Number(c.age) || 20;
+              // V10.94 FIX: Tính tuổi thọ tử vong dựa trên Hệ Số Chủng Tộc thay vì mặc định Phàm Nhân
+              const cMaxAge = calculateMaxAge(c.level, c.traits, 'bg_0', 0, c.race);
+              const isHeavenlyFate = c.traits?.includes('Thiên Mệnh Chi Tử') || c.traits?.includes('Đại Khí Vận');
+              
+              if (cAge >= cMaxAge) {
+                  if (cMaxAge >= 999999) {
+                      // V10.75: Bất Tử Cảnh Giới không chết già
+                      fateStr += "- [VĨNH HẰNG BẤT DIỆT]: Thọ nguyên vô tận, ngồi nhìn năm tháng trôi qua. Không bị ảnh hưởng bởi tuổi tác. ";
+                  } else if (isHeavenlyFate) {
+                      // V10.75: Thiên Mệnh hết tuổi thọ sẽ tự động kỳ ngộ bạo phát
+                      fateStr += `- [SINH TỬ ĐỐN NGỘ]: Thọ nguyên cạn kiệt, mượn áp lực sinh tử để đốn ngộ! BẮT BUỘC tả cảnh phá vỡ tử quan, thăng cấp lên [${getStageConfigById(stCfg.id + 1).name}]! (Đổi level). `;
+                  } else {
+                      if (Math.random() < 0.85) fateStr += "- [THỌ TẬN HÓA ĐẠO]: Kẻ này đã hết thọ nguyên. BẮT BUỘC tả cảnh già yếu chết đi (isDead: true, deathReason: 'Cạn kiệt thọ nguyên, thọ tận hóa đạo'). ";
+                      else fateStr += "- [THOI THÓP]: Thọ nguyên cạn kiệt, đang điên cuồng cướp đoạt hoặc hiến tế để kéo dài mạng sống. ";
+                  }
+              }
+
+              // 2. Lôi Kiếp Của NPC (Sự tàn khốc)
+              if (!fateStr && !isMortal && Math.random() < 0.3) {
+                  // Chỉ những kẻ từ Kim Đan trở lên mới có tỷ lệ độ kiếp
+                  if (stCfg.id >= 4 && Math.random() < 0.35) {
+                      // Nếu có Hào Quang hoặc Khí vận đỏ -> 100% sống sót lên cấp
+                      if (c.traits?.includes('Thiên Mệnh Chi Tử') || c.traits?.includes('Đại Khí Vận') || c.traits?.includes('Thiên Linh Căn')) {
+                          fateStr += `- [ĐỘT PHÁ KỲ TÍCH]: Đã độ kiếp Lôi phạt thành công, thăng cấp vọt lên [${getStageConfigById(stCfg.id + 1).name}]! Cập nhật level mới. `;
+                      } else {
+                          const isFamily = /(thê tử|phu quân|đạo lữ|con ruột|huyết mạch)/i.test(c.role); 
+                          
+                          // V12.09 FIX: Giảm tỷ lệ chết từ 60% xuống 10%. Gia quyến tuyệt đối không chết do sét đánh xui xẻo.
+                          if (!isFamily && Math.random() < 0.1) {
+                              fateStr += "- [LÔI KIẾP TỬ VONG]: Cố gắng đột phá nhưng căn cơ không đủ, bị Thiên Kiếp đánh chết! (isDead: true, deathReason: 'Độ kiếp thất bại, bị thiên lôi đánh thành tro bụi'). ";
+                          } else if (isFamily && Math.random() < 0.4) {
+                              fateStr += "- [ĐỘ KIẾP THẤT BẠI]: Cố gắng đột phá nhưng thất bại, bị thương nặng nhưng giữ được mạng nhờ pháp bảo của NVC để lại. (Không lên cấp). ";
+                          } else {
+                              fateStr += `- [THÀNH CÔNG ĐỘ KIẾP]: Chịu trọng thương nhưng đã sống sót lên [${getStageConfigById(stCfg.id + 1).name}]! (Đổi level). `;
+                          }
+                      }
+                  } else {
+                      fateStr += `- [TIẾN GIAI CƠ BẢN]: Tu luyện thuận lợi, căn cơ có sự thăng tiến (Cập nhật level). `;
+                  }
+              }
+
+              // 3. Khí Vận Phán Quyết (Hành vi bị Khí vận chi phối)
+              if (!fateStr && c.traits) {
+                  if (c.traits.includes('Hợp Hoan Mị Cốt')) fateStr += "- [THÁI BỔ]: Đang đi dụ dỗ/hút tu vi của tu sĩ khác để thăng cấp. ";
+                  else if (c.traits.includes('Ách Nan Độc Thể')) fateStr += "- [PHÁT ĐỘC]: Vô tình làm lây lan độc chất ra khu vực xung quanh, bị tông môn phái người truy sát. ";
+                  else if (c.traits.includes('Thiên Sát Cô Tinh')) fateStr += "- [KHẮC CHẾT]: Vừa khắc chết một người thân thiết để đổi lấy kỳ ngộ sống sót. ";
+                  else if (c.traits.includes('Thôn Kim Phệ Cốt Thể')) fateStr += "- [CẮN NUỐT]: Đang điên cuồng cắn nuốt pháp bảo/khoáng thạch tại các mỏ quặng, bị truy nã. ";
+              }
+
+              // 4. Mạng Lưới Báo Thù (Hiệu Ứng Bươm Bướm)
+              if (c.relationType === 'Kẻ thù' || c.hostility >= 80) {
+                  if (Math.random() < 0.6) fateStr += "- [SÁT TÂM BÙNG NỔ]: Đang tích cực chuẩn bị cạm bẫy, thuê sát thủ Ám Võng hoặc mua ngọc giản định vị để chuẩn bị đi săn Nhân Vật Chính! ";
+              }
+
+              if (fateStr === "") fateStr = "- [BÌNH THƯỜNG]: Không có biến cố sinh tử. Tự do sinh hoạt, tu luyện hoặc buôn bán.";
+              
+              reactMathFate += `+ Đối với [${c.name}]: ${fateStr}\n`;
+          });
+
+          const expansionPrompt = `BẠN LÀ ${'THIÊN ĐẠO QUẢN LÝ ĐA VŨ TRỤ'}.
+NHIỆM VỤ: Dệt nên cuộc đời và biến cố của các nhân vật được giao trong lượt này. ${''}
+${settingDeepReasoning ? `\n[LỆNH TỐI CƯỜNG - CHẾ ĐỘ SUY LUẬN SÂU (CHAIN OF THOUGHT)]\nBẠN BẮT BUỘC phải tư duy logic sâu chậm, kiểm tra chéo vị trí địa lý, TÚI ĐỒ (Inventory), CÔNG PHÁP, VÀ TRANG BỊ (Equipped) CỦA CÁC ĐẠI NĂNG/CỐ NHÂN để dệt ra Biến cố thế giới một cách cực kỳ liền mạch và có nhân quả. Hãy dùng "inventoryUpdates" trên từng NPC để cất đồ hoặc xóa đồ thực tế thay vì chỉ miêu tả mồm! BẠN BẮT BUỘC XUẤT THÊM TRƯỜNG "internal_thoughts" VÀO TRONG JSON (ngang hàng "summary") tóm tắt quá trình bạn thiết kế diễn biến đa vũ trụ!` : ''}
+
+[TRẠNG THÁI HIỆN TẠI CỦA NVC]
+NVC [${gameState.name}] ĐANG BẬN RỘN: "${currentAction}". 
+(CẢNH BÁO TỐI CAO: KHÔNG ĐƯỢC miêu tả NVC, hãy tập trung vào các NPC!).
+${currentCoreMemory || ''}
+
+[LỊCH SỬ THẾ GIỚI ĐANG TRÔI CHẢY]
+${pastWorldEvents || 'Thế giới vừa mới hình thành.'}
+${evolvingWorldContext}
+${charFocusContext}
+${timeGapContext}
+${reactMathFate}
+
+LỆNH TỐI CAO (XÃ HỘI QUẦN CHÚNG V8.79 - RẤT QUAN TRỌNG):
+NVC [${gameState.name}] ĐANG BẬN RỘN: "${currentAction}". 
+(CẢNH BÁO TỐI CAO: KHÔNG ĐƯỢC miêu tả NVC, hãy tập trung vào các NPC!).
+${currentCoreMemory || ''}
+
+[LỊCH SỬ THẾ GIỚI ĐANG TRÔI CHẢY]
+${pastWorldEvents || 'Thế giới vừa mới hình thành.'}
+${evolvingWorldContext}
+${charFocusContext}
+${timeGapContext}
+
+LỆNH TỐI CAO (XÃ HỘI QUẦN CHÚNG V8.79 - RẤT QUAN TRỌNG):
+1. ĐỒNG BỘ THỜI GIAN KẾT NỐI: BẠN BẮT BUỘC CHỈ DIỄN HÓA hành động của các cố nhân trong ĐÚNG [KHOẢNG THỜI GIAN VỪA TRÔI QUA] ở trên! LƯU Ý TỐI CAO: Dù thời gian trôi qua RẤT NGẮN (chỉ vài phút), BẠN VẪN BẮT BUỘC phải miêu tả 1 suy nghĩ hoặc hành động nhỏ của bọn họ để cập nhật vào "state". TUYỆT ĐỐI KHÔNG ĐƯỢC lười biếng bỏ trống mảng JSON!
+1.5. BẢO LƯU DẤU TIẾNG VIỆT (V12.14): BẠN BẮT BUỘC PHẢI BẢO LƯU 100% CHÍNH TẢ TIẾNG VIỆT CÓ DẤU CHO TÊN NHÂN VẬT! Tên có dấu như thế nào thì tuyệt đối không được làm mất dấu.
+1.6. XƯNG HÔ GIỚI TÍNH CỰC KỲ CHUẨN XÁC (V12.15): Dựa vào thông số "Giới tính" của từng nhân vật được cung cấp ở trên, CẤM GỌI SAI ĐẠI TỪ NHÂN XƯNG! Nam giới không được gọi là "nàng", "cô nương", "ả", "tiên tử". Nữ giới không được gọi là "hắn", "y", "nam tử". Định danh sai bét về giới tính là một lỗi hệ thống vô cùng nghiêm trọng!
+2. ĐỘNG CƠ SỐNG & DUNG MẠO CHÂN THỰC (V12.13): Dựa vào [Tuổi tác], [Lai lịch], [Cảnh Giới], [Chủng Tộc] và [Tính cách] ở trên, BẠN BẮT BUỘC PHẢI TỰ SUY LUẬN ĐỘNG CƠ VÀ SỰ THAY ĐỔI DUNG MẠO LẪN TÂM SINH QUAN một cách ĐÚNG ĐẮN VỚI TỪNG CHỦNG TỘC!
+   - Không được áp dụng Sinh lão bệnh tử của con người (như râu tóc bạc, nếp nhăn) cho tất cả ngoại tộc.
+   - Nhân Tộc / Phàm nhân: Trưởng thành, già đi, lão hóa, sương gió theo năm tháng.
+   - Tiên Tộc / Dực Tộc / Tu sĩ Đại Năng: Trẻ mãi không già, chỉ thâm trầm uy nghi hơn.
+   - Cơ Quan, Thạch Thần, Bảo Vật (Phi Huyết Nhục): Tuyệt đối không già đi, mà CHỈ BỊ phong hóa (rêu phong, hoen rỉ, nứt nẻ, mục nát).
+   - Tâm trí bất kể tộc nào khi sống lâu cũng phải lõi đời, quyết đoán hơn. Lão quái vật sắp cạn thọ nguyên thì cuồng loạn đi đoạt bảo kéo dài mạng sống.
+3. MẠNG LƯỚI TƯƠNG TÁC (QUẦN CHÚNG ẢO): Để thế giới thực sự sống động, các Cố nhân KHÔNG ĐƯỢC CHỈ TƯƠNG TÁC MỘT MÌNH! BẠN ĐƯỢC PHÉP tự do sáng tạo ra các nhân vật quần chúng (như thê tử, bằng hữu, kẻ thù vô danh, đạo lữ, gian thương...) để Cố nhân tương tác, trò chuyện hoặc chiến đấu. 
+4. TUYỆT ĐỐI CẤM GHI NHẬN QUẦN CHÚNG VÀO DATA (LỆNH THÉP ĐỊNH DANH ID V9.19): Dù bạn có miêu tả Cố nhân đang tương tác với ai ở phần "details" đi nữa, BẠN TUYỆT ĐỐI CHỈ ĐƯỢC PHÉP TRẢ VỀ JSON MẢNG ĐỒNG BỘ NHỮNG NGƯỜI ĐÃ CÓ ID Ở TRÊN! Trong mảng "npcSync", BẠN BẮT BUỘC PHẢI ĐIỀN CHÍNH XÁC TRƯỜNG "id" CỦA CỐ NHÂN ĐÓ ĐỂ HỆ THỐNG CẬP NHẬT. Tuyệt đối cấm tự chế ra nhân vật rác không có ID!
+4.5. LỆNH THÉP CHỐNG ĐỔI TÊN (CHỐNG NHÂN BẢN V12.26): NẾU bạn quên ID và buộc phải dùng Tên để hệ thống tự nhận diện, BẠN BẮT BUỘC PHẢI SO SÁNH VÀ SỬ DỤNG LẠI Y HỆT TÊN GỐC CỦA HỌ TRONG HỒ SƠ! TUYỆT ĐỐI CẤM tự ý đổi danh xưng/chức tước của họ (Ví dụ: Từ "Vô Diện Sát Thần" đổi thành "Vô Diện Tiên Đế"). Việc đổi tên sẽ làm màng lọc nhận diện thất bại và gây ra thảm họa nhân bản người trùng lặp!
+5. SINH TỬ NHÂN QUẢ (V12.09 LỆNH THÉP): NẾU có Cố nhân xui xẻo gặp địch mạnh, hoặc Thọ tận hóa đạo (hết thọ nguyên), BẮT BUỘC ĐỔI "isDead": true và ghi rõ "deathReason". TUY NHIÊN (BẢO HỘ GIA TỘC): NẾU nhân vật đó có Danh phận là "Thê tử", "Đạo lữ", "Phu quân", "Con ruột", BẠN BỊ CẤM TUYỆT ĐỐI việc tự ý cho họ chết vì những lý do lãng xẹt (bệnh tật, tai nạn, bị cướp giết). Bọn họ có Hào quang bảo vệ của NVC, chỉ được phép bị thương, bị bắt cóc, hoặc đột phá, KHÔNG ĐƯỢC CHẾT!
+5.5. CHỐNG LẶP VÒNG THẾ MẠNG BẤT TỬ (V12.45): NẾU NPC dùng bí thuật/pháp bảo để tẩu thoát sinh tử như "Lang Xác Thế Thân", "Huyết Độn", "Thế Mạng". BẠN BẮT BUỘC PHẢI phế bỏ và XÓA SẠCH kỹ năng đó khỏi mảng "skills" của NPC (không trả về chiêu đó nữa)! Một chiêu vượt ải tử thần chỉ được dùng 1 lần để chống lặp lại bất tử vô hạn!
+6. CÔ LẬP NHẬN THỨC & BẢO TỒN DANH PHẬN (LỆNH THÉP V8.86 & V13.9): MỖI NPC CÓ KÝ ỨC VÀ DANH PHẬN ĐỘC LẬP. Tên gọi, Chức vụ và Quan hệ của họ là TUYỆT ĐỐI BẤT KHẢ XÂM PHẠM. BẠN TUYỆT ĐỐI CẤM râu ông nọ cắm cằm bà kia (Ví dụ: Cấm gán nhầm người yêu của NPC này cho NPC khác, cấm nhầm Tùy tùng thành Sư phụ). CẤM NHẦM LẪN DANH XƯNG GIỚI TÍNH/THẾ HỆ (Nữ giới tuyệt đối không là "Phu quân", Nam giới không là "Thê tử". Mẹ/Bà/Trưởng bối tuyệt đối cấm gán thành "Đạo lữ/Thê tử"). Cấm tự ý thay tên đổi họ, cấm đổi chức vụ. BẠN CHỈ ĐƯỢC PHÉP cập nhật trường "state" (trạng thái hành động), "gender" (nếu có đoạt xá đổi thân xác) và "level" (tu vi) của họ! NẾU tình cảm/thù hận không đổi, TUYỆT ĐỐI CẤM GHI ĐÈ "relationType", "affinity", "hostility" để tránh việc NPC bị reset trí nhớ!
+7. KÝ ỨC ĐỘC LẬP TÍCH LŨY (V8.75): Khi trả về kết quả, BẠN BẮT BUỘC phải dùng trường "historySummary" để tóm tắt gộp sự kiện vừa xảy ra VÀO CHUNG với "Ký ức tích lũy" cũ của NPC đó. Nhờ vậy Hệ thống sẽ lưu giữ vĩnh viễn hành trình của NPC mà không lo bị mất trí nhớ!
+8. TU LUYỆN VÀ TIẾN HÓA SỨC MẠNH (ĐẠI ĐẠO CÔNG BẰNG V8.79): CẢNH BÁO! NPC cũng biết nỗ lực! Dựa vào thời gian trôi qua, nếu có NPC chăm chỉ bế quan hoặc tìm được cơ duyên, BẠN BẮT BUỘC phải cho bọn họ đột phá và CẬP NHẬT Cảnh giới mới vào trường "level" thay vì giữ nguyên! Đừng để thiên hạ dậm chân tại chỗ trong khi nhân vật chính thăng cấp!
+9. TÙY TÙNG TỰ TRỊ & CHỐNG RÁC CÔNG PHÁP (LỆNH THÉP V8.83): Đối với "companionSync" (Khôi lỗi/Tùy tùng của NVC). NẾU bọn chúng được tự do tu luyện, đem đồ đi sửa, hoặc tự vệ. BẠN BẮT BUỘC phải ghi nhận sự tiến bộ của chúng! TUY NHIÊN: CẤM TỰ BỊA CÔNG PHÁP MỚI CHO CHÚNG. Hãy dùng "newSkills" (kèm proficiencyChange) ĐỂ GHI TÊN NHỮNG CÔNG PHÁP CHÚNG ĐANG SỞ HỮU nhằm mục đích tăng % độ thuần thục! Cấm sinh ra các tên rác như 'Bản năng sát phạt' hay 'undefined'. ĐẶC BIỆT: NẾU Tùy tùng đem đồ đi sửa, hãy cập nhật "equippedStr" (Vd: "Huyết Kiếm - Đang mẻ"). Dùng "inventoryUpdates" để thêm/xóa đồ vào túi chúng!
+10. NHẪN TRỮ VẬT CỦA VẠN VẬT (LỆNH THÉP TỐI HIỂU V12.5): Toàn bộ các Cố nhân, NPC trong "npcSync" (hoặc "journalUpdates.npcs" nếu hệ thống cũ đang sử dụng) ĐỀU LÀ NGƯỜI CHƠI THẬT. Họ có Hành trang/Túi đồ (inventory) và Trang bị đang mặc (equipped) riêng y hệt NVC! Khi dệt sự kiện, nếu NPC mua bán, trao đổi, cướp đoạt, nhặt được, đánh mất, sử dụng hoặc tiêu hao tài sản, BẠN BẮT BUỘC phải cập nhật chi tiết vào trường "inventoryUpdates" (added, removed) NẰM BÊN TRONG từng NPC, đồng thời cập nhật trường "equipped" (Trang bị đang mặc) ĐỂ LƯU TRỮ VẬT LÝ, thay vì chỉ mô tả bằng chữ! NPC hoàn toàn có thể sử dụng tài sản và trang bị để phòng thân, chiến đấu hoặc lật kèo. TUYỆT ĐỐI KHÔNG tự nhiên rơi ra Thần Khí từ một tên ăn mày, mọi vật phẩm đều phải có nguồn gốc và được quản lý vật lý xuyên suốt.
+11. ĐỘNG CƠ DÀI HẠN (LONG-TERM STRATEGIC PLANNING V12.15): BẠN BẮT BUỘC gán và theo dõi mục tiêu dài hạn (longTermGoal) của từng NPC. Mọi hành vi nhỏ nhặt của chúng ở mỗi sự kiện ngầm đều phải bám sát mục tiêu vĩ mô này thay vì hành động phản xạ ngẫu nhiên (Ví dụ: ấp ủ 1000 năm thu thập đủ 10 mảnh vỡ).
+12. KINH TẾ VĨ MÔ & CHUỖI CUNG ỨNG (MACRO-ECONOMY V12.15): Đồ đạc và tài nguyên luân chuyển. Phàm nhân khai thác thô -> Đan Sư luyện chế -> Thương hội phân phối. Đại năng cũng phải phụ thuộc phần nào vào chuỗi này. Chống lạm phát tài sản khống.
+13. TƯƠNG VẬN PHE PHÁI KHỔNG LỒ (FACTION WARS V12.15): Các Tông môn/Quốc gia hành xử như Thực Thể Độc Lập. Có ngoại giao, liên hôn, chiến tranh vi mô. Các sự kiện này diễn ra ngầm tạo dư ba trên thế giới.
+
+BẮT BUỘC TRẢ VỀ CHUẨN JSON SAU ĐÂY:
+      { 
+        "internal_thoughts": "Quá trình suy luận và liên kết logic mạng lưới (nếu có yêu cầu)...",
+        "summary": "Tóm tắt siêu ngắn 1 câu (VD: Vì sắp cạn thọ nguyên, Lão Trương đi cướp đoạt và bị kẻ thù vô danh chém chết).", 
+        "details": "- Gạch đầu dòng 1: [Động cơ]... [Thời gian] ...\\n- Gạch đầu dòng 2: ...\\n(LỆNH TỐI CAO: Viết bằng các gạch đầu dòng, nêu rõ lý do tại sao NPC làm vậy, gắn mốc thời gian logic với khoảng thời gian đã cho).", 
+        "companionSync": [{"name": "Tên tùy tùng (CHÍNH XÁC TÊN GỐC)", "level": "Cảnh giới mới", "desc": "Tình trạng mới cập nhật (Thể hiện rõ đang làm gì)", "historySummary": "Tóm tắt sự kiện tích lũy...", "newSkills": [{"name": "Tên Tuyệt Học", "level": "Nhập môn", "proficiencyChange": 15}], "equippedStr": "Khí cụ nổi bật đang cầm và tình trạng", "inventoryUpdates": {"added": [{"name": "Tên đồ mới (Nhẫn trữ vật, Đan dược...)", "quantity": 1, "type": "spatial hoặc equip hoặc misc"}], "removed": [{"name": "Đồ bị lấy mất", "quantity": 1}]}}],
+        "npcSync": [{"id": "MÃ ID CỦA CỐ NHÂN (Lấy từ Hồ sơ bên trên)", "name": "Tên cố nhân", "gender": "Giới tính mới nếu bị đoạt xá", "level": "Cảnh giới mới", "state": "Trạng thái mới cập nhật", "historySummary": "Tóm tắt sự kiện tích lũy...", "longTermGoal": "Mưu đồ ngàn năm không đổi...", "equippedStr": "Liệt kê chi tiết Vũ khí/Pháp y đang mặc trên người (Vd: Thiết Đao, Ngân Giáp)", "lootStr": "Liệt kê chi tiết tài sản cất trong Nhẫn Trữ Vật (Vd: 5000 Linh thạch, 2 Tụ Khí Đan...)", "inventoryUpdates": {"added": [{"name": "Đồ thu được", "quantity": 1, "type": "misc"}], "removed": [{"name": "Đồ bị lấy mất", "quantity": 1}]}, "relationType": "Chỉ gửi nếu quan hệ thay đổi (CẤM nhầm Nam/Nữ, Mẹ/Con)", "affinity": "Chỉ gửi số nếu hảo cảm thay đổi", "hostility": "Chỉ gửi số nếu thù hận thay đổi", "personality": "Chỉ gửi nếu tính cách biến đổi", "archetype": "Nguyên mẫu", "trauma": "Tử huyệt", "background": "Lai lịch ngầm", "traits": ["Khí vận mới"], "skills": [{"name": "Chiêu Thức", "level": "Đại Thành"}], "attack": 50, "defense": 50, "speed": 50, "spiritPower": 50, "isDead": false, "deathReason": "Chỉ điền lý do chết nếu isDead là true", "hpChange": 0, "mpChange": 0, "equipped": {"weapon": {"name": "Huyết Kiếm", "attackBonus": 50}, "armor": null, "head": null, "boots": null, "artifact": null, "accessory": null}, "activeEffectsUpdates": {"added": [], "removed": [], "modified": [{"name": "Tên Đang Có", "durationMinutesChange": -60}]}}]
+      }`;
+
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { 
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify({ 
+                            contents: [{ parts: [{ text: `Vén sương mù không gian thời điểm thứ ${loopIndex}.` }] }], 
+                            systemInstruction: { parts: [{ text: expansionPrompt }] },
+                            generationConfig: { responseMimeType: "application/json" }
+                        }), 
+                        signal: abortExpansionRef.current.signal
+                    });
+                    
+                    if (!response.ok) throw new Error("API Error: " + response.status);
+              const result = await response.json();
+              const textResult = result.candidates?.[0]?.content?.parts?.[0]?.text;
+              
+              if (textResult) {
+                  let eventText = textResult.replace(/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]/g, '');
+                  let logObj = null;
+                  let parsedData = null;
+                  const currentTimeStr = getRealmTimeStr(gameState.currentLocation || 'Thế giới hiện tại', gameState.knownRealms);
+                  
+                  try {
+                      let jsonString = eventText;
+                      const cbMatch = eventText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
+                      if (cbMatch) {
+                          jsonString = cbMatch[1];
+                      } else {
+                          const first = eventText.indexOf('{');
+                          if (first !== -1) {
+                              let count = 0;
+                              for (let i = first; i < eventText.length; i++) {
+                                  if (eventText[i] === '{') count++;
+                                  else if (eventText[i] === '}') {
+                                      count--;
+                                      if (count === 0) {
+                                          jsonString = eventText.substring(first, i + 1);
+                                          break;
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                      parsedData = JSON.parse(jsonString.replace(/```json/gi, '').replace(/```/g, '').trim());
+                      
+                      logObj = {
+                          time: `[${currentTimeStr} | Lớp ${loopIndex}]`,
+                          summary: parsedData.summary || "Biến cố không xác định.",
+                          details: parsedData.details || "Không rõ chi tiết.",
+                          isObj: true
+                      };
+                  } catch(err) { 
+                      let cleanText = eventText
+                          .replace(/["{}[\],]/g, ' ')
+                          .replace(/(summary|details|companionSync|npcSync|name|level|state|desc|isDead|deathReason):/gi, '')
+                          .replace(/\n\s*\n/g, '\n')
+                          .trim();
+                          
+                      logObj = {
+                          time: `[${currentTimeStr} | Lớp ${loopIndex}]`,
+                          summary: "Nhân Quả Hỗn Loạn (Thiên Đạo Báo Cáo Chập Chờn)",
+                          details: cleanText,
+                          isObj: true
+                      };
+                  }
+
+                  if (parsedData && parsedData.npcSync && Array.isArray(parsedData.npcSync)) {
+                      // Lưỡi Hái Tử Thần Ngầm (V12.17)
+                      let npcsToVerify = [];
+                      parsedData.npcSync.forEach(npc => {
+                          const npcText = (String(npc.historySummary || '') + " " + String(npc.state || '')).toLowerCase();
+                          const deathKeywords = /(chết|tử vong|tử trận|thi thể|xác chết|cái xác|hồn phi|bay đầu|lìa đầu|nát bấy|hóa thành sương máu|chặt đầu|móc tim|đốt thành tro|đốt xác|tàn sát|mạt sát|diệt sát|giết|rữa ra|ăn mòn|tắt thở|tuyệt mạng|mất mạng|bỏ mạng|chôn vùi|xuyên qua trán|xuyên tim|hóa thành vũng máu|không còn hơi thở|vẫn lạc)/;
+                          const resurrectKeywords = /(sống lại|hồi sinh|tái tạo|nhân bản|kén|ấp|đoạt xá|chuyển sinh|phục sinh|cải tử|niết bàn|khôi phục)/;
+                          if (npc.isDead || deathKeywords.test(npcText) || deathKeywords.test(logObj.details.toLowerCase()) || resurrectKeywords.test(npcText) || resurrectKeywords.test(logObj.details.toLowerCase())) {
+                              npcsToVerify.push(npc);
+                          }
+                      });
+
+                      if (npcsToVerify.length > 0) {
+                          const verifiedDeaths = await verifyDeathByAI(npcsToVerify, logObj.details);
+                          parsedData.npcSync.forEach(npc => {
+                              const verified = verifiedDeaths.find(v => String(v.name).trim().toLowerCase() === String(npc.name).trim().toLowerCase());
+                              if (verified) {
+                                  npc.isDead = verified.isActuallyDead;
+                                  if (!npc.isDead) npc.deathReason = "";
+                                  else if (npc.isDead && !npc.deathReason) npc.deathReason = verified.reason || "Vẫn lạc.";
+                                  
+                                  npc.v1217_aiVerifiedDeath = true;
+                                  npc.v1217_aiDeathReason = verified.reason;
+                              }
+                          });
+                      }
+
+                      parsedData.npcSync.forEach(syncN => {
+                          if (syncN.isDead && !logObj.details.includes('[TỬ VONG]')) {
+                              logObj.details += `\n- 💀 [TỬ VONG]: ${syncN.name} đã bỏ mạng! Lý do: ${syncN.deathReason}`;
+                          }
+                      });
+                  }
+
+                  currentChronicles.push(logObj);
+
+                  setGameState(prev => {
+                      // Khóa Tử Chống Ghi Đè Sự Kiện Khi Nghịch Chuyển Thời Không
+                      if (abortExpansionRef.current?.signal.aborted) {
+                          return prev;
+                      }
+
+                      const newChronicles = [...(prev.hiddenChronicles || []), logObj];
+                      const newState = { ...prev, hiddenChronicles: newChronicles.length > 2000 ? newChronicles.slice(-2000) : newChronicles };
+                      
+                      if (parsedData) {
+                          if (parsedData.companionSync && Array.isArray(parsedData.companionSync)) {
+                              newState.companions = Array.isArray(prev.companions) ? JSON.parse(JSON.stringify(prev.companions)) : [];
+                              parsedData.companionSync.forEach(syncC => {
+                                  let cleanSyncName = String(syncC.name).replace(/\s*[\(\[].*?[\)\]]\s*/g, '').replace(/["']/g, '').trim().toLowerCase();
+                                  
+                                  const cIdx = newState.companions.findIndex(c => c.name.toLowerCase() === cleanSyncName || c.name.toLowerCase() === String(syncC.name).toLowerCase());
+                                  if (cIdx >= 0) {
+                                      if (syncC.level) newState.companions[cIdx].level = syncC.level;
+                                      if (syncC.desc) newState.companions[cIdx].desc = syncC.desc;
+                                      if (syncC.historySummary) newState.companions[cIdx].historySummary = syncC.historySummary;
+                                      
+                                      // V8.80: Cập nhật Trang bị nổi bật
+                                      if (syncC.equippedStr !== undefined) newState.companions[cIdx].equippedStr = syncC.equippedStr;
+
+                                      // V8.80 & V8.83: Cập nhật Tuyệt học ngầm & Cạo sạch Rác 'undefined'
+                                      if (syncC.newSkills && Array.isArray(syncC.newSkills)) {
+                                          if (!newState.companions[cIdx].skills) newState.companions[cIdx].skills = [];
+                                          syncC.newSkills.forEach(ns => {
+                                              let safeName = String(ns.name || '').replace(/undefined/gi, '').trim();
+                                              if (!safeName || safeName.length < 2) return;
+                                              
+                                              const sIdx = newState.companions[cIdx].skills.findIndex(s => String(s.name).toLowerCase() === safeName.toLowerCase());
+                                              if (sIdx >= 0) {
+                                                  const oldProf = newState.companions[cIdx].skills[sIdx].proficiency || 0;
+                                                  const change = Number(ns.proficiencyChange) || 0;
+                                                  newState.companions[cIdx].skills[sIdx].proficiency = Math.min(100, oldProf + change);
+                                                  if (ns.level) newState.companions[cIdx].skills[sIdx].level = ns.level;
+                                              } else {
+                                                  newState.companions[cIdx].skills.push({
+                                                      name: safeName, level: ns.level || 'Nhập môn',
+                                                      proficiency: Number(ns.proficiencyChange) || 1,
+                                                      desc: ns.desc || 'Lĩnh ngộ trong quá trình diễn hóa ngầm.'
+                                                  });
+                                              }
+                                          });
+                                      }
+
+                                      // V8.80: Cập nhật Hành trang ngầm (Thêm/Xóa đồ khi đem đi sửa)
+                                      if (syncC.inventoryUpdates) {
+                                          if (newState.companions[cIdx].isSystemClone) {
+                                              if (!newState.cloneInventory) newState.cloneInventory = [];
+                                              if (syncC.inventoryUpdates.added && Array.isArray(syncC.inventoryUpdates.added)) {
+                                                  syncC.inventoryUpdates.added.forEach(item => {
+                                                      if (!item || !item.name) return;
+                                                      const exist = newState.cloneInventory.find(i => i.name === item.name);
+                                                      if (exist) exist.quantity += (Number(item.quantity)||1);
+                                                      else newState.cloneInventory.push({ ...item, quantity: Number(item.quantity)||1, containerId: 'shared_clone_inv', type: item.type || 'misc', rarity: item.rarity || 'Xanh lá' });
+                                                  });
+                                              }
+                                              if (syncC.inventoryUpdates.removed && Array.isArray(syncC.inventoryUpdates.removed)) {
+                                                  syncC.inventoryUpdates.removed.forEach(item => {
+                                                      if (!item || !item.name) return;
+                                                      const existIdx = newState.cloneInventory.findIndex(i => i.name === item.name);
+                                                      if (existIdx >= 0) {
+                                                          newState.cloneInventory[existIdx].quantity -= (Number(item.quantity)||1);
+                                                          if (newState.cloneInventory[existIdx].quantity <= 0) newState.cloneInventory.splice(existIdx, 1);
+                                                      }
+                                                  });
+                                              }
+                                          } else {
+                                              if (!newState.companions[cIdx].inventory) newState.companions[cIdx].inventory = [];
+                                              let targetCid = newState.companions[cIdx].mainContainerId || (newState.companions[cIdx].containers && newState.companions[cIdx].containers.length > 0 ? newState.companions[cIdx].containers[0].id : 'default');
+                                              
+                                              if (syncC.inventoryUpdates.added && Array.isArray(syncC.inventoryUpdates.added)) {
+                                                  syncC.inventoryUpdates.added.forEach(item => {
+                                                      if (!item || !item.name) return;
+                                                      
+                                                      // V8.81: Tự động khai mở Không Gian cho Tùy Tùng nếu cướp/mua được Nhẫn
+                                                      const iType = item.type || 'misc';
+                                                      if (iType === 'spatial' || iType === 'sealed_spatial') {
+                                                          const newBagId = `comp_c_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+                                                          if (!newState.companions[cIdx].containers) newState.companions[cIdx].containers = [];
+                                                          newState.companions[cIdx].containers.push({ id: newBagId, name: item.name, capacity: item.capacity || 500, rarity: item.rarity || 'Xanh lam' });
+                                                      }
+
+                                                      const exist = newState.companions[cIdx].inventory.find(i => i.name === item.name && i.containerId === targetCid);
+                                                      if (exist) exist.quantity += (Number(item.quantity)||1);
+                                                      else newState.companions[cIdx].inventory.push({ ...item, quantity: Number(item.quantity)||1, containerId: targetCid, type: iType, rarity: item.rarity || 'Xanh lá' });
+                                                  });
+                                              }
+                                              if (syncC.inventoryUpdates.removed && Array.isArray(syncC.inventoryUpdates.removed)) {
+                                                  syncC.inventoryUpdates.removed.forEach(item => {
+                                                      if (!item || !item.name) return;
+                                                      const existIdx = newState.companions[cIdx].inventory.findIndex(i => i.name === item.name && i.containerId === targetCid);
+                                                      if (existIdx >= 0) {
+                                                          newState.companions[cIdx].inventory[existIdx].quantity -= (Number(item.quantity)||1);
+                                                          if (newState.companions[cIdx].inventory[existIdx].quantity <= 0) newState.companions[cIdx].inventory.splice(existIdx, 1);
+                                                      }
+                                                  });
+                                              }
+                                          }
+                                      }
+                                      
+                                      newState.companions[cIdx].lastUpdated = Date.now();
+                                  }
+                              });
+                          }
+                          if (parsedData.npcSync && Array.isArray(parsedData.npcSync)) {
+                              newState.journal = { ...prev.journal, npcs: Array.isArray(prev.journal?.npcs) ? JSON.parse(JSON.stringify(prev.journal.npcs)) : [] };
+                              if (newState.sect && newState.sect.npcs) newState.sect = { ...prev.sect, npcs: Array.isArray(prev.sect.npcs) ? JSON.parse(JSON.stringify(prev.sect.npcs)) : [] };
+                              
+                              parsedData.npcSync.forEach(syncN => {
+                                  // V12.15 FIX: Cạo sạch rác ID do AI lú lẫn chép nhầm vào Tên trong Sáng Thế Ngầm
+                                  if (syncN.name) {
+                                      syncN.name = String(syncN.name).replace(/\s*[\(\[\{]\s*id\s*:\s*.*?\s*[\)\]\}]/gi, '').trim();
+                                  }
+
+                                  // V10.97 FIX LỖ HỔNG SỐ 1: GIAO THỨC ĐỒNG BỘ LAI CHO SÁNG THẾ NGẦM
+                                                                    // V12.13 FIX: ĐỒNG HÓA BẢN NGUYÊN & TRÍCH XUẤT CHÂN DANH
+                                  if (!syncN.id && syncN.name) {
+                                      let searchNameRaw = String(syncN.name).trim();
+                                      let oldNameHint = "";
+                                      
+                                      // Bóc tách cú pháp Tên Mới (Tên Cũ) do AI tự chế
+                                      const bracketMatch = searchNameRaw.match(/^(.*?)\s*\((.*?)\)$/);
+                                      if (bracketMatch) {
+                                          searchNameRaw = bracketMatch[1].trim().toLowerCase();
+                                          oldNameHint = bracketMatch[2].trim().toLowerCase();
+                                      } else {
+                                          searchNameRaw = searchNameRaw.replace(/\s*[\(\[].*?[\)\]]\s*/g, '').toLowerCase();
+                                      }
+                                      
+                                      const getCoreName = (nameStr) => {
+                                          let s = String(nameStr).replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim().toLowerCase();
+                                          const fillers = ['lão', 'già', 'tiểu', 'đại', 'thiếu', 'tên', 'kẻ', 'yêu', 'ma', 'quỷ', 'thần', 'tiên', 'tử', 'nữ', 'nam', 'bà', 'ông', 'thúc', 'bá', 'tẩu', 'gia', 'đạo', 'hữu', 'tộc', 'trưởng', 'đội', 'nhân', 'sư', 'phụ', 'tướng', 'quân', 'vương', 'hoàng', 'đế', 'tôn', 'chúa', 'tổ', 'tỷ', 'muội', 'huynh', 'đệ', 'chấp', 'sự', 'môn', 'chủ', 'thành', 'thái', 'thượng', 'giả', 'tiền', 'bối', 'vô', 'danh', 'thánh', 'sát', 'thủ', 'quái', 'vật'];
+                                          let words = s.split(' ').filter(w => w.length > 0 && !fillers.includes(w));
+                                          return words.join(''); 
+                                      };
+                                      const searchCore = getCoreName(searchNameRaw);
+                                      
+                                      const strSyncName = String(syncN.name).toLowerCase();
+                                      const inSyncMatch = strSyncName.match(/[\(\[](.*?)[\)\]]/);
+                                      const inSyncName = inSyncMatch ? inSyncMatch[1].trim() : '';
+
+                                      if (searchNameRaw.length >= 3 || oldNameHint.length >= 3 || inSyncName.length >= 3) {
+                                          const findMatch = (npcList) => {
+                                              return npcList.find(n => {
+                                                  const existingName = String(n.name).toLowerCase();
+                                                  const outExisting = existingName.replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
+                                                  const inExistingMatch = existingName.match(/[\(\[](.*?)[\)\]]/);
+                                                  const inExisting = inExistingMatch ? inExistingMatch[1].trim() : '';
+
+                                                  const aliases = n.aliases || [];
+                                                  
+                                                  // 1. Khớp theo Gợi ý tên cũ (AI tự thú nhận)
+                                                  if (oldNameHint && (existingName === oldNameHint || aliases.includes(oldNameHint))) return true;
+                                                  
+                                                  // 2. Khớp Tên gốc chính xác
+                                                  if (existingName === strSyncName || outExisting === searchNameRaw || aliases.includes(strSyncName)) return true;
+                                                  
+                                                  // Tách biệt thực thể trong diễn hóa ngầm: Linh Cơ Tiên Tử KHÔNG PHẢI Thanh Vân (Linh Cơ Thể)
+                                                  const isSearchLCTT = searchNameRaw.includes('linh cơ tiên tử') || inSyncName.includes('linh cơ tiên tử');
+                                                  const isExistLCTT = outExisting.includes('linh cơ tiên tử') || inExisting.includes('linh cơ tiên tử');
+                                                  const isSearchTV = searchNameRaw.includes('thanh vân') || inSyncName.includes('linh cơ thể') || searchNameRaw.includes('linh cơ thể');
+                                                  const isExistTV = outExisting.includes('thanh vân') || inExisting.includes('linh cơ thể') || outExisting.includes('linh cơ thể');
+                                                  if ((isSearchLCTT && isExistTV) || (isExistLCTT && isSearchTV)) return false;
+                                                  if ((isSearchLCTT && !isExistLCTT && (outExisting.includes('linh cơ') || inExisting.includes('linh cơ'))) || (isExistLCTT && !isSearchLCTT && (searchNameRaw.includes('linh cơ') || inSyncName.includes('linh cơ')))) return false;
+
+                                                  const relRegex = /(của|vợ|chồng|đạo lữ|thê tử|phu quân|sư phụ|sư tôn|đệ tử|con|kẻ thù|bạn|bằng hữu|nha hoàn|tùy tùng|thuộc hạ|nô lệ|chủ nhân|tỷ muội|huynh đệ|tộc|môn|đã|chết|thể|thể chất|linh căn|căn|cốt)/i;
+                                                  
+                                                  // 3. Khớp chéo lõi ngoặc đơn (Cứu tinh cho Kritch)
+                                                  if (searchNameRaw.length >= 3 && inExisting.length >= 3 && !relRegex.test(inExisting) && (searchNameRaw.includes(inExisting) || inExisting.includes(searchNameRaw))) return true;
+                                                  if (outExisting.length >= 3 && inSyncName.length >= 3 && !relRegex.test(inSyncName) && (outExisting.includes(inSyncName) || inSyncName.includes(outExisting))) return true;
+
+                                                  // 4. Khớp Tiền/Hậu tố
+                                                  if (existingName.length > 4 && strSyncName.length > 4 && 
+                                                         (existingName.startsWith(strSyncName) || strSyncName.startsWith(existingName))) return true;
+
+                                                  // 5. Khớp bao hàm chuỗi nguyên mẫu cho tên đặc thù ngoại tộc, quái vật
+                                                  if (existingName.length >= 7 && strSyncName.length >= 7 && 
+                                                         (existingName.includes(strSyncName) || strSyncName.includes(existingName))) return true;
+                                                         
+                                                  // 6. Khớp CHÂN DANH (Đã lột sạch tính từ rườm rà)
+                                                  const existingCore = getCoreName(outExisting);
+                                                  if (existingCore.length >= 4 && searchCore.length >= 4 && (existingCore === searchCore || existingCore.includes(searchCore) || searchCore.includes(existingCore))) return true;
+                                                  
+                                                  // Mở rộng quyét vào các Aliases bằng Chân Danh
+                                                  for(let al of aliases) {
+                                                      const alCore = getCoreName(al);
+                                                      if (alCore.length >= 4 && searchCore.length >= 4 && (alCore === searchCore || alCore.includes(searchCore) || searchCore.includes(alCore))) return true;
+                                                  }
+
+                                                  return false;
+                                              });
+                                          };
+                                          
+                                          let fallbackMatch = findMatch(newState.journal.npcs);
+                                          if (!fallbackMatch && newState.sect && newState.sect.npcs) {
+                                              fallbackMatch = findMatch(newState.sect.npcs);
+                                          }
+                                          
+                                          if (fallbackMatch) {
+                                              syncN.id = fallbackMatch.id; 
+                                              
+                                              // Nếu AI thực sự đổi tên, lưu tên cũ vào aliases
+                                              const cleanExistingName = String(fallbackMatch.name).replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
+                                              const cleanIncomingName = String(syncN.name).replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
+                                              
+                                              if (cleanExistingName !== cleanIncomingName) {
+                                                  if (!fallbackMatch.aliases) fallbackMatch.aliases = [];
+                                                  if (!fallbackMatch.aliases.includes(cleanExistingName)) fallbackMatch.aliases.push(cleanExistingName);
+                                                  
+                                                  // CHỈ đổi tên gốc nếu tên cũ là Vô danh/Bí ẩn
+                                                  if (/(bí ẩn|lạ mặt|vô danh|ẩn danh)/i.test(cleanExistingName)) {
+                                                      fallbackMatch.name = cleanIncomingName;
+                                                  } else if (!fallbackMatch.aliases.includes(cleanIncomingName)) {
+                                                      fallbackMatch.aliases.push(cleanIncomingName);
+                                                  }
+                                              }
+
+                                              logObj.details += `\n- 🔄 [Trích Xuất Chân Danh]: Thiên Đạo gọi lệch tên của [${syncN.name}], hệ thống đã bóc tách từ ngữ và tự động hợp nhất nhân quả thành công!`;
+                                          }
+                                      }
+                                  }
+
+
+                                  if (!syncN.id) return; // V10.93 Lệnh Thép: Vẫn quên ID -> Vứt luôn dữ liệu rác này!
+                                  
+                                  const targetId = syncN.id;
+
+                                  // TÌM NPC GỐC BẰNG ID (KHÔNG DÙNG TÊN)
+                                  let tempNpcOriginal = newState.journal.npcs.find(n => n.id === targetId);
+                                  let isSectNpc = false;
+                                  
+                                  if (!tempNpcOriginal && newState.sect && newState.sect.npcs) {
+                                      tempNpcOriginal = newState.sect.npcs.find(n => n.id === targetId);
+                                      if (tempNpcOriginal) isSectNpc = true;
+                                  }
+                                  
+                                  if (!tempNpcOriginal) return; // ID bậy bạ không tồn tại -> Bỏ qua
+
+                                  let finalInventory = tempNpcOriginal.inventory || [];
+                                  if (syncN.inventoryUpdates) {
+                                      if (syncN.inventoryUpdates.added && Array.isArray(syncN.inventoryUpdates.added)) {
+                                          const isNpcLowRank = /(nô lệ|nô bộc|khất cái|tiểu nhị|phàm nhân|hạ nô|thường dân|nông phu)/i.test(String(tempNpcOriginal.role || '') + ' ' + String(tempNpcOriginal.relationType || '')) || (getStageConfig(tempNpcOriginal.level).id <= 3);
+                                          syncN.inventoryUpdates.added.forEach(item => {
+                                              if (!item || !item.name) return;
+                                              const iNameLower = String(item.name).toLowerCase();
+                                              const isHighValue = /(huyễn mộng chi quả|vĩnh tịch băng tâm|dấu vết vận mệnh|đinh thần không|giọt lệ ước mơ|thần đan|tiên đan)/i.test(iNameLower) || ['Đỏ', 'Cam', 'Vàng'].includes(item.rarity || '');
+                                              if (isNpcLowRank && isHighValue) return; // Chặn NPC cấp thấp tự sinh báu vật quý hiếm trong thế giới ngầm
+
+                                              const exist = finalInventory.find(i => i.name === item.name);
+                                              if (exist) exist.quantity += (Number(item.quantity)||1);
+                                              else finalInventory.push({ ...item, quantity: Number(item.quantity)||1, type: item.type || 'misc', rarity: item.rarity || 'Xanh lá' });
+                                          });
+                                      }
+                                      if (syncN.inventoryUpdates.removed && Array.isArray(syncN.inventoryUpdates.removed)) {
+                                          syncN.inventoryUpdates.removed.forEach(item => {
+                                              if (!item || !item.name) return;
+                                              const existIdx = finalInventory.findIndex(i => i.name === item.name);
+                                              if (existIdx >= 0) {
+                                                  finalInventory[existIdx].quantity -= (Number(item.quantity)||1);
+                                                  if (finalInventory[existIdx].quantity <= 0) finalInventory.splice(existIdx, 1);
+                                              }
+                                          });
+                                      }
+                                  }
+
+                                  // V12.17 FIX: Thẩm Phán Nhân Quả Ngầm Dùng Lưỡi Hái Tử Thần AI
+                                  let finalIsDeadNgam = tempNpcOriginal.isDead || false;
+                                  if (syncN.v1217_aiVerifiedDeath) {
+                                      // V12.56 FIX: Khóa Tử - Ngăn chặn Hào quang Ảo giác phục sinh người chết
+                                      if (tempNpcOriginal.isDead && !syncN.isDead) {
+                                          finalIsDeadNgam = true;
+                                          logObj.details += `\n- 🛡️ [Hệ Thống] Đã chặn đứng ảo giác thế giới ngầm: [${syncN.name}] đã chết từ trước, từ chối việc phục sinh ngớ ngẩn do AI ảo tưởng!`;
+                                      } else {
+                                          finalIsDeadNgam = syncN.isDead;
+                                          if (finalIsDeadNgam && !tempNpcOriginal.isDead) {
+                                              logObj.details += `\n- 💀 [Lưỡi Hái Tử Thần Ngầm] Sinh tử tàn khốc: [${syncN.name}] không thể qua khỏi! Lý do: ${syncN.v1217_aiDeathReason}`;
+                                          } else if (!finalIsDeadNgam && !tempNpcOriginal.isDead && syncN.v1217_aiDeathReason) {
+                                              logObj.details += `\n- 🛡️ [Thoát Chết] Cứu sống kỳ diệu: [${syncN.name}] tẩu thoát sinh thiên! Báo cáo: ${syncN.v1217_aiDeathReason}`;
+                                          }
+                                      }
+                                  } else if (!tempNpcOriginal.isDead) {
+                                      // Fallback nếu mạng lỗi
+                                      finalIsDeadNgam = syncN.isDead || false;
+                                  }
+
+                                  // CẬP NHẬT BIẾN SỐ ĐỘNG VÀO ĐÚNG BẢNG (Hồng Trần hoặc Tông Môn)
+                                  const applyUpdate = (npcArray, idx) => {
+                                      // V1.29.5 FIX BUG 3 & BUG 4: VÔ NGÃ TIÊU TÀN TUYỆT ĐỐI — KHÓA CỨNG KẺ ĐÃ CHẾT TRONG SÁNG THẾ NGẦM
+                                      const cleanTargetName = String(npcArray[idx].name).replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim().toLowerCase();
+                                      const isAlreadyDead = npcArray[idx].isDead || (Array.isArray(newState.journal?.graveyard) && newState.journal.graveyard.includes(cleanTargetName));
+                                      
+                                      if (isAlreadyDead) {
+                                          npcArray[idx].isDead = true;
+                                          npcArray[idx].state = npcArray[idx].state === "Hư Vô / Hồn Phi Phách Tán" ? "Hư Vô / Hồn Phi Phách Tán" : "Hoàng Tuyền / Đã Chết";
+                                          npcArray[idx].relationType = "Âm Dương Cách Biệt";
+                                          return; // Tuyệt đối không nhận biến số sống (level, state, historySummary, inventory, skills, stats...)!
+                                      }
+
+                                      const isPinned = npcArray[idx].isPinned;
+                                      
+                                      // V14.0 FIX: ÁP DỤNG TRẦN ĐỘT PHÁ CHO NPC GIỐNG HỆT NHÂN VẬT CHÍNH TRONG SÁNG THẾ NGẦM
+                                      if (syncN.level !== undefined && syncN.level !== npcArray[idx].level) {
+                                          const oldStage = getStageConfig(npcArray[idx].level || 'Phàm Nhân');
+                                          const newStage = getStageConfig(syncN.level);
+                                          const forceBypassNpcBreakthrough = false; // Sáng thế ngầm không có isMassiveSurge
+                                          
+                                          if (!forceBypassNpcBreakthrough && newStage.id > oldStage.id + 2) {
+                                              const finalLvl = getStageConfigById(oldStage.id + 2).name;
+                                              npcArray[idx].level = finalLvl;
+                                              logObj.details += `\n- 🛡️ [Bảo Vệ Căn Cơ] Chặn đứng ảo tưởng: [${npcArray[idx].name}] không thể nhảy cóc từ [${oldStage.name}] lên [${newStage.name}]. Hệ thống cưỡng chế ép mức thăng cấp tại [${finalLvl}].`;
+                                          } else {
+                                              npcArray[idx].level = syncN.level;
+                                          }
+                                      }
+
+                                      if (syncN.state !== undefined) npcArray[idx].state = syncN.state;
+                                      if (syncN.historySummary !== undefined) {
+                                          if (isPinned && npcArray[idx].historySummary && syncN.historySummary !== npcArray[idx].historySummary) {
+                                              npcArray[idx].historySummary += " | " + syncN.historySummary;
+                                          } else {
+                                              npcArray[idx].historySummary = syncN.historySummary;
+                                          }
+                                      }
+                                      if (syncN.longTermGoal !== undefined) npcArray[idx].longTermGoal = syncN.longTermGoal;
+                                      if (syncN.equippedStr !== undefined) npcArray[idx].equippedStr = syncN.equippedStr;
+                                      if (syncN.lootStr !== undefined) npcArray[idx].lootStr = syncN.lootStr;
+                                      if (syncN.relationType !== undefined && syncN.relationType !== "Chỉ gửi nếu quan hệ với NVC thay đổi" && !String(syncN.relationType).includes("Chỉ gửi nếu quan hệ với NVC thay đổi")) npcArray[idx].relationType = syncN.relationType;
+                                      if (syncN.affinity !== undefined && typeof syncN.affinity === 'number') npcArray[idx].affinity = syncN.affinity;
+                                      if (syncN.hostility !== undefined && typeof syncN.hostility === 'number') npcArray[idx].hostility = syncN.hostility;
+                                      if (syncN.gender !== undefined) npcArray[idx].gender = syncN.gender;
+                                      
+                                      if (!isPinned) {
+                                          if (syncN.role !== undefined) {
+                                              // BUG 5 FIX: Khóa chức vụ Tông Môn, ngăn chặn AI đẩy đệ tử ra đi lang thang
+                                              if (isSectNpc && !/(tạp dịch|ngoại môn|nội môn|trưởng lão|chấp sự|khách khanh|đệ tử|thái thượng|thái thú|tướng|lính|tể tướng|quan|thần dân|bá tánh|cấm vệ|quốc sư|tế tự|tuần phủ|thượng thư|môn đồ)/i.test(String(syncN.role))) {
+                                                  npcArray[idx].role = npcArray[idx].role; // Giữ nguyên chức vụ Tông môn cũ
+                                              } else {
+                                                  npcArray[idx].role = syncN.role;
+                                              }
+                                          }
+                                          if (syncN.personality !== undefined) npcArray[idx].personality = syncN.personality;
+                                          if (syncN.alignment !== undefined) npcArray[idx].alignment = syncN.alignment;
+                                      }
+
+                                      if (syncN.v1181_isLoDinh) {
+                                          npcArray[idx].gender = 'Nữ';
+                                          npcArray[idx].traits = (npcArray[idx].traits || []).filter(t => t !== 'Thiên Mệnh Chi Tử');
+                                      }
+
+                                      if (syncN.traits && Array.isArray(syncN.traits)) {
+                                          const existingTraits = npcArray[idx].traits || [];
+                                          const newTraits = syncN.traits.filter(t => !existingTraits.includes(t));
+                                          npcArray[idx].traits = [...existingTraits, ...newTraits];
+                                      }
+                                      
+                                      if (isSectNpc && newState.sect && syncN.traits && Array.isArray(syncN.traits)) {
+                                          const hasGeniusTrait = syncN.traits.some(t => /(Thiên Mệnh|Đại Khí Vận|Thiên Linh Căn|Chí Tôn|Hỗn Độn|Tuyệt Thế)/i.test(t.name || t));
+                                          const hadGeniusTrait = (currentNpcs[targetIdx].traits || []).some(t => /(Thiên Mệnh|Đại Khí Vận|Thiên Linh Căn|Chí Tôn|Hỗn Độn|Tuyệt Thế)/i.test(t.name || t));
+                                          if (hasGeniusTrait && !hadGeniusTrait) {
+                                              if (!newState.sect.chronicles) newState.sect.chronicles = [];
+                                              newState.sect.chronicles.unshift({ time: currentTimeStr, event: `Trời giáng điềm lành! Nội uẩn tông môn nghênh đón thiên kiêu [${npcArray[idx].name}] mang mệnh cách phi phàm.` });
+                                          }
+                                      }
+
+                                      if (syncN.skills && Array.isArray(syncN.skills)) npcArray[idx].skills = syncN.skills;
+                                      npcArray[idx].inventory = finalInventory;
+                                      // V12.47 FIX & Mới: Ngăn chặn AI ảo tưởng chỉ số tự động đè lên Cường giả VÀ Áp dụng Bão Hòa Chỉ Số
+                                      const forceBypassNpc = (typeof data !== 'undefined' && data.isMassiveSurge) || (typeof v958_usedAdminCommandType !== 'undefined' && v958_usedAdminCommandType === "god_mode");
+                                      const genStats = generateNPCStats(npcArray[idx].level, { baseStats: npcArray[idx], race: npcArray[idx].race, role: npcArray[idx].role, alignment: npcArray[idx].alignment, traits: npcArray[idx].traits, isNightmare: (newState.activeDLCs?.includes('dlc_nightmare') || newState.activeDLCs?.includes('dlc_nightmare_abyss')) });
+                                      npcArray[idx].maxHp = Math.max(Number(genStats.maxHp) || 0, applyNpcStatWithSaturation('maxHp', npcArray[idx].maxHp, syncN.maxHp, true, 'maxHp', npcArray[idx], forceBypassNpc));
+                                      npcArray[idx].maxMp = Math.max(Number(genStats.maxMp) || 0, applyNpcStatWithSaturation('maxMp', npcArray[idx].maxMp, syncN.maxMp, true, 'maxMp', npcArray[idx], forceBypassNpc));
+                                      npcArray[idx].attack = Math.max(Number(genStats.attack) || 0, applyNpcStatWithSaturation('attack', npcArray[idx].attack, syncN.attack, false, 'attack', npcArray[idx], forceBypassNpc));
+                                      npcArray[idx].defense = Math.max(Number(genStats.defense) || 0, applyNpcStatWithSaturation('defense', npcArray[idx].defense, syncN.defense, false, 'defense', npcArray[idx], forceBypassNpc));
+                                      npcArray[idx].speed = Math.max(Number(genStats.speed) || 0, applyNpcStatWithSaturation('speed', npcArray[idx].speed, syncN.speed, false, 'speed', npcArray[idx], forceBypassNpc));
+                                      npcArray[idx].spiritPower = Math.max(Number(genStats.spiritPower) || 0, applyNpcStatWithSaturation('spiritPower', npcArray[idx].spiritPower, syncN.spiritPower, false, 'spiritPower', npcArray[idx], forceBypassNpc));
+
+                                      // V12.18: Xử lý 6 ô trang bị và Buff/Debuff của NPC
+                                      if (syncN.hpChange !== undefined) {
+                                          npcArray[idx].hp = Math.max(0, Math.min(npcArray[idx].maxHp || 100, (npcArray[idx].hp !== undefined ? npcArray[idx].hp : (npcArray[idx].maxHp || 100)) + parseAIStat(syncN.hpChange)));
+                                      }
+                                      if (syncN.mpChange !== undefined) {
+                                          npcArray[idx].mp = Math.max(0, Math.min(npcArray[idx].maxMp || 50, (npcArray[idx].mp !== undefined ? npcArray[idx].mp : (npcArray[idx].maxMp || 50)) + parseAIStat(syncN.mpChange)));
+                                      }
+                                      
+                                      if (syncN.equipped) {
+                                          if (!npcArray[idx].equipped) npcArray[idx].equipped = {};
+                                          Object.keys(syncN.equipped).forEach(slot => {
+                                              npcArray[idx].equipped[slot] = syncN.equipped[slot];
+                                          });
+                                      }
+                                      
+                                      if (syncN.activeEffectsUpdates) {
+                                          if (!npcArray[idx].activeEffects) npcArray[idx].activeEffects = [];
+                                          if (syncN.activeEffectsUpdates.removed) {
+                                              npcArray[idx].activeEffects = npcArray[idx].activeEffects.filter(e => !syncN.activeEffectsUpdates.removed.includes(e.name));
+                                          }
+                                          if (syncN.activeEffectsUpdates.modified) {
+                                              syncN.activeEffectsUpdates.modified.forEach(modEff => {
+                                                  const existIdx = npcArray[idx].activeEffects.findIndex(e => e.name === modEff.name);
+                                                  if (existIdx >= 0 && modEff.durationMinutesChange !== undefined) {
+                                                      npcArray[idx].activeEffects[existIdx].durationMinutes = Math.max(0, npcArray[idx].activeEffects[existIdx].durationMinutes + Number(modEff.durationMinutesChange));
+                                                      if (npcArray[idx].activeEffects[existIdx].durationMinutes <= 0) {
+                                                          npcArray[idx].activeEffects.splice(existIdx, 1);
+                                                      }
+                                                  }
+                                              });
+                                          }
+                                          if (syncN.activeEffectsUpdates.added) {
+                                              syncN.activeEffectsUpdates.added.forEach(eff => {
+                                                  const existIdx = npcArray[idx].activeEffects.findIndex(e => e.name === eff.name);
+                                                  if (existIdx >= 0) npcArray[idx].activeEffects[existIdx] = { ...npcArray[idx].activeEffects[existIdx], ...eff };
+                                                  else npcArray[idx].activeEffects.push(eff);
+                                              });
+                                          }
+                                      }
+
+                                      if (finalIsDeadNgam && !npcArray[idx].isDead) {
+                                          npcArray[idx].isDead = true;
+                                          npcArray[idx].deathReason = syncN.deathReason || "Tử nạn trong Sáng Thế Ngầm.";
+                                          npcArray[idx].deathAge = Math.floor(newState.age);
+                                          npcArray[idx].deathTimeStr = currentTimeStr;
+                                          npcArray[idx].deathLocation = "Ngoài Giang Hồ";
+                                          npcArray[idx].state = `(ĐÃ CHẾT) ${syncN.state || ''}`;
+                                          
+                                          if (isSectNpc && newState.sect) {
+                                              newState.sect.members = Math.max(1, (newState.sect.members || 1) - 1); 
+                                              if (/(trưởng lão|thái thượng|phó tông|quốc sư|tướng quân|tế tự|cung chủ|điện chủ)/i.test(npcArray[idx].role)) {
+                                                  if (!newState.sect.chronicles) newState.sect.chronicles = [];
+                                                  newState.sect.chronicles.unshift({ time: currentTimeStr, event: `Bi thương! ${npcArray[idx].role} [${npcArray[idx].name}] đã vẫn lạc.` });
+                                              }
+                                          }
+                                      } else if (!finalIsDeadNgam && npcArray[idx].isDead) {
+                                          // V1.29.5 FIX: KHÓA TỬ VĨNH VIỄN — TRIỆT TIÊU ẢO GIÁC HỒI SINH TRONG SÁNG THẾ NGẦM
+                                          npcArray[idx].isDead = true;
+                                          npcArray[idx].state = "Hoàng Tuyền / Đã Chết";
+                                          npcArray[idx].relationType = "Âm Dương Cách Biệt";
+                                      }
+                                      npcArray[idx].lastUpdated = Date.now(); 
+                                  };
+
+                                  if (isSectNpc) {
+                                      const sIdx = newState.sect.npcs.findIndex(n => n.id === targetId);
+                                      applyUpdate(newState.sect.npcs, sIdx);
+                                  } else {
+                                      const nIdx = newState.journal.npcs.findIndex(n => n.id === targetId);
+                                      applyUpdate(newState.journal.npcs, nIdx);
+                                  }
+                              });
+                          }
+                      }
+
+                      // V10.97 FIX LỖ HỔNG SỐ 3 & V11.18: LƯỚI LỌC DỊCH CHUYỂN TÔNG MÔN (Sau khi Sáng Thế xong 1 vòng)
+                      if (newState.sect) {
+                          if (!newState.sect.npcs) newState.sect.npcs = [];
+                          const allNPCs = [...(newState.journal?.npcs || []), ...newState.sect.npcs];
+                          
+                          const uniqueNPCMap = {};
+                          allNPCs.sort((a,b) => (a.lastUpdated||0) - (b.lastUpdated||0)).forEach(n => {
+                              const normName = String(n.name).toLowerCase().trim().replace(/\s*[\(\[].*?[\)\]]\s*/g, '');
+                              if(!uniqueNPCMap[normName]) { 
+                                  uniqueNPCMap[normName] = n; 
+                              } else {
+                                  const existing = uniqueNPCMap[normName];
+                                  existing.lastUpdated = Math.max(existing.lastUpdated || 0, n.lastUpdated || 0);
+                                  if (n.state !== undefined) existing.state = n.state;
+                                  if (n.historySummary !== undefined) existing.historySummary = n.historySummary;
+                                  if (n.level !== undefined) existing.level = n.level;
+                                  if (n.realLevel !== undefined) existing.realLevel = n.realLevel;
+                                  if (n.role !== undefined) existing.role = n.role;
+                                  if (n.relationType !== undefined) existing.relationType = n.relationType;
+                                  if (n.knowledgePct !== undefined) existing.knowledgePct = Math.max(Number(existing.knowledgePct) || 0, Number(n.knowledgePct));
+                                  if (n.gender !== undefined) existing.gender = n.gender;
+                                  if (n.equippedStr !== undefined) existing.equippedStr = n.equippedStr;
+                                  if (n.lootStr !== undefined) existing.lootStr = n.lootStr;
+                                  if (n.maxHp !== undefined) existing.maxHp = Math.max(Number(existing.maxHp) || 0, Number(n.maxHp) || 0);
+                                  if (n.maxMp !== undefined) existing.maxMp = Math.max(Number(existing.maxMp) || 0, Number(n.maxMp) || 0);
+                                  if (n.attack !== undefined) existing.attack = Math.max(Number(existing.attack) || 0, Number(n.attack) || 0);
+                                  if (n.defense !== undefined) existing.defense = Math.max(Number(existing.defense) || 0, Number(n.defense) || 0);
+                                  if (n.speed !== undefined) existing.speed = Math.max(Number(existing.speed) || 0, Number(n.speed) || 0);
+                                  if (n.spiritPower !== undefined) existing.spiritPower = Math.max(Number(existing.spiritPower) || 0, Number(n.spiritPower) || 0);
+                                  if (n.hp !== undefined) existing.hp = n.hp;
+                                  if (n.mp !== undefined) existing.mp = n.mp;
+                                  if (n.equipped) existing.equipped = n.equipped;
+                                  if (n.activeEffects) existing.activeEffects = n.activeEffects;
+                                  if (n.skills && Array.isArray(n.skills) && n.skills.length > 0) existing.skills = n.skills;
+                                  if (n.inventory && Array.isArray(n.inventory) && n.inventory.length > 0) existing.inventory = n.inventory;
+                                  if (n.traits && Array.isArray(n.traits)) {
+                                      const existingTraits = existing.traits || [];
+                                      const newTraits = n.traits.filter(t => !existingTraits.includes(t));
+                                      existing.traits = [...existingTraits, ...newTraits];
+                                  }
+                                  if (n.isDead) {
+                                      existing.isDead = true;
+                                      if (n.deathReason) existing.deathReason = n.deathReason;
+                                  }
+                                  if (n.loyalty !== undefined) existing.loyalty = n.loyalty;
+                                  if (n.affinity !== undefined) existing.affinity = n.affinity;
+                                  if (n.hostility !== undefined) existing.hostility = n.hostility;
+                              }
+                          });
+                          const uniqueNPCs = Object.values(uniqueNPCMap);
+                          
+                          const newJournal = []; const newSectNPCs = [];
+                          uniqueNPCs.forEach(n => {
+                               // V1.28.2: Bảo vệ Đạo Lữ, Thê Tử, Tùy Tùng hoặc NPC đã xuất sư/tự do luôn ở Sổ Hồng Trần
+                               const isIntendedForJournal = /(hồng trần|đạo lữ|thê tử|phu quân|tri kỷ|tùy tùng|tự do|xuất sư|bạn đồng hành)/i.test(String(n.role)) || /(đạo lữ|thê tử|phu quân|tri kỷ|bạn đồng hành)/i.test(String(n.relationType));
+                               if (!isIntendedForJournal && /(tạp dịch|ngoại môn|nội môn|trưởng lão|chấp sự|khách khanh|đệ tử|thái thượng|thái thú|tướng|lính|tể tướng|quan|thần dân|bá tánh|cấm vệ|quốc sư|tế tự|tuần phủ|thượng thư|môn đồ)/i.test(String(n.role))) {
+                                   newSectNPCs.push(n);
+                               } else {
+                                   newJournal.push(n);
+                               }
+                          });
+                          newState.journal.npcs = newJournal;
+                          newState.sect.npcs = newSectNPCs;
+                      }
+
+                      return newState;
+                  });
+
+                  // V8.79 FIX: Cập nhật biến State để giao diện UI có thể nhận dữ liệu vẽ thanh tiến độ
+                  setExpansionState(prev => ({ 
+                      ...prev, 
+                      processed: { ...processedCounts } 
+                  }));
+              }
+          } catch (e) {
+              if (e.name === 'AbortError') break;
+              console.error("Lỗi nghẽn mạng Thiên Đạo:", e);
+              break; 
+          }
+          
+          loopIndex++;
+          // Cơ chế nghỉ ngơi chống quá tải (Rate Limit API & Firebase Quota)
+          if (importantChars.length > 0 && Date.now() < endTime) {
+              if (loopIndex % 5 === 0) {
+                  // Sau mỗi 5 lượt (khoảng 15 NPC), nghỉ giải lao 30 giây
+                  setStoryLog(prev => {
+                      const newLog = [...prev, { type: 'system', text: `[Sáng Thế Ngầm] Đám mây Thiên Đạo cần làm mát do xử lý lượng lớn dữ liệu. Tạm nghỉ ngơi 30 giây...`, chapter: gameState.chapterCount }];
+                      return newLog.length > 50 ? newLog.slice(-50) : newLog;
+                  });
+                  
+                  // Bơm bù thêm 30 giây vào endTime và Cập nhật UI đếm ngược
+                  endTime += 30000;
+                  setExpansionState(prev => ({ ...prev, timeLeft: prev.timeLeft + 30, totalTime: prev.totalTime + 30 }));
+                  
+                  await new Promise(resolve => setTimeout(resolve, 30000));
+              } else {
+                  // Tăng Delay cơ bản giữa các nhịp lên 4s để an toàn (thay vì 1.5s)
+                  await new Promise(resolve => setTimeout(resolve, 4000)); 
+              }
+          }
+      }
+
+      // Vòng lặp Sáng Thế kết thúc, gỡ cờ isExpanding để Firebase lưu 1 cục to duy nhất
+      setExpansionState({ isExpanding: false, timeLeft: 0, totalTime: 0, controller: null, npcsProcessed: 0, processed: { journal: 0, sect: 0, comp: 0 }, totals: { journal: 0, sect: 0, comp: 0 } });
+      abortExpansionRef.current = null;
+      setIsOnCooldown(true); 
+      setTimeout(() => { setIsOnCooldown(false); isProcessingRef.current = false; }, 1000);
+  };

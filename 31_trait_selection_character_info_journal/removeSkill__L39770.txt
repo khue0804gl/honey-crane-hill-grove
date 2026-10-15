@@ -1,0 +1,11 @@
+  const removeSkill = (e, skillNameToRemove) => {
+    e.stopPropagation();
+    if (checkSpam()) return;
+    showConfirm(`Chắc chắn muốn phế bỏ công pháp "${skillNameToRemove}"?`, () => {
+      setGameState(prev => ({ ...prev, journal: { ...prev.journal, skills: (prev.journal?.skills || []).filter(s => s.name !== skillNameToRemove) } }));
+      setStoryLog(prev => {
+        const newLog = [...prev, { type: 'system', text: `[Hệ Thống] Người chơi đã phế bỏ / quên lãng công pháp: ${skillNameToRemove}.`, chapter: gameState.chapterCount }];
+        return newLog.length > 50 ? newLog.slice(-50) : newLog;
+      });
+    });
+  };

@@ -1,0 +1,10 @@
+  const loadBoardFromLocal = () => {
+      try {
+          const raw = localStorage.getItem(GLOBAL_ARENA_STORAGE_KEY);
+          if (!raw) return null;
+          const decomp = safeDecompress(raw);
+          return Array.isArray(decomp) && decomp.length > 0 ? decomp : null;
+      } catch (e) {
+          return null;
+      }
+  };

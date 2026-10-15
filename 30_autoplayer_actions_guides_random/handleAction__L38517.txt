@@ -1,0 +1,34 @@
+      const handleAction = (action) => { 
+        if (checkSpam()) return;
+        if ((Number(gameState.chapterCount) || 0) === 0) {
+            return showAlert("Đạo hữu chưa khởi tạo xong Chương 1. Vui lòng bấm 'Khởi Đầu Luân Hồi' để bắt đầu kiếp sống!");
+        }
+        let safeAction = String(action).trim(); 
+        // V11.29 FIX: Bắt buộc kiểm tra quyền Admin thực sự, chống người chơi giả mạo lệnh
+        const isAdminOverride = safeAction.startsWith("[ADMIN_COMMAND]") && isAdminLoggedIn;
+
+        // V11.79 FIX: Lưới lọc Time-skip bảo vệ Động Phủ & Ngụy Trang
+        const actionLower = safeAction.toLowerCase();
+        const timeMatch = actionLower.match(/(bế quan|ngủ|tu luyện|ẩn nấp|trốn).*?(\d+)\s*(năm|tháng|ngày)/);
+        if (timeMatch) {
+            let daysRequested = parseInt(timeMatch[2]);
+            if (timeMatch[3] === 'năm') daysRequested *= 360;
+            else if (timeMatch[3] === 'tháng') daysRequested *= 30;
+            
+            // 1. Check Động Phủ
+            if (gameState.safeZones && gameState.safeZones.length > 0) {
+                const energyNeeded = daysRequested * 10;
+                const endangeredZones = gameState.safeZones.filter(z => z.energy < energyNeeded);
+                
+                if (endangeredZones.length > 0) {
+                    const zoneNames = endangeredZones.map(z => z.location).join(', ');
+                    showConfirm(`CẢNH BÁO ĐỘNG PHỦ!\nThời gian bạn định bế quan sẽ tiêu tốn ${formatLargeNumber(energyNeeded)} Linh Thạch duy trì.\n\nCác Động Phủ tại: [${zoneNames}] KHÔNG ĐỦ năng lượng và SẼ SỤP ĐỔ giữa chừng! Đồ đạc bên trong sẽ bị trộm hoặc phong hóa.\n\nBạn có chắc chắn muốn tiếp tục bế quan không?`, () => {
+                        if (!isGenerating && !isOnCooldown && !isProcessingRef.current && (gameState.health > 0 || isAdminOverride) && safeAction.length > 0) callGeminiAPI(safeAction);
+                    });
+                    return; // Ngắt để chờ confirm
+                }
+            }
+        }
+
+        if (!isGenerating && !isOnCooldown && !isProcessingRef.current && (gameState.health > 0 || isAdminOverride) && safeAction.length > 0) callGeminiAPI(safeAction); 
+      };

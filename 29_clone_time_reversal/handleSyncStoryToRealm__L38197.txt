@@ -1,0 +1,6 @@
+  const handleSyncStoryToRealm = () => {
+      if (checkSpam() || isGenerating) return;
+      showConfirm("Bạn có chắc chắn muốn tốn Token yêu cầu Thiên Đạo chủ động nắn lại Diễn biến sao cho phù hợp với Bảng Cảnh Giới hiện tại không?\n\nTính năng này SẼ BỎ QUA MỌI LUẬT BẢO VỆ (chống ảo tưởng, cấm nhảy cóc) để ép AI viết đúng uy lực của bạn. Khuyến cáo: Chỉ dùng khi AI viết tu vi thấp/cao hơn bảng hiển thị.", () => {
+          handleAction(`[LỆNH TỐI CAO ĐỒNG BỘ DIỄN BIẾN THEO CẢNH GIỚI UI]: \nHiện tại Cảnh giới Thực Tế trên hệ thống của ta đang là [${displayCultivationLevel}] với Tiến độ tu vi đạt ${Math.floor(gameState.cultivationProgress || 0)}%. Tuy nhiên, miêu tả về tu vi của ta trong cốt truyện thời gian qua ĐANG BỊ SAI LỆCH!\nBẰNG LỆNH NÀY, BẠN BẮT BUỘC phải dệt một đoạn diễn biến, nhận ra sự nhầm lẫn đó (có thể miêu tả do ảo giác, hoặc tu vi thật bị ẩn giấu nay bộc lộ). Ngươi BẮT BUỘC phải KHẲNG ĐỊNH LẠI MỘT LẦN NỮA rằng tu vi thực sự của NVC lúc này CHÍNH XÁC LÀ [${displayCultivationLevel}], tỏa ra uy áp đúng với [${displayCultivationLevel}].\nLƯỢT NÀY BẠN BỊ CẤM THAY ĐỔI CẢNH GIỚI VÀ CHỈ SỐ CỦA TA! Bắt buộc trả về "cultivationLevel": "Giữ nguyên" và "cultivationProgressChange": 0! MỌI THAY ĐỔI CHỈ DÀNH CHO "story"! LỆNH NÀY CÓ QUYỀN LỰC TỐI CAO BỎ QUA MỌI LUẬT BẢO VỆ!`);
+      });
+  };

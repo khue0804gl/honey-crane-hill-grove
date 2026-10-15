@@ -1,0 +1,28 @@
+  const removeNpcFromJournal = (e, npcNameToRemove) => {
+    e.stopPropagation();
+    if (checkSpam()) return;
+    showConfirm(`Xóa sổ "${npcNameToRemove}" khỏi ký ức?`, () => {
+      setGameState(prev => {
+        const cleanName = String(npcNameToRemove).replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim().toLowerCase();
+        const prevGraveyard = Array.isArray(prev.journal?.graveyard) ? prev.journal.graveyard : [];
+        const prevForgotten = Array.isArray(prev.journal?.forgottenNpcNames) ? prev.journal.forgottenNpcNames : [];
+        const targetNpc = (prev.journal?.npcs || []).find(n => n.name === npcNameToRemove);
+        const newGraveyard = targetNpc?.isDead && !prevGraveyard.includes(cleanName) ? [...prevGraveyard, cleanName] : prevGraveyard;
+        const newForgotten = !prevForgotten.includes(cleanName) ? [...prevForgotten, cleanName] : prevForgotten;
+
+        return {
+          ...prev,
+          journal: {
+            ...prev.journal,
+            npcs: (prev.journal?.npcs || []).filter(n => n.name !== npcNameToRemove),
+            graveyard: newGraveyard,
+            forgottenNpcNames: newForgotten
+          }
+        };
+      });
+      setStoryLog(prev => {
+        const newLog = [...prev, { type: 'system', text: `[Hệ Thống] Người chơi đã quên lãng / cắt đứt quan hệ với nhân vật: ${npcNameToRemove}.`, chapter: gameState.chapterCount }];
+        return newLog.length > 50 ? newLog.slice(-50) : newLog;
+      });
+    });
+  };

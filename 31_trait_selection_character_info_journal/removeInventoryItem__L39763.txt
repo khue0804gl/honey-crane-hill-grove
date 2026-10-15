@@ -1,0 +1,6 @@
+  const removeInventoryItem = (e, item) => {
+    e.stopPropagation();
+    if (checkSpam()) return;
+    setDiscardItemModal(item);
+    setDiscardAmount(1);
+  };

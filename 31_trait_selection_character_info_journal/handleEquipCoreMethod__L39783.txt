@@ -1,0 +1,11 @@
+  const handleEquipCoreMethod = (e, skill) => {
+    e.stopPropagation();
+    if (checkSpam() || isGenerating) return;
+    showConfirm(`Vận hành Tâm pháp [${skill.name}] làm căn cơ bổn mạng?\n\nLưu ý: Quá trình chuyển đổi chu thiên kinh mạch sẽ tiêu tốn thời gian (1 Lượt). Nếu thực hiện giữa lúc chiến đấu sinh tử, bạn có thể bị tẩu hỏa nhập ma hoặc trúng đòn chí mạng!`, () => {
+      // Gọi AI xử lý như một hành động thực tế
+      handleAction(`Ta khoanh chân tĩnh tọa, từ từ thu hồi chu thiên kinh mạch cũ, dồn toàn lực vận hành tâm pháp [${skill.name}] làm căn cơ bổn mạng mới! \nLỆNH HỆ THỐNG: BẮT BUỘC cập nhật trường "equippedCoreMethod" trong JSON thành "${skill.name}". Nếu ta đang trong trận chiến mà dám ngồi thiền, hãy cho kẻ địch đánh ta trọng thương!`);
+      
+      // Cập nhật State tạm thời để UI phản hồi nhanh
+      setGameState(prev => ({ ...prev, equippedCoreMethod: skill.name }));
+    });
+  };

@@ -1,0 +1,63 @@
+  const generateArenaNPCs = () => {
+      const isDbz = false;
+
+      // Danh sách tên mang phong cách người chơi (Tiếng Anh, Số, Viết liền, Trẻ trâu...)
+      const playerNames = [
+          "DarkSlayer99", "VipPro2000", "HeoMoiTapBay", "KiemKhachZ", "BoyKute", 
+          "WibuChua", "FakerVN", "NoobMaster", "ThienDao789", "NhinCaiGhi", 
+          "AoTuongSucManh", "TrumCuoiServer", "GhostRider", "Top1TheGioi", 
+          "GanhTeamVn", "DragonSlayer", "GaMoiTapChoi", "LangTuVoTinh", 
+          "AnhDaVe", "SatThuBongDem", "KietDz", "Namthan123", "GodOfWar", 
+          "OnePunchMan", "ChuaTeHacAm", "BaoChua69", "LoliHunter", 
+          "YasuoMain", "TrumPk", "NinjaRua", "GiaCatLuong", "PhongVan",
+          "KieuPhong9x", "DocCo9Kiem", "NgaoTheGiai", "VoDanhKhach",
+          "SieuNhanGao", "HacLong", "BachHo", "ChuTuoc01"
+      ];
+
+      // Thuật toán xáo trộn mảng (Shuffle) để đảm bảo bốc ra 8 tên KHÔNG BAO GIỜ TRÙNG NHAU
+      const shuffledNames = [...playerNames].sort(() => 0.5 - Math.random());
+      const selectedNames = shuffledNames.slice(0, 8);
+
+      const levels = ["Độ Kiếp Kỳ", "Đại Thừa Kỳ", "Hợp Thể Kỳ", "Luyện Hư Kỳ", "Hóa Thần Kỳ", "Nguyên Anh Kỳ", "Kim Đan Kỳ", "Trúc Cơ Kỳ", "Luyện Khí Kỳ"];
+      
+      const strats = isDbz ? [
+          "Bạo lực tuyệt đối, dồn toàn bộ Ki vào một đòn Kamehameha hủy diệt.",
+          "Tốc độ ánh sáng, liên tục dùng Khinh Công (Afterimage) né đòn và phản công bằng Thể Thuật.",
+          "Phòng thủ tuyệt đối, gồng Ki tạo lá chắn, chờ đối thủ cạn kiệt năng lượng rồi phản kích.",
+          "Chiến đấu điên cuồng, không màng phòng thủ, lấy công làm thủ ép chết đối phương."
+      ] : [
+          "Bạo lực tuyệt đối, tế máu nhục thân thi triển cấm thuật diệt sát trong 1 đòn.",
+          "Kiếm đạo vô ngã, tốc độ quỷ mị, chém ngàn nhát trước khi kẻ địch kịp chớp mắt.",
+          "Pháp thuật oanh tạc, đứng từ xa gọi sấm sét và hỏa thiên thạch hủy diệt diện rộng.",
+          "Sử dụng Huyễn thuật mê hoặc, độc dược ăn mòn, cấu rỉa sinh lực kẻ địch đến chết.",
+          "Thể tu kim cang, phòng thủ tuyệt đối, mượn lực đánh trả cực kỳ thâm độc."
+      ];
+
+      const npcs = [];
+      for (let i = 0; i < 8; i++) { 
+          const name = selectedNames[i]; // Lấy tên đã xáo trộn bảo đảm duy nhất
+          const levelIdx = Math.floor(Math.random() * levels.length);
+          const stratIdx = Math.floor(Math.random() * strats.length);
+          
+          const level = levels[levelIdx];
+          const stConfig = getStageConfig(level);
+          const mHP = Math.floor(150 * stConfig.statMult * Math.pow(1.15, stConfig.id - 1)); 
+          const mMP = Math.floor(100 * stConfig.statMult * Math.pow(1.15, stConfig.id - 1));
+          
+          const pvpData = {
+              name: name,
+              level: level, bgId: 'bg_19',
+              atk: 25 * stConfig.statMult, def: 20 * stConfig.statMult, spd: 22 * stConfig.statMult, spp: 25 * stConfig.statMult,
+              hp: mHP, maxHp: mHP, mp: mMP, maxMp: mMP, sta: 9999, maxSta: 9999,
+              skills: [{name: 'Thiên Địa Pháp Tắc', level: 'Viên Mãn', desc: 'Sức mạnh hủy diệt của hệ thống'}], 
+              items: [], traits: [{name: 'Bất Diệt Cổ Thể', rarity: 'Đỏ'}], strategy: strats[stratIdx]
+          };
+          npcs.push({ 
+              id: `npc_${i}_${Date.now()}`, uid: `npc_${i}`, name: name, level: level, 
+              rankPosition: 999999, wins: 0, losses: 0, matchHistory: [],
+              lastUpdated: Date.now() - Math.floor(Math.random() * 86400000), // Random thời gian update trong vòng 1 ngày qua
+              pvpDataStr: LZString.compressToBase64(JSON.stringify(pvpData)) 
+          });
+      }
+      return npcs;
+  };

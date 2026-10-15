@@ -1,0 +1,23 @@
+  const togglePinNpc = (e, npcId) => {
+    e.stopPropagation();
+    if (checkSpam()) return;
+    setGameState(prev => {
+        const updateList = (list) => list.map(n => {
+            if (n.id === npcId) {
+                if (!n.isPinned) showAlert(`Đã ghim [${n.name}] làm bạn đồng hành! (Tối đa 1 người). Nhân vật này sẽ luôn đi theo bạn và được Thiên Đạo bảo vệ tính cách cốt lõi.`);
+                else showAlert(`Đã bỏ ghim [${n.name}].`);
+                return { ...n, isPinned: !n.isPinned };
+            }
+            if (n.isPinned) return { ...n, isPinned: false };
+            return n;
+        });
+        
+        const isPinningNew = [...(prev.journal?.npcs || []), ...(prev.sect?.npcs || [])].find(n => n.id === npcId && !n.isPinned);
+        
+        return {
+            ...prev,
+            journal: { ...prev.journal, npcs: isPinningNew ? updateList(prev.journal?.npcs || []) : (prev.journal?.npcs || []).map(n => n.id === npcId ? { ...n, isPinned: !n.isPinned } : n) },
+            sect: prev.sect ? { ...prev.sect, npcs: isPinningNew ? updateList(prev.sect.npcs || []) : (prev.sect.npcs || []).map(n => n.id === npcId ? { ...n, isPinned: !n.isPinned } : n) } : prev.sect
+        };
+    });
+  };

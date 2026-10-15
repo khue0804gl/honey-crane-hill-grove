@@ -1,0 +1,7 @@
+  const isNpcSuppressed = (npc) => {
+      if (!npc) return false;
+      const myStageId = getStageConfig(gameState.cultivationLevel).id || 1;
+      const npcStageId = getStageConfig(npc.level).id || 1;
+      const isEnemy = (Number(npc.hostility) >= 50) || /(thù|địch|truy nã|nghịch tặc)/i.test(npc.relationType || '');
+      return isEnemy && (npcStageId - myStageId >= 5);
+  };

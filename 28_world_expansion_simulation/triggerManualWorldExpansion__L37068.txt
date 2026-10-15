@@ -1,0 +1,20 @@
+  const triggerManualWorldExpansion = () => {
+      setIsMoreMenuOpen(false);
+              setIsGameOverDismissed(false); // V2.38: Tự động reset trạng thái modal tử vong khi nghịch chuyển!
+      if (isGenerating || isOnCooldown || expansionState.isExpanding) return showAlert("Hệ thống đang bận diễn hóa, vui lòng đợi!");
+      if (!gameStarted) return showAlert("Phải bước vào luân hồi mới có thể diễn hóa thế giới ngầm!");
+      if (worldExpansionDepth <= 0) return showAlert("Thời gian diễn hóa phải lớn hơn 0 giây!");
+      
+      const coreMemory = (gameState.summaries || []).slice(0, 15).reverse().map(s => `- [${s.timeLabel || 'Quá khứ'}]: ${s.title} - ${s.content}`).join('\n');
+      
+      const livingNpcs = (gameState.journal?.npcs || []).filter(n => !n.isDead).slice(-20); 
+      const npcContext = livingNpcs.length > 0 
+          ? `\n[DANH SÁCH CỐ NHÂN / KẺ THÙ (HỒNG TRẦN LỤC)]\n${livingNpcs.map(n => `- ${n.name} (Cảnh giới: ${n.level}). Quan hệ: ${n.relationType} | Phe: ${n.alignment}. Tình trạng: ${n.state}`).join('\n')}` 
+          : "";
+
+      const worldEventContext = gameState.currentWorldEvent ? `\n[BIẾN CỐ THẾ GIỚI ĐANG DIỄN RA]: ${gameState.currentWorldEvent}` : "";
+      const fullContext = `${coreMemory}${npcContext}${worldEventContext}`;
+
+      setExpansionState({ isExpanding: true, timeLeft: worldExpansionDepth, totalTime: worldExpansionDepth, controller: new AbortController(), npcsProcessed: 0 });
+      runWorldExpansion(worldExpansionDepth, fullContext);
+  };

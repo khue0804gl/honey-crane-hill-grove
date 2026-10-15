@@ -1,0 +1,83 @@
+  const handleMoveGridStep = (dx: number, dy: number, targetZ?: number) => {
+    if (isGenerating) return showAlert("Thiên Đạo đang tính toán, không thể di chuyển lúc này!");
+
+    const curX = Math.round(gameState.coordinates?.x ?? 0);
+    const curY = Math.round(gameState.coordinates?.y ?? 0);
+    const curZ = Math.round(gameState.coordinates?.z ?? currentPlaneZ);
+    const newX = curX + dx;
+    const newY = curY + dy;
+    const newZ = targetZ !== undefined ? targetZ : curZ;
+
+    if (newX === curX && newY === curY && newZ === curZ) return;
+
+    if (gameState.stamina < 5) {
+      return showAlert("Thể lực đã cạn kiệt! Bạn thở dốc không thể lê bước, hãy dừng chân nghỉ ngơi hoặc nhóm lửa sưởi ấm.");
+    }
+
+    const distLi = getGridDistanceLi({ x: curX, y: curY, z: curZ }, { x: newX, y: newY, z: newZ });
+    const speed = Math.max(1, totalSpd);
+    const travelHours = distLi / speed;
+    const travelMins = Math.max(1, Math.round(travelHours * 60));
+    const staminaCost = Math.max(2, Math.round(distLi * 0.25));
+
+    const cacheKey = `${newX},${newY},${newZ}`;
+    const targetCell = gridCache[cacheKey] || generateWorldGridCell(newX, newY, newZ, gameState.activeDLCs || [], gameState.mapSeed || 0);
+
+    const curStageId = getStageConfig(gameState.cultivationLevel).id || 1;
+    const visionRadius = getVisionRadiusByStage(curStageId, totalSpP, false);
+
+    setGameState(prev => {
+      const newStamina = Math.max(0, prev.stamina - staminaCost);
+      const newCoords = { x: newX, y: newY, z: newZ };
+      const curLocName = targetCell.name;
+
+      const newVisited = { ...(prev.visitedGridCells || {}) };
+      const newFog = { ...(prev.fogKnowledge || {}) };
+      const curYear = Math.floor(Math.max(0, (Number(prev.age) || 18) - (Number(prev.startAge) || 18))) + 1;
+
+      // Bước chân sinh tồn: Xóa vĩnh viễn sương mù của các ô trong tầm nhìn
+      for (let vx = -visionRadius; vx <= visionRadius; vx++) {
+        for (let vy = -visionRadius; vy <= visionRadius; vy++) {
+          newVisited[`${newX + vx},${newY + vy},${newZ}`] = true;
+        }
+      }
+
+      // Nếu ô đặt chân đến trùng với một điểm nút cố định lớn của dòng thời gian hiện tại
+      const activeGraph = getActiveWorldGraph(prev.timelineId);
+      const matchedNode = Object.values(activeGraph).find(n => n.coordinates.x === newX && n.coordinates.y === newY && (n.coordinates.z ?? 0) === newZ);
+      let newLocNodeId = prev.currentLocationNodeId;
+      if (matchedNode) {
+        newLocNodeId = matchedNode.id;
+        newFog[matchedNode.id] = { level: 2, discoveredYear: curYear };
+      }
+
+      // Xử lý hoàn tất nếu đang trên lộ trình đệm và đã đi tới gần đích
+      let updatedInTransit = prev.inTransit;
+      if (updatedInTransit && updatedInTransit.targetCoords.x === newX && updatedInTransit.targetCoords.y === newY) {
+        updatedInTransit = null; // Khóa về đích
+      }
+
+      return {
+        ...prev,
+        coordinates: newCoords,
+        currentLocation: curLocName,
+        currentLocationNodeId: newLocNodeId,
+        inTransit: updatedInTransit,
+        stamina: newStamina,
+        visitedGridCells: newVisited,
+        fogKnowledge: newFog
+      };
+    });
+
+    setGridCache(prev => ({ ...prev, [cacheKey]: targetCell }));
+    setSelectedGridCell(targetCell);
+
+    setStoryLog(logs => [
+      ...logs,
+      {
+        type: 'system',
+        text: `[Bước Chân Sinh Tồn] Đặt chân tới (${newX}, ${newY}) - ${targetCell.name}. Vết chân xé tan màn sương mù vĩnh viễn trên bản đồ! Vượt qua ${distLi} dặm (Mất ${travelMins} phút, tốn ${staminaCost} Thể lực).`,
+        chapter: gameState.chapterCount
+      }
+    ].slice(-50));
+  };

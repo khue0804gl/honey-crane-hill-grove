@@ -1,0 +1,93 @@
+  const handleWarAction = (actionType) => {
+      setGameState(prev => {
+          if (!prev.sect || !prev.sect.isAtWar || !prev.sect.warData) return prev;
+          
+          let newState = { ...prev };
+          let newWarData = { ...newState.sect.warData, logs: [...newState.sect.warData.logs] };
+          const timeStr = new Date().toLocaleTimeString('vi-VN');
+          
+          let sectAtk = newState.sect.members * 10;
+          (newState.sect.infrastructure || []).forEach(inf => sectAtk += inf.level * 500 * (inf.maxDurability > 0 ? inf.durability / inf.maxDurability : 1));
+          
+          let dmgToBoss = 0;
+          let logText = "";
+
+          if (actionType === 'all_out') {
+              dmgToBoss = Math.floor(sectAtk * (Math.random() * 0.5 + 0.8));
+              logText = `Toàn bộ ${newState.sect.isDynasty ? 'quân đội' : 'môn đồ'} kết trận xông lên, gây ${formatLargeNumber(dmgToBoss)} sát thương!`;
+          } else if (actionType === 'burn_wealth') {
+              const wealthToBurn = Math.min(newState.sect.wealth || 0, 100000);
+              if (wealthToBurn < 1000) {
+                  logText = `Quỹ tông môn đã cạn, không thể kích hoạt đại trận!`;
+              } else {
+                  newState.sect.wealth -= wealthToBurn;
+                  dmgToBoss = wealthToBurn * 5; 
+                  logText = `Đốt ${formatLargeNumber(wealthToBurn)} linh thạch kích hoạt cấm trận hộ tông, bắn ra chùm sáng diệt sát gây ${formatLargeNumber(dmgToBoss)} sát thương!`;
+              }
+          } else if (actionType === 'hero_strike') {
+              const stConfig = getStageConfigByPath(newState.cultivationLevel, newState.cultivationPath);
+              const myAtk = ((Number(newState.attack) || 10) + (newState.activeEffects || []).reduce((sum, e) => sum + (e.statMods?.attack || 0), 0)) * stConfig.statMult;
+              const myDmg = Math.floor(myAtk * (Math.random() * 2 + 1)); 
+              dmgToBoss = myDmg;
+              logText = `Bạn đích thân phi thân ra khỏi sơn môn, chém xuống một đòn kinh thiên động địa gây ${formatLargeNumber(dmgToBoss)} sát thương!`;
+          }
+
+          if (dmgToBoss > 0) {
+              newWarData.bossHp = Math.max(0, newWarData.bossHp - dmgToBoss);
+              newWarData.logs.unshift({ time: timeStr, text: logText, isSect: true });
+          }
+
+          if (newWarData.bossHp > 0) {
+              const bossDmg = Math.floor(newWarData.bossAtk * (Math.random() * 0.5 + 0.8));
+              newWarData.logs.unshift({ time: timeStr, text: `${newWarData.bossName} gầm thét phản kích, dội xuống ${formatLargeNumber(bossDmg)} sát thương vào sơn môn!`, isSect: false });
+              
+              let remainingDmg = bossDmg;
+              if (newState.sect.infrastructure) {
+                  newState.sect.infrastructure.forEach(inf => {
+                      if (remainingDmg > 0 && inf.durability > 0) {
+                          const dmg = Math.min(inf.durability, Math.floor(remainingDmg / 2) + 10);
+                          inf.durability -= dmg;
+                          remainingDmg -= dmg;
+                      }
+                  });
+              }
+              if (remainingDmg > 0) {
+                  const killedMembers = Math.floor(remainingDmg / 50);
+                  newState.sect.members = Math.max(1, newState.sect.members - killedMembers);
+              }
+              
+              let totalInfraHp = 0;
+              (newState.sect.infrastructure || []).forEach(inf => totalInfraHp += inf.durability);
+              if (totalInfraHp <= 0 && newState.sect.members <= 1) {
+                  newState.sect = null;
+                  setTimeout(() => showAlert(`TÔNG MÔN ĐÃ BỊ HỦY DIỆT! Đại kiếp quá tàn khốc, toàn bộ cơ nghiệp đã hóa thành tro bụi. Bạn may mắn trốn thoát mang theo vết thương trong lòng.`), 100);
+                  setStoryLog(logs => [...logs, { type: 'system', text: `[ĐẠI KIẾP TÔNG MÔN] Sơn môn sụp đổ, môn đồ chết sạch. Cơ nghiệp vạn năm hóa thành hư vô dưới sức mạnh của ${newWarData.bossName}.`, chapter: newState.chapterCount }]);
+                  return { ...newState };
+              }
+          } else {
+              newState.sect.isAtWar = false;
+              newState.sect.tribulationProgress = 0;
+              newState.sect.warData = null;
+              
+              if (!newState.sect.chronicles) newState.sect.chronicles = [];
+              newState.sect.chronicles.unshift({ time: new Date().toLocaleTimeString('vi-VN'), event: `Đại kiếp qua đi! Đánh bại [${newWarData.bossName}], bảo toàn cơ nghiệp, uy danh chấn động vạn giới.` });
+              
+              const rewardStones = newWarData.bossMaxHp * 2;
+              const rewardPrestige = Math.floor(newWarData.bossMaxHp / 100);
+              newState.sect.wealth += rewardStones;
+              newState.sect.prestige += rewardPrestige;
+              
+              newState.inventory = [...(newState.inventory || []), {
+                  name: `Cốt Tủy ${newWarData.bossName}`,
+                  quantity: 1, type: 'misc', tier: 'Tuyệt Cảnh', rarity: 'Đỏ', desc: `Chiến lợi phẩm từ Đại Kiếp Tông Môn. Mang sức mạnh chấn nhiếp thiên địa.`, containerId: newState.containers[0]?.id || 'default'
+              }];
+
+              setTimeout(() => showAlert(`CHIẾN THẮNG ĐẠI KIẾP!\n\nToàn tông môn đã sát cánh bảo vệ cơ đồ thành công!\nThu được: +${formatLargeNumber(rewardStones)} Linh Thạch (Quỹ), +${formatLargeNumber(rewardPrestige)} Uy Tín, và chiến lợi phẩm Cực Phẩm Đỏ!`), 100);
+              setStoryLog(logs => [...logs, { type: 'system', text: `[ĐẠI KIẾP QUA ĐI] Tông môn dục hỏa trùng sinh! Đánh bại ${newWarData.bossName}, uy danh chấn động vạn giới!`, chapter: newState.chapterCount }]);
+              return { ...newState };
+          }
+          
+          newState.sect.warData = newWarData;
+          return newState;
+      });
+  };

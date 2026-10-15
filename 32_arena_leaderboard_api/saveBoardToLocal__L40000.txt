@@ -1,0 +1,10 @@
+  const saveBoardToLocal = (board) => {
+      try {
+          if (Array.isArray(board) && board.length > 0) {
+              const toSave = board.slice(0, 50);
+              localStorage.setItem(GLOBAL_ARENA_STORAGE_KEY, LZString.compressToBase64(JSON.stringify(toSave)));
+          }
+      } catch (e) {
+          console.warn('Lỗi lưu cache arena local:', e);
+      }
+  };

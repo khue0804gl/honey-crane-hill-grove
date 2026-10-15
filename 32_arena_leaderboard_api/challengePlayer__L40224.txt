@@ -1,0 +1,19 @@
+  const challengePlayer = (oppDoc) => {
+      try {
+          const oppData = safeDecompress(oppDoc.pvpDataStr);
+          if (!oppData) throw new Error("Dữ liệu đối thủ bị hỏng");
+          
+          const stConfig = getStageConfig(arenaState.mySnapshot.cultivationLevel);
+          const myMaxHp = (100 * Math.pow(2, stConfig.id - 1)) + (Number(arenaState.mySnapshot.bonusMaxHp) || 0);
+          const myMaxMp = (50 * Math.pow(2, stConfig.id - 1)) + (Number(arenaState.mySnapshot.bonusMaxMp) || 0);
+
+          setArenaState(prev => ({
+              ...prev,
+              tab: 'battle',
+              opponentSnapshot: oppData, opponentId: oppDoc.id, opponentScore: oppDoc.rankScore,
+              myHP: myMaxHp, myMaxHP: myMaxHp, myMP: myMaxMp, myMaxMP: myMaxMp, myStamina: Number(prev.mySnapshot.stamina) || 100, myMaxStamina: 100,
+              oppHP: oppData.maxHp, oppMaxHP: oppData.maxHp, oppMP: oppData.maxMp || 50, oppMaxMP: oppData.maxMp || 50, oppStamina: oppData.sta || 100, oppMaxStamina: oppData.maxSta || 100,
+              logs: [{ type: 'system', text: `⚔️ TRẬN CHIẾN TRANH ĐOẠT BẮT ĐẦU: ${arenaState.mySnapshot.name} VS ${oppData.name} ⚔️\nNgươi trực tiếp điều khiển nhục thân, đối thủ phòng ngự tự động bằng Chiến Lược AI. Kẻ thắng cướp đoạt Thiên Điểm!` }],
+          }));
+      } catch (e) { showAlert("Không thể khiêu chiến: Khí tức đối thủ quá mơ hồ (Lỗi Data)."); }
+  };

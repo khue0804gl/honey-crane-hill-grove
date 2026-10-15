@@ -1,0 +1,30 @@
+  const showTimeAndDiary = () => {
+    const realms = gameState.knownRealms || {'Vùng đất vô danh':{ratio:1, accumulated:0}};
+    
+    let timeText = "ĐỒNG HỒ ĐA VŨ TRỤ:\n\n";
+    const realmKeys = Object.entries(realms).sort((a,b) => b[1].accumulated - a[1].accumulated).map(e => e[0]);
+    const hasTimeDilation = realmKeys.some(k => k !== 'Vùng đất vô danh' && realms[k].ratio !== 1);
+    
+    let timeEntries = [];
+    realmKeys.forEach(name => {
+        if (name === 'Vùng đất vô danh' && !hasTimeDilation && realmKeys.length > 1) return; 
+        timeEntries.push(`- ${name}: ${getRealmTimeStr(name, realms)}`);
+    });
+
+    timeText += timeEntries.join('\n      ↑\n');
+
+    // V6.19: Bổ sung Lịch sử thay đổi Tuế Nguyệt
+    let historyText = "\n\nLỊCH SỬ THỜI GIAN (GẦN NHẤT):\n";
+    if (!gameState.timeHistory || gameState.timeHistory.length === 0) {
+        historyText += "- Thời gian trôi qua theo tự nhiên.";
+    } else {
+        historyText += gameState.timeHistory.slice(0, 8).map(h => `[${h.time}]\n👉 ${h.reason}`).join("\n\n");
+    }
+
+    const currentChapLogs = storyLog.filter(l => l.chapter === gameState.chapterCount && l.type === 'action');
+    let diaryText = "\n\nNHẬT KÝ CHƯƠNG " + gameState.chapterCount + ":\n";
+    if (currentChapLogs.length === 0) diaryText += "Chưa có hành động nào đáng chú ý.";
+    else diaryText += currentChapLogs.map(l => `- ${(l.timeStart && l.timeEnd) ? `[${l.timeStart} -> ${l.timeEnd}] ` : ""}${l.text.replace(/\[.*?\] /, '')}`).join("\n");
+
+    showAlert(timeText + historyText + diaryText);
+  };

@@ -1,0 +1,64 @@
+  const getSoulLoadBreakdownText = (stateData) => {
+      const stConfig = getStageConfig(stateData.cultivationLevel);
+      const curMaxSoul = 1 + (stConfig.id || 1) + Math.floor((Number(stateData.spiritPower)||10)/10);
+      const curSoul = stateData.absorbedSouls || 1;
+
+      let msg = `CHI TIẾT BÓC TÁCH: TẢI TRỌNG HỒN\n\n`;
+      msg += `Thức Hải (Não bộ) của bạn đang phải gánh chịu áp lực từ:\n\n`;
+      
+      let stepIndex = 1;
+      msg += `${stepIndex}. Bản Thể (Linh hồn gốc) : +1\n`;
+      stepIndex++;
+
+      const hasCloneSystem = stateData.traits?.some(t => t.name === 'Hệ Thống Phân Thân');
+      let fusedComps = (stateData.companions || []).filter(c => c.isFused);
+      if (fusedComps.length > 0) {
+          let compGroups = {};
+          let totalLoad = 0;
+          fusedComps.forEach(c => {
+              let lvl = c.level || 'Phàm Nhân';
+              let cleanLvl = String(lvl).replace(/\s*\[.*?\]\s*/g, '').replace(/\s+Tầng\s+\d+/ig, '').replace(/\s+(Sơ|Trung|Hậu)\s+Kỳ/ig, '').replace(/\s+Viên\s+Mãn/ig, '').replace(/\s+Kỳ/ig, '').trim();
+              
+              if (!compGroups[cleanLvl]) compGroups[cleanLvl] = 0;
+              compGroups[cleanLvl] += 1;
+              
+              if (!hasCloneSystem) {
+                  totalLoad += (getStageConfig(lvl).id || 1);
+              }
+          });
+          let details = Object.keys(compGroups).map(lvl => `${compGroups[lvl]} ${lvl.toLowerCase()}`).join(', và ');
+          msg += `${stepIndex}. Đang dung hợp ${details} : +${totalLoad}${hasCloneSystem ? " (Được miễn trừ nhờ Hệ Thống Phân Thân)" : ""}\n`;
+          stepIndex++;
+      }
+
+      let activeFormations = (stateData.activeEffects || []).filter(e => /(trận|kết giới|phong ấn)/i.test(e.name));
+      if (activeFormations.length > 0) {
+          let formGroups = {};
+          activeFormations.forEach(e => {
+              if (!formGroups[e.name]) formGroups[e.name] = 0;
+              formGroups[e.name] += 1;
+          });
+          Object.keys(formGroups).forEach(name => {
+              let load = formGroups[name] * 2;
+              msg += `${stepIndex}. Điều khiển trận pháp "${name}" số lượng ${formGroups[name]} : +${load}\n`;
+              stepIndex++;
+          });
+      }
+
+      let soulDebuffs = (stateData.activeEffects || []).filter(e => e.type === 'debuff' && /(hồn|chú|nguyền|đoạt phách|oán|tà)/i.test(e.name));
+      if (soulDebuffs.length > 0) {
+          let debuffGroups = {};
+          soulDebuffs.forEach(e => {
+              if (!debuffGroups[e.name]) debuffGroups[e.name] = 0;
+              debuffGroups[e.name] += 1;
+          });
+          Object.keys(debuffGroups).forEach(name => {
+              let load = debuffGroups[name] * 3;
+              msg += `${stepIndex}. Chịu nguyền rủa "${name}" số lượng ${debuffGroups[name]} : +${load}\n`;
+              stepIndex++;
+          });
+      }
+
+      msg += `\n[ Tổng Tải Trọng: ${curSoul} / ${curMaxSoul} ]\n`;
+      return msg;
+  };

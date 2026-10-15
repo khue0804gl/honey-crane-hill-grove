@@ -1,0 +1,605 @@
+  const handleSmartRandom = () => {
+      if (checkSpam()) return;
+      
+      const DESTINY_BUILDS = [
+    // Nhóm 1: Phế Sài Nghịch Tập & Bị Khinh Bỉ (7 kịch bản)
+    {
+        name: "Phế Vật Quật Khởi",
+        suggestedName: "Tiêu Viêm",
+        gender: "Nam",
+        desc: "Từng là thiên tài bị phế đan điền, chịu đựng vị hôn thê từ hôn sỉ nhục. Chiếc nhẫn rỉ sét chứa tàn hồn Tiên Tôn đang chờ thức tỉnh!",
+        bg: "bg_17", // Nông phu khốn khó (-3)
+        traits: [409, 202, 108], // Nghịch Mệnh Đấu Giả (+4), Vận Khí Nghịch Thiên (+4), Tàn Hồn Lão Gia Gia (+5) -> Spent: 10
+        daoHeart: "Tuyệt Đối Thực Dụng",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Từ Hôn Thiếu Gia",
+        suggestedName: "Lâm Phong",
+        gender: "Nam",
+        desc: "Vị hôn thê xé rách hôn ước trước mặt gia tộc. Lời thề ba năm rửa nhục vang vọng cửu tiêu!",
+        bg: "bg_tieu_nhi", // Tiểu Nhị Tửu Lâu (-2)
+        traits: [409, 202, 804], // Nghịch Mệnh Đấu Giả (+4), Vận Khí Nghịch Thiên (+4), Học Bá Tu Tiên (+3) -> Spent: 9
+        daoHeart: "Lãnh Khốc Vô Tình",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Nô Lệ Nghịch Mệnh",
+        suggestedName: "Thiết Trụ",
+        gender: "Nam",
+        desc: "Thân phận nô lệ quặng mỏ chịu roi vọt ngày đêm. Đào trúng long mạch, nhục thân thức tỉnh sức mạnh Bàn Cổ viễn cổ!",
+        bg: "bg_no_le", // Nô Lệ Khổ Sai (-4)
+        traits: [301, 409, 202, 810], // Bàn Cổ Huyết Mạch (+8), Nghịch Mệnh Đấu Giả (+4), Vận Khí Nghịch Thiên (+4), Lắp Bắp (-2) -> Spent: 10
+        daoHeart: "Võ Chi Cuồng Ma",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Kiếm Nô Rửa Kiếm",
+        suggestedName: "Diệp Vô Danh",
+        gender: "Nam",
+        desc: "Nô bộc gánh nước rửa kiếm vạn lần dưới chân lò rèn, ngộ ra kiếm ý bẩm sinh ẩn tàng trong huyết quản.",
+        bg: "bg_kiem_no", // Kiếm Nô Rửa Kiếm (-1)
+        traits: [302, 504, 202, 808], // Bẩm Sinh Kiếm Thai (+6), Kẻ Ăn Mày (-3), Vận Khí Nghịch Thiên (+4), Kẻ Vô Danh (0) -> Spent: 6
+        daoHeart: "Cẩu Đạo Ẩn Nhẫn",
+        narrativeStyle: "toi_gian"
+    },
+    {
+        name: "Kẻ Bất Tử Phế Vật",
+        suggestedName: "Hàn Nhị Cẩu",
+        gender: "Nam",
+        desc: "Tư chất đáy vực nhưng số đỏ vô biên, bị chém đứt đôi người vẫn lành lặn sống dai như đỉa.",
+        bg: "bg_nguoi_thuong", // Thường Dân Vô Danh (-1)
+        traits: [303, 409, 504, 202], // Kim Cang Bất Hoại (+6), Nghịch Mệnh Đấu Giả (+4), Kẻ Ăn Mày (-3), Vận Khí Nghịch Thiên (+4) -> Spent: 10
+        daoHeart: "Tùy Tâm Sở Dục",
+        narrativeStyle: "hai_huoc"
+    },
+    {
+        name: "Tử Tù Đoạt Mạng",
+        suggestedName: "Nhạc Vô Nhai",
+        gender: "Nam",
+        desc: "Chém chết tham quan cứu muội muội, bị nhốt tử lao. Đêm trăng máu ma công thức tỉnh phá tan gông cùm!",
+        bg: "bg_tu_tu", // Tử Tù Lĩnh Án (-5)
+        traits: [306, 107, 305, 808], // Thiên Ma Thể (+8), Xấu Xí Quái Dị (-2), Kiếm Ý Hóa Hình (+3), Kẻ Vô Danh (0) -> Spent: 4
+        daoHeart: "Lãnh Khốc Vô Tình",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Ăn Mày Phản Tướng",
+        suggestedName: "Cái Vô Tà",
+        gender: "Nam",
+        desc: "Ban ngày bưng bát ăn xin khắp chợ, đêm về ôm thanh rỉ sắt ngộ ra Diệt Thế Kiếm Quyết.",
+        bg: "bg_17", // Nông phu khốn khó (-3)
+        traits: [504, 302, 202, 102], // Kẻ Ăn Mày (-3), Bẩm Sinh Kiếm Thai (+6), Vận Khí Nghịch Thiên (+4), Khéo Ăn Nói (+1) -> Spent: 5
+        daoHeart: "Võ Chi Cuồng Ma",
+        narrativeStyle: "default"
+    },
+
+    // Nhóm 2: Cẩu Đạo & Thiết Huyết Tu Tiên (7 kịch bản)
+    {
+        name: "Hàn Môn Nông Phu",
+        suggestedName: "Hàn Lập",
+        gender: "Nam",
+        desc: "Tướng mạo bình thường, tâm cơ thâm trầm cẩn trọng, nhặt được thần bí lục bình bắt đầu con đường trường sinh.",
+        bg: "bg_17", // Nông phu khốn khó (-3)
+        traits: [801, 804, 204, 808], // Tướng Mạo Bình Phàm (0), Học Bá Tu Tiên (+3), Phúc Duyên Thâm Hậu (+5), Kẻ Vô Danh (0) -> Spent: 5
+        daoHeart: "Cẩu Đạo Ẩn Nhẫn",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Dược Đồng Thận Trọng",
+        suggestedName: "Lục Thanh Phong",
+        gender: "Nam",
+        desc: "Chăm chỉ chăm sóc vườn dược liệu, cẩn thận từng li từng tí, tuyệt đối không ra ngoài tranh đoạt phù hoa.",
+        bg: "bg_2", // Con nhà thảo dược (+1)
+        traits: [801, 803, 804, 808], // Tướng Mạo Bình Phàm (0), Vận Khí Bình Thường (0), Học Bá Tu Tiên (+3), Kẻ Vô Danh (0) -> Spent: 4
+        daoHeart: "Cẩu Đạo Ẩn Nhẫn",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Tán Tu Lão Luyện",
+        suggestedName: "Chu Nhất Tiêu",
+        gender: "Nam",
+        desc: "Trải qua vô số lần bí cảnh giết người cướp của mà vẫn bình an vô sự nhờ thói quen luôn chừa 3 đường lui.",
+        bg: "bg_0", // Tán tu vô danh (0)
+        traits: [808, 806, 204, 102], // Kẻ Vô Danh (0), Bước Đi Nhẹ Nhàng (+1), Phúc Duyên Thâm Hậu (+5), Khéo Ăn Nói (+1) -> Spent: 7
+        daoHeart: "Tuyệt Đối Thực Dụng",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Thợ Săn Hắc Ám",
+        suggestedName: "Lãnh Phong",
+        gender: "Nam",
+        desc: "Lẩn khuất trong rừng sâu, săn yêu thú như hít thở, ra tay chuẩn xác một phát đoạt mạng.",
+        bg: "bg_1", // Con nhà săn thú (+1)
+        traits: [808, 305, 806, 801], // Kẻ Vô Danh (0), Kiếm Ý Hóa Hình (+3), Bước Đi Nhẹ Nhàng (+1), Tướng Mạo Bình Phàm (0) -> Spent: 5
+        daoHeart: "Tuyệt Đối Thực Dụng",
+        narrativeStyle: "toi_gian"
+    },
+    {
+        name: "Lang Băm Giang Hồ",
+        suggestedName: "Mạc Thần Y",
+        gender: "Nam",
+        desc: "Bôn ba bán đan dược giả khắp chín châu nhưng sở hữu độc môn bí phương, độc bộ thiên hạ.",
+        bg: "bg_lang_y", // Lang Băm Giang Hồ (+1)
+        traits: [102, 811, 808, 204], // Khéo Ăn Nói (+1), Thuyết Khách (+3), Kẻ Vô Danh (0), Phúc Duyên Thâm Hậu (+5) -> Spent: 10
+        daoHeart: "Tham Tài Hảo Lợi",
+        narrativeStyle: "hai_huoc"
+    },
+    {
+        name: "Ngư Phu Quy Ẩn",
+        suggestedName: "Liễu Trọng",
+        gender: "Nam",
+        desc: "Thả câu bên bờ biển hoang vắng, một ngày câu lên vảy rồng ngậm ngọc định hải thần châm.",
+        bg: "bg_ngu_phu", // Ngư Phu Làng Chài (0)
+        traits: [803, 805, 204, 801], // Vận Khí Bình Thường (0), Kinh Mạch Bình Thường (0), Phúc Duyên Thâm Hậu (+5), Tướng Mạo Bình Phàm (0) -> Spent: 5
+        daoHeart: "Bình Phàm An Phận",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Lính Quèn Sống Dai",
+        suggestedName: "Triệu Đại Hùng",
+        gender: "Nam",
+        desc: "Đội ngũ trăm vạn người xung phong chết sạch, chỉ còn hắn giả chết chui lên từ đống thi thể tiếp tục tu luyện.",
+        bg: "bg_linh_quen", // Lính Quèn Xung Kích (-2)
+        traits: [805, 808, 202, 810], // Kinh Mạch Bình Thường (0), Kẻ Vô Danh (0), Vận Khí Nghịch Thiên (+4), Lắp Bắp (-2) -> Spent: 0
+        daoHeart: "Cẩu Đạo Ẩn Nhẫn",
+        narrativeStyle: "ha_nhan"
+    },
+
+    // Nhóm 3: Kiếm Đạo Độc Tôn (6 kịch bản)
+    {
+        name: "Cô Độc Kiếm Khách",
+        suggestedName: "Yến Thập Tam",
+        gender: "Nam",
+        desc: "Một người một kiếm, đoạn tuyệt hồng trần, sát phạt quả đoán, đi tìm cực hạn của kiếm đạo.",
+        bg: "bg_0", // Tán tu vô danh (0)
+        traits: [302, 305, 808], // Bẩm Sinh Kiếm Thai (+6), Kiếm Ý Hóa Hình (+3), Kẻ Vô Danh (0) -> Spent: 9
+        daoHeart: "Lãnh Khốc Vô Tình",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Kiếm Nô Đốn Ngộ",
+        suggestedName: "Phong Tiêu Tiêu",
+        gender: "Nam",
+        desc: "Ngàn ngày mài kiếm ngàn ngày ngộ, một triêu kiếm khí xung thiên phá tan mây mù cửu thiên.",
+        bg: "bg_no_le", // Nô Lệ Khổ Sai (-4)
+        traits: [302, 305, 804], // Bẩm Sinh Kiếm Thai (+6), Kiếm Ý Hóa Hình (+3), Học Bá Tu Tiên (+3) -> Spent: 8
+        daoHeart: "Võ Chi Cuồng Ma",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Tử Tù Kiếm Ngục",
+        suggestedName: "Cổ Tà",
+        gender: "Nam",
+        desc: "Bị xích trong đáy kiếm ngục ba trăm năm, dùng xương ngón tay mài kiếm ngộ ra tuyệt thế sát chiêu.",
+        bg: "bg_tu_tu", // Tử Tù Lĩnh Án (-5)
+        traits: [302, 305, 409, 810], // Bẩm Sinh Kiếm Thai (+6), Kiếm Ý Hóa Hình (+3), Nghịch Mệnh Đấu Giả (+4), Lắp Bắp (-2) -> Spent: 6
+        daoHeart: "Lãnh Khốc Vô Tình",
+        narrativeStyle: "toi_gian"
+    },
+    {
+        name: "Đạo Phủ Khai Kiếm",
+        suggestedName: "Tạ Đao",
+        gender: "Nam",
+        desc: "Chém vạn ác nhân nơi pháp trường, sát khí ngưng tụ thành kiếm ý thực thể xé rách hư không.",
+        bg: "bg_16", // Đao phủ tử tù (+1)
+        traits: [302, 107, 808], // Bẩm Sinh Kiếm Thai (+6), Xấu Xí Quái Dị (-2), Kẻ Vô Danh (0) -> Spent: 5
+        daoHeart: "Tuyệt Đối Thực Dụng",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Bảo Kiếm Hóa Thần",
+        suggestedName: "Đoạn Niệm",
+        gender: "Nam",
+        desc: "Thần kiếm cổ đại chôn sâu dưới đất vạn năm, hấp thu nhật nguyệt tinh hoa hóa hình thành thiếu niên.",
+        bg: "bg_23", // Bảo Vật Hóa Hình (+6)
+        traits: [305, 808, 107], // Kiếm Ý Hóa Hình (+3), Kẻ Vô Danh (0), Xấu Xí Quái Dị (-2) -> Spent: 7
+        daoHeart: "Lãnh Khốc Vô Tình",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Tàn Kiếm Trọng Sinh",
+        suggestedName: "Sở Cô Hàn",
+        gender: "Nam",
+        desc: "Nhặt được chuôi kiếm gãy của Kiếm Hoàng tổ tiên, đêm đêm trong mộng cùng tàn kiếm giao đấu vạn chiêu.",
+        bg: "bg_4", // Gia tộc suy tàn (+1)
+        traits: [302, 804, 107], // Bẩm Sinh Kiếm Thai (+6), Học Bá Tu Tiên (+3), Xấu Xí Quái Dị (-2) -> Spent: 8
+        daoHeart: "Khát Khao Chân Lý",
+        narrativeStyle: "default"
+    },
+
+    // Nhóm 4: Ma Đạo & Quỷ Tu Tà Sư (7 kịch bản)
+    {
+        name: "Ma Tôn Tàn Ác",
+        suggestedName: "Quân Dạ",
+        gender: "Nam",
+        desc: "Lấy sát phạt làm đạo, điên cuồng tu luyện bất chấp nghiệp chướng, một đường nghịch thiên không lùi bước.",
+        bg: "bg_19", // Tạp dịch Ma Tông (+1)
+        traits: [306, 107, 303, 504], // Thiên Ma Thể (+8), Xấu Xí Quái Dị (-2), Kim Cang Bất Hoại (+6), Kẻ Ăn Mày (-3) -> Spent: 10
+        daoHeart: "Cực Đoan Hủy Diệt",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Thi Âm Tà Sư",
+        suggestedName: "Mặc Thi",
+        gender: "Nam",
+        desc: "Lẩn khuất ở bãi tha ma, đào trộm quan tài đại năng luyện thành Cửu U Ma Thi hộ thân tay sai.",
+        bg: "bg_thi_am_tong", // Đệ tử Thi Âm Tông (+2)
+        traits: [1102, 107, 808], // Thi Âm Luyện Sư (+6), Xấu Xí Quái Dị (-2), Kẻ Vô Danh (0) -> Spent: 6
+        daoHeart: "Tuyệt Đối Thực Dụng",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Vạn Độc Chi Vương",
+        suggestedName: "Độc Cô Cổ",
+        gender: "Nam",
+        desc: "Toàn thân chảy dòng máu kịch độc tím đen, vạn độc bất xâm, bước chân qua đất chết cỏ rụi.",
+        bg: "bg_phu_thuy", // Vu Sư Tà Thuật (+3)
+        traits: [107, 808, 204], // Xấu Xí Quái Dị (-2), Kẻ Vô Danh (0), Phúc Duyên Thâm Hậu (+5) -> Spent: 6
+        daoHeart: "Cực Đoan Hủy Diệt",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Huyết Ma Tái Sinh",
+        suggestedName: "Huyết Vô Nhai",
+        gender: "Nam",
+        desc: "Tắm trong huyết trì ma quật viễn cổ, đổi lấy nhục thân bất tử ban đêm và ma công cái thế.",
+        bg: "bg_tu_tu", // Tử Tù Lĩnh Án (-5)
+        traits: [306, 409, 810, 808], // Thiên Ma Thể (+8), Nghịch Mệnh Đấu Giả (+4), Lắp Bắp (-2), Kẻ Vô Danh (0) -> Spent: 5
+        daoHeart: "Khát Khao Chân Lý",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Hợp Hoan Yêu Nữ",
+        suggestedName: "Mị Nương",
+        gender: "Nữ",
+        desc: "Dung nhan khuynh đảo chúng sinh, tiếng đàn mị hoặc lòng người, hút tinh hoa cường giả để thăng tiến.",
+        bg: "bg_ca_ki", // Nhạc Sư / Ca Kỹ (-2)
+        traits: [802, 102, 808], // Mị Cốt Thiên Sương (+8), Khéo Ăn Nói (+1), Kẻ Vô Danh (0) -> Spent: 7
+        daoHeart: "Phong Lưu Đa Tình",
+        narrativeStyle: "hai_huoc"
+    },
+    {
+        name: "Oán Hồn Tầm Thù",
+        suggestedName: "Cừu Diệt Sinh",
+        gender: "Nam",
+        desc: "Gia tộc bị danh môn chính phái đồ sát, đem toàn bộ oán hận ngưng kết thành ma diễm diệt môn.",
+        bg: "bg_no_le", // Nô Lệ Khổ Sai (-4)
+        traits: [306, 804, 107, 808], // Thiên Ma Thể (+8), Học Bá Tu Tiên (+3), Xấu Xí Quái Dị (-2), Kẻ Vô Danh (0) -> Spent: 5
+        daoHeart: "Lãnh Khốc Vô Tình",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Tà Tu Cướp Bóc",
+        suggestedName: "Hắc Báo",
+        gender: "Nam",
+        desc: "Sơn tặc cướp bóc các đoàn vận lương đan dược, tích lũy tài nguyên nghịch thiên để đột phá cảnh giới.",
+        bg: "bg_dao_tac", // Đạo Tặc Sơn Lâm (+1)
+        traits: [806, 102, 808, 202], // Bước Đi Nhẹ Nhàng (+1), Khéo Ăn Nói (+1), Kẻ Vô Danh (0), Vận Khí Nghịch Thiên (+4) -> Spent: 7
+        daoHeart: "Tham Tài Hảo Lợi",
+        narrativeStyle: "toi_gian"
+    },
+
+    // Nhóm 5: Đạo Tổ & Luân Hồi Trọng Tu (6 kịch bản)
+    {
+        name: "Đạo Tổ Trùng Sinh",
+        suggestedName: "Thái Huyền",
+        gender: "Nam",
+        desc: "Từng là Tồn tại chí cao, nay tự phế vạn năm tu vi, luân hồi làm lại từ đầu với trí tuệ vô đối.",
+        bg: "bg_no_le", // Nô Lệ Khổ Sai (-4)
+        traits: [108, 402, 808], // Tàn Hồn Lão Gia Gia (+5), Ngộ Tính Siêu Phàm (+7), Kẻ Vô Danh (0) -> Spent: 8
+        daoHeart: "Khát Khao Chân Lý",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Đan Thần Tái Thế",
+        suggestedName: "Dược Trần",
+        gender: "Nam",
+        desc: "Ông trùm luyện đan. Lấy thảo dược làm thuốc trường sinh, lấy kịch độc giết địch, được vạn giới cung phụng.",
+        bg: "bg_dan_su", // Đan Sư Cửu Phẩm (+5)
+        traits: [602, 808, 107], // Thiên Sinh Dược Đồng (+5), Kẻ Vô Danh (0), Xấu Xí Quái Dị (-2) -> Spent: 8
+        daoHeart: "Si Mê Bách Nghệ",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Trận Tổ Thượng Cổ",
+        suggestedName: "Gia Cát Khang",
+        gender: "Nam",
+        desc: "Mượn thiên địa làm bàn cờ. Không cần tu vi cao, phất tay một cái là phong ấn cả vạn quân địch.",
+        bg: "bg_tran_su", // Đệ Tử Trận Tông (+5)
+        traits: [804, 808, 107], // Học Bá Tu Tiên (+3), Kẻ Vô Danh (0), Xấu Xí Quái Dị (-2) -> Spent: 6
+        daoHeart: "Khát Khao Chân Lý",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Tiên Phong Đạo Cốt",
+        suggestedName: "Bạch Hạc Chân Nhân",
+        gender: "Nam",
+        desc: "Tiên phong đạo cốt, tâm lặng như nước, hành hiệp trượng nghĩa cứu vạn dân khỏi lầm than.",
+        bg: "bg_0", // Tán tu vô danh (0)
+        traits: [803, 805, 204, 808], // Vận Khí Bình Thường (0), Kinh Mạch Bình Thường (0), Phúc Duyên Thâm Hậu (+5), Kẻ Vô Danh (0) -> Spent: 5
+        daoHeart: "Quang Minh Chính Đại",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Thiên Linh Sủng Nhi",
+        suggestedName: "Lạc Băng Nhi",
+        gender: "Nữ",
+        desc: "Nhan sắc tuyệt trần, khí chất thanh tao, đi đến đâu cũng được đại năng che chở và trời đất ưu ái.",
+        bg: "bg_ca_ki", // Nhạc Sư / Ca Kỹ (-2)
+        traits: [802, 804], // Mị Cốt Thiên Sương (+8), Học Bá Tu Tiên (+3) -> Spent: 9
+        daoHeart: "Hiền Lương Chất Phác",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Thiên Chi Kiêu Tử",
+        suggestedName: "Dạ Cô Vân",
+        gender: "Nam",
+        desc: "Thân truyền đệ tử tông môn, gánh vác kỳ vọng phục hưng đạo thống trước đại nạn thiên đạo.",
+        bg: "bg_9", // Thân truyền đệ tử (+5)
+        traits: [804, 808, 107], // Học Bá Tu Tiên (+3), Kẻ Vô Danh (0), Xấu Xí Quái Dị (-2) -> Spent: 6
+        daoHeart: "Ngạo Mạn Cuồng Vọng",
+        narrativeStyle: "default"
+    },
+
+    // Nhóm 6: Bàng Môn Bách Nghệ & Trí Kế (7 kịch bản)
+    {
+        name: "Thương Nhân Hắc Tâm",
+        suggestedName: "Tiền Vạn Lượng",
+        gender: "Nam",
+        desc: "Ba tấc lưỡi bằng vạn quân, nắm giữ mạch máu kinh tế nhưng rèn đúc phế thải, chuyên dùng tiền đập chết đối thủ.",
+        bg: "bg_tieu_thuong", // Bán Hàng Rong (+1)
+        traits: [508, 811, 1901, 102], // Phú Giáp Nhất Phương (+6), Thuyết Khách (+3), Cầm Búa Rớt Chân (-3), Khéo Ăn Nói (+1) -> Spent: 8
+        daoHeart: "Tham Tài Hảo Lợi",
+        narrativeStyle: "hai_huoc"
+    },
+    {
+        name: "Nho Tu Khí Phách",
+        suggestedName: "Cố Trường Thanh",
+        gender: "Nam",
+        desc: "Không màng tranh đoạt tiên đạo, chỉ mong dùi mài kinh sử, mượn Hạo Nhiên Chính Khí trị quốc an dân.",
+        bg: "bg_nho_sinh", // Thư sinh nghèo (+1)
+        traits: [815, 811, 102], // Hạo Nhiên Chính Khí (+5), Thuyết Khách (+3), Khéo Ăn Nói (+1) -> Spent: 10
+        daoHeart: "Quang Minh Chính Đại",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Thần Cơ Đoán Tạo",
+        suggestedName: "Lôi Cương",
+        gender: "Nam",
+        desc: "Bậc thầy lò rèn, gõ búa đúc nên những thần binh chấn động bát hoang thiên hạ.",
+        bg: "bg_18", // Học đồ Lò rèn (+1)
+        traits: [604, 804, 810], // Thiên Sinh Khí Sư (+5), Học Bá Tu Tiên (+3), Lắp Bắp (-2) -> Spent: 7
+        daoHeart: "Si Mê Bách Nghệ",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Thái Cổ Ngự Thú",
+        suggestedName: "Man Sơn",
+        gender: "Nam",
+        desc: "Lớn lên giữa bầy sói hoang dã, thông thuộc tiếng muông thú, sai khiến vạn thú xông pha trận mạc.",
+        bg: "bg_1", // Con nhà săn thú (+1)
+        traits: [801, 804, 204], // Tướng Mạo Bình Phàm (0), Học Bá Tu Tiên (+3), Phúc Duyên Thâm Hậu (+5) -> Spent: 9
+        daoHeart: "Dã Tính Nguyên Thủy",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Thuyết Khách Miệng Lưỡi",
+        suggestedName: "Tô Tần",
+        gender: "Nam",
+        desc: "Miệng lưỡi dẻo quẹo nghe ngóng thiên hạ bí mật, ba câu hóa giải huyết chiến giữa hai đại tông môn.",
+        bg: "bg_tieu_nhi", // Tiểu Nhị Tửu Lâu (-2)
+        traits: [811, 102, 204, 808], // Thuyết Khách (+3), Khéo Ăn Nói (+1), Phúc Duyên Thâm Hậu (+5), Kẻ Vô Danh (0) -> Spent: 7
+        daoHeart: "Tuyệt Đối Thực Dụng",
+        narrativeStyle: "hai_huoc"
+    },
+    {
+        name: "Đạo Sĩ Bói Quẻ",
+        suggestedName: "Viên Thiên Cơ",
+        gender: "Nam",
+        desc: "Đeo la bàn gãy rong ruổi khắp chốn, bói quẻ lừa gạt tiền bạc nhưng lúc sinh tử bấm quẻ nào chuẩn quẻ đó.",
+        bg: "bg_0", // Tán tu vô danh (0)
+        traits: [811, 102, 804, 808], // Thuyết Khách (+3), Khéo Ăn Nói (+1), Học Bá Tu Tiên (+3), Kẻ Vô Danh (0) -> Spent: 7
+        daoHeart: "Tuyệt Đối Thực Dụng",
+        narrativeStyle: "hai_huoc"
+    },
+    {
+        name: "Võ Sư Giang Hồ",
+        suggestedName: "Nghiêm Chấn Đông",
+        gender: "Nam",
+        desc: "Quyền đả bắc đẩu cước đá nam sơn, lấy võ phàm trần nghịch phạt tiên nhân trên mây.",
+        bg: "bg_vo_su_pham", // Võ Sư Phàm Trần (+3)
+        traits: [305, 808, 107], // Kiếm Ý Hóa Hình (+3), Kẻ Vô Danh (0), Xấu Xí Quái Dị (-2) -> Spent: 4
+        daoHeart: "Võ Chi Cuồng Ma",
+        narrativeStyle: "ha_nhan"
+    },
+
+    // Nhóm 7: Dị Tộc & Thể Tu Viễn Cổ (7 kịch bản)
+    {
+        name: "Bản Thể Thảo Mộc",
+        suggestedName: "Thanh Linh",
+        gender: "Nữ",
+        desc: "Gốc cửu diệp linh thảo sinh ra trong thung lũng cấm địa, hấp thu tinh hoa ngàn năm hóa hình nữ tử.",
+        bg: "bg_20", // Bản Thể Thảo Mộc (+3)
+        traits: [806, 808, 204], // Bước Đi Nhẹ Nhàng (+1), Kẻ Vô Danh (0), Phúc Duyên Thâm Hậu (+5) -> Spent: 9
+        daoHeart: "Nhân Ái Hướng Thiện",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Thạch Thần Bất Diệt",
+        suggestedName: "Thạch Hóa",
+        gender: "Nam",
+        desc: "Khối cự thạch rơi từ vực sâu thiên thạch, trải qua mưa gió vạn năm thức tỉnh linh trí, phòng thủ vô địch.",
+        bg: "bg_21", // Thạch Thần Bất Diệt (+4)
+        traits: [805, 808, 107], // Kinh Mạch Bình Thường (0), Kẻ Vô Danh (0), Xấu Xí Quái Dị (-2) -> Spent: 2
+        daoHeart: "Bình Phàm An Phận",
+        narrativeStyle: "toi_gian"
+    },
+    {
+        name: "Bán Yêu Cuồng Nộ",
+        suggestedName: "Báo Lôi",
+        gender: "Nam",
+        desc: "Con lai bị cả loài người lẫn yêu tộc xua đuổi, khi phẫn nộ yêu huyết bùng cháy xé nát kẻ thù.",
+        bg: "bg_10", // Bán yêu Dị loại (+2)
+        traits: [801, 305, 107, 204], // Tướng Mạo Bình Phàm (0), Kiếm Ý Hóa Hình (+3), Xấu Xí Quái Dị (-2), Phúc Duyên Thâm Hậu (+5) -> Spent: 8
+        daoHeart: "Dã Tính Nguyên Thủy",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Bảo Vật Hóa Hình",
+        suggestedName: "Xích Tiêu",
+        gender: "Nam",
+        desc: "Pháp bảo vô danh tự bẻ gãy phong ấn, nuốt chửng kho tàng cổ giới để ngưng tụ thành nhục thân.",
+        bg: "bg_23", // Bảo Vật Hóa Hình (+6)
+        traits: [804, 107, 808], // Học Bá Tu Tiên (+3), Xấu Xí Quái Dị (-2), Kẻ Vô Danh (0) -> Spent: 7
+        daoHeart: "Khát Khao Chân Lý",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Thái Thản Nhục Thân",
+        suggestedName: "Kha Lạc",
+        gender: "Nam",
+        desc: "Hậu duệ cự nhân viễn cổ, lấy núi làm gối lấy biển làm nước uống, nhục thân cứng hơn huyền thiết.",
+        bg: "bg_titan", // Thái Thản Tộc Titan (+6)
+        traits: [810, 107, 204], // Lắp Bắp (-2), Xấu Xí Quái Dị (-2), Phúc Duyên Thâm Hậu (+5) -> Spent: 7
+        daoHeart: "Võ Chi Cuồng Ma",
+        narrativeStyle: "ha_nhan"
+    },
+    {
+        name: "Hồ Tộc Thanh Khâu",
+        suggestedName: "Bạch Tuyết Cơ",
+        gender: "Nữ",
+        desc: "Cửu vĩ thiên hồ giáng thế, một nụ cười điên đảo quân vương, tinh thông huyễn mộng thuật.",
+        bg: "bg_ho_toc", // Thanh Khâu Hồ Tộc (+8)
+        traits: [107, 808, 102], // Xấu Xí Quái Dị (-2), Kẻ Vô Danh (0), Khéo Ăn Nói (+1) -> Spent: 7
+        daoHeart: "Phong Lưu Đa Tình",
+        narrativeStyle: "default"
+    },
+    {
+        name: "Bỉ Mông Cuồng Thú",
+        suggestedName: "Ô Mông",
+        gender: "Nam",
+        desc: "Mang theo cơn đói vô tận từ thời hồng hoang, miễn nhiễm mọi khống chế trói buộc, đạp sập sơn hà.",
+        bg: "bg_behemoth", // Bỉ Mông Tộc Behemoth (+6)
+        traits: [810, 107, 808], // Lắp Bắp (-2), Xấu Xí Quái Dị (-2), Kẻ Vô Danh (0) -> Spent: 2
+        daoHeart: "Dã Tính Nguyên Thủy",
+        narrativeStyle: "ha_nhan"
+    },
+
+    // Nhóm 8: Xuyên Không & Dị Biến Meme (5 kịch bản)
+    {
+        name: "Kẻ Xuyên Không Khoa Học",
+        suggestedName: "Trần Khoa",
+        gender: "Nam",
+        desc: "Kỹ sư vật lý lượng tử hiện đại xuyên không, dùng định luật Newton và công thức gia tốc để bay lượn và bắn sét.",
+        bg: "bg_0", // Tán tu vô danh (0)
+        traits: [704, 804, 806], // Xuyên Không Chi Hồn (+5), Học Bá Tu Tiên (+3), Bước Đi Nhẹ Nhàng (+1) -> Spent: 9
+        daoHeart: "Khát Khao Chân Lý",
+        narrativeStyle: "hai_huoc"
+    },
+    {
+        name: "Thánh Hacker Linh Võng",
+        suggestedName: "Ẩn Danh Cư Sĩ",
+        gender: "Nam",
+        desc: "Ẩn dật trong hầm tối, hack mạng thông tin ngọc giản cửu giới, trộm điểm cống hiến của lão quái vật làm thú vui.",
+        bg: "bg_0", // Tán tu vô danh (0)
+        traits: [1502, 804, 808], // Tin Tặc Linh Võng (+6), Học Bá Tu Tiên (+3), Kẻ Vô Danh (0) -> Spent: 9
+        daoHeart: "Tùy Tâm Sở Dục",
+        narrativeStyle: "hai_huoc"
+    },
+    {
+        name: "Idol Tu Tiên Tóp Tóp",
+        suggestedName: "Tiểu Tiên Nữ",
+        gender: "Nữ",
+        desc: "Suốt ngày lướt ngọc giản chém gió, fan hâm mộ triệu người nhưng ngoài đời bị chủ nợ đuổi chạy thục mạng.",
+        bg: "bg_ca_ki", // Nhạc Sư / Ca Kỹ (-2)
+        traits: [802, 102, 808], // Mị Cốt Thiên Sương (+8), Khéo Ăn Nói (+1), Kẻ Vô Danh (0) -> Spent: 7
+        daoHeart: "Ngạo Mạn Cuồng Vọng",
+        narrativeStyle: "hai_huoc"
+    },
+    {
+        name: "Đầu Bếp Hắc Ám",
+        suggestedName: "Lưu Nồi Gang",
+        gender: "Nam",
+        desc: "Xẻ thịt yêu thú làm nước lẩu, cho ớt cay và nọc độc vào chảo xào lăn, ăn xong toàn thân phát sáng đột phá cảnh giới.",
+        bg: "bg_0", // Tán tu vô danh (0)
+        traits: [606, 808, 107, 204], // Thiên Sinh Ngự Trù (+4), Kẻ Vô Danh (0), Xấu Xí Quái Dị (-2), Phúc Duyên Thâm Hậu (+5) -> Spent: 7
+        daoHeart: "Tuyệt Đối Thực Dụng",
+        narrativeStyle: "hai_huoc"
+    },
+    {
+        name: "Tên Ngốc Số Đỏ",
+        suggestedName: "A Ngốc",
+        gender: "Nam",
+        desc: "Đi đâu cũng vấp té, nhưng hễ té xuống hang chuột là nhặt được nhẫn trữ vật của tiên nhân thời viễn cổ.",
+        bg: "bg_nguoi_thuong", // Thường Dân Vô Danh (-1)
+        traits: [202, 803, 805], // Vận Khí Nghịch Thiên (+4), Vận Khí Bình Thường (0), Kinh Mạch Bình Thường (0) -> Spent: 3
+        daoHeart: "Hiền Lương Chất Phác",
+        narrativeStyle: "hai_huoc"
+    }
+];
+
+      const isMongAo = gameState.gameMode === 'mong_ao';
+      const validBuilds = DESTINY_BUILDS.filter(b => {
+          const bgObj = BACKGROUNDS_POOL.find(x => x.id === b.bg);
+          if (!bgObj) return false;
+          
+          const traitsValid = b.traits.every(tid => TRAITS_POOL.some(t => t.id === tid));
+          if (!traitsValid) return false;
+
+          if (isMongAo) return true;
+
+          const bgCost = bgObj.cost || 0;
+          const traitsCost = b.traits.reduce((sum, tid) => {
+              const tr = TRAITS_POOL.find(t => t.id === tid);
+              return sum + (tr ? (tr.cost || 0) : 0);
+          }, 0);
+
+          return (bgCost + traitsCost) <= 10;
+      });
+      
+      if (validBuilds.length === 0) {
+          return showAlert("Thiên cơ hỗn loạn, chưa tìm thấy kịch bản định mệnh phù hợp với thiên đạo này!");
+      }
+
+      const chosenBuild = validBuilds[Math.floor(Math.random() * validBuilds.length)];
+      
+      setSelectedBgId(chosenBuild.bg);
+      setSelectedTraitIds(chosenBuild.traits);
+
+      // Cập nhật Tôn Danh, Giới Tính, Đạo Tâm, Văn Phong
+      setGameState(prev => {
+          const personality = PERSONALITIES_POOL.find(p => p.name === chosenBuild.daoHeart);
+          const newDaoHeart = personality ? `${personality.name} - ${personality.desc}` : prev.daoHeart;
+          return {
+              ...prev,
+              name: prev.name && prev.name.trim() !== '' ? prev.name : (chosenBuild.suggestedName || prev.name),
+              gender: chosenBuild.gender || prev.gender || 'Nam',
+              daoHeart: newDaoHeart,
+              narrativeStyle: chosenBuild.narrativeStyle || prev.narrativeStyle || 'default'
+          };
+      });
+      
+      // Đồng bộ Khí vận lên Giao diện lưới 6 ô để người chơi dễ đọc
+      const chosenTraitObjects = TRAITS_POOL.filter(t => chosenBuild.traits.includes(t.id));
+      let newRolled = [...chosenTraitObjects];
+      const selectableTraits = TRAITS_POOL.filter(t => {
+          if (t.isDynamic || chosenBuild.traits.includes(t.id)) return false;
+          return t.id < 10000;
+      });
+      const shuffled = [...selectableTraits].sort(() => 0.5 - Math.random());
+      
+      while(newRolled.length < 6 && shuffled.length > 0) {
+          newRolled.push(shuffled.pop());
+      }
+      setRolledTraits(newRolled);
+
+      const styleName = chosenBuild.narrativeStyle === 'ha_nhan' ? 'Thiết Huyết Tu Tiên' : chosenBuild.narrativeStyle === 'toi_gian' ? 'Tối Giản' : chosenBuild.narrativeStyle === 'hai_huoc' ? 'Kịch Bản / Hài Hước' : 'Cổ Phong Uy Nghiêm';
+
+      showAlert(`🌟 THIÊN CƠ AN BÀI: [${chosenBuild.name}]\n\n` +
+                `👤 Tôn danh đề xuất: ${chosenBuild.suggestedName || 'Tán Tu'} (${chosenBuild.gender || 'Nam'})\n` +
+                `📜 Quá khứ: ${chosenBuild.desc}\n` +
+                `🎭 Đạo tâm: ${chosenBuild.daoHeart || 'Tùy Duyên'}\n` +
+                `✍️ Văn phong: ${styleName}\n\n` +
+                `Hệ thống đã tự động phối hợp Tôn Danh, Xuất Thân, Khí Vận, Đạo Tâm và Văn Phong một cách hoàn mỹ cho đạo hữu!`);
+  };

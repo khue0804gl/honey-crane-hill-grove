@@ -1,0 +1,14 @@
+  const renderStoneLi = (name, qty, mult, colorClass, borderHoverClass, desc) => (
+    <li key={name} onClick={() => showAlert(`[${gameState.currentLocation || 'Thế giới hiện tại'}] ${getRealmTimeStr(gameState.currentLocation || 'Thế giới hiện tại', gameState.knownRealms)}\n\nVẬT PHẨM: ${name}\nLoại: Tiền Tệ\nSố lượng: ${qty.toLocaleString('vi-VN')}\nMiêu tả: ${desc}`)} className={`cursor-pointer group bg-[var(--bg-surface)] p-3 rounded-lg border border-[var(--border-main)] ${borderHoverClass} transition-all`}>
+       <div className="flex justify-between items-start w-full">
+          <div className="flex items-center gap-2 max-w-[80%]">
+             <Coins size={16} className={`${colorClass} shrink-0`}/>
+             <span className={`text-sm font-bold ${colorClass}`}>{name}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+             <span className={`font-mono text-sm font-bold ${colorClass}`}>x{qty.toLocaleString('vi-VN')}</span>
+             <button onClick={(e) => { e.stopPropagation(); setDiscardItemModal({ name, quantity: qty, type: 'currency', multiplier: mult }); setDiscardAmount(1); }} className="opacity-0 group-hover:opacity-100 p-1 text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 rounded transition-all" title="Vứt bỏ"><Trash2 size={14}/></button>
+          </div>
+       </div>
+    </li>
+  );

@@ -1,0 +1,33 @@
+      const handleCustomSubmit = (e) => { 
+    e.preventDefault(); 
+    if (checkSpam()) return;
+    if ((Number(gameState.chapterCount) || 0) === 0) {
+        return showAlert("Đạo hữu chưa khởi tạo xong Chương 1. Vui lòng bấm 'Khởi Đầu Luân Hồi' để bắt đầu kiếp sống!");
+    }
+    // V6.37 FIX: Tước bỏ 100% các từ khóa nhạy cảm dùng để Hack Võ Đài (JSON Injection) - Đã cho phép dấu ngoặc kép " để xài Mộng Ảo
+    let input = (customAction || '').trim().replace(/HpChange|MpChange|StaminaChange|opponent|player|{|}|:/gi, ''); 
+    // V11.29 FIX: Bắt buộc kiểm tra quyền Admin thực sự
+    const isAdminOverride = input.startsWith("[ADMIN_COMMAND]") && isAdminLoggedIn;
+
+    let safeInput = input;
+    // V1.82: HARD CODE GUARD BÍ PHÁP THẦN NGUYỆN KHẾ ƯỚC (NGƯ TỘC THUẦN CHỦNG)
+    if (gameState.backgroundId === 'bg_yeu_thuan_ngu' && /(ban điều ước|ước nguyện|thần nguyện khế ước)/i.test(safeInput)) {
+        const curStage = getStageConfig(gameState.cultivationLevel).id || 1;
+        if (curStage < 5) {
+            return showAlert("[BÍ PHÁP THẦN NGUYỆN]\nBí pháp Thần Nguyện Khế Ước đòi hỏi thần hồn đạt Hóa Thần Kỳ (giai đoạn 5) mới đủ năng lực câu thông quy tắc thiên địa!\nCảnh giới hiện tại chưa thể thi triển bí pháp.");
+        }
+        if (/(vô hạn máu|bất tử tuyệt đối|thẳng lên đạo tổ|bất tử vĩnh cửu)/i.test(safeInput)) {
+            return showAlert("[THIÊN ĐẠO BẢO VỆ]\nQuy tắc thiên địa không thể bị phá vỡ! Bí pháp Thần Nguyện Khế Ước tuyệt đối cấm ước các trạng thái vô hạn máu, bất tử vĩnh cửu hay thăng tiến thẳng lên Đạo Tổ!");
+        }
+    }
+    // Lột sạch các từ khóa tiêm nhiễm (Prompt Injection)
+    if (!isAdminOverride) {
+        safeInput = safeInput.replace(/(lệnh hệ thống|bắt buộc nhét|bắt buộc thêm|cho ta|chắc chắn phải chứa)/gi, "ta mong muốn rằng ngẫu nhiên có");
+        // Bóp nghẹt tiền tệ:
+        safeInput = safeInput.replace(/(\d{5,})\s*linh thạch/gi, "một chút linh thạch");
+    }
+
+    if (safeInput.length > 0 && !isGenerating && !isOnCooldown && !isProcessingRef.current && (gameState.health > 0 || isAdminOverride)) { 
+        callGeminiAPI(safeInput); setCustomAction(''); 
+    } 
+  };

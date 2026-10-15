@@ -1,0 +1,9 @@
+  const togglePinSkill = (e, skillName) => {
+      e.stopPropagation();
+      if (checkSpam()) return;
+      setGameState(prev => {
+          const newJournal = { ...prev.journal };
+          newJournal.skills = newJournal.skills.map(s => s.name === skillName ? { ...s, isPinned: !s.isPinned } : s);
+          return { ...prev, journal: newJournal };
+      });
+  };

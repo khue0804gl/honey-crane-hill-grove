@@ -1,0 +1,49 @@
+  const handleBatchMove = (newCid) => {
+      let itemsToMove = gameState.inventory.filter(i => selectedInvNames.includes(i.name) && (invSearchMode === 'all' ? (gameState.containers || []).some(c => c.id === i.containerId) : i.containerId === activeContainerId));
+      
+      if (newCid === 'comp_shared_inv') {
+          setGameState(prev => {
+              const newInv = [...prev.inventory];
+              const newCloneInv = [...(prev.cloneInventory || [])];
+              
+              itemsToMove.forEach(item => {
+                  const idx = newInv.findIndex(i => i.name === item.name && i.containerId === item.containerId);
+                  if (idx >= 0) {
+                      const itemToMove = { ...newInv[idx], containerId: 'shared_clone_inv' };
+                      const exist = newCloneInv.find(i => i.name === itemToMove.name);
+                      if (exist) exist.quantity += itemToMove.quantity;
+                      else newCloneInv.push(itemToMove);
+                      
+                      newInv.splice(idx, 1);
+                  }
+              });
+              
+              return { ...prev, inventory: newInv, cloneInventory: newCloneInv };
+          });
+          setSelectedInvNames([]);
+          showAlert(`Đã chuyển thành công ${itemsToMove.length} nhóm vật phẩm sang Kho Đồ Phân Thân.`);
+          return;
+      }
+
+      const c = gameState.containers.find(x => x.id === newCid);
+      if (!c) return;
+      
+      const targetWeight = gameState.inventory.filter(x => x.containerId === newCid).reduce((sum, i) => sum + getItemTotalWeight(i), 0);
+      let totalMoveWeight = itemsToMove.reduce((sum, i) => sum + getItemTotalWeight(i), 0);
+
+      if (targetWeight + totalMoveWeight > (c.capacity || 30)) {
+          return showAlert(`Không gian ${c.name} không đủ sức chứa (Cần thêm: ${totalMoveWeight.toFixed(1)}kg)!`);
+      }
+
+      setGameState(prev => {
+          const newInv = prev.inventory.map(i => {
+              if (selectedInvNames.includes(i.name) && i.containerId === activeContainerId) {
+                  return { ...i, containerId: newCid };
+              }
+              return i;
+          });
+          return { ...prev, inventory: newInv };
+      });
+      setSelectedInvNames([]);
+      showAlert(`Đã chuyển thành công ${itemsToMove.length} nhóm vật phẩm sang ${c.name}.`);
+  };

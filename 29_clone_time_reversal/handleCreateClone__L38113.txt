@@ -1,0 +1,54 @@
+  const handleCreateClone = (e) => {
+      e.stopPropagation();
+      const currentLevel = gameState.cloneSystemLevel || 1;
+      const config = getCloneSystemConfig(currentLevel);
+      
+      const currentClonesCount = (gameState.companions || []).filter(c => c.isSystemClone).length;
+      if (currentClonesCount >= config.maxClones) return showAlert(`Đã đạt giới hạn Phân thân của Hệ Thống Cấp ${currentLevel} (${config.maxClones} phân thân)! Hãy nâng cấp hệ thống hoặc xóa bớt phân thân cũ.`);
+      
+      showPrompt(`Hãy đặt Tôn Danh cho Phân Thân mới:\n\nSẽ tiêu tốn ${formatLargeNumber(config.createCost)} Điểm Hệ Thống. Phân thân này mang cảnh giới [${config.baseLevel}].`, (cloneName) => {
+          if (!cloneName || !cloneName.trim()) return;
+          if ((gameState.systemPoints || 0) < config.createCost) return showAlert("Bạn không có đủ Điểm Hệ Thống để vận hành lõi năng lượng chế tạo phân thân! Hãy nạp thêm điểm.");
+          
+          setDialog({ type: 'loading', message: `Đang trích xuất dữ liệu, cấu trúc thân thể cho [${cloneName.trim()}]...` });
+          
+          setTimeout(() => {
+              const baseStats = generateNPCStats(config.baseLevel, { race: 'Khôi Lỗi Sinh Học', role: 'Phân Thân', alignment: 'Trung thành tuyệt đối', isNightmare: (gameState.activeDLCs?.includes('dlc_nightmare') || gameState.activeDLCs?.includes('dlc_nightmare_abyss')) });
+              const newClone = {
+                  id: `clone_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                  name: cloneName.trim(),
+                  type: 'Phân Thân Hệ Thống',
+                  level: config.baseLevel,
+                  status: 'Hoạt động bình thường',
+                  isSystemClone: true,
+                  desc: 'Một phân thân sinh học do Hệ Thống chế tạo, có thể tải ý thức Bản thể vào.',
+                  lastUpdated: Date.now(),
+                  stamina: 100, maxStamina: 100,
+                  food: 100, maxFood: 100,
+                  talent: Math.floor(Math.random() * 30) + 20,
+                  enlightenment: Math.floor(Math.random() * 30) + 20,
+                  foundationScore: 50,
+                  spiritualRoot: getSpiritualRoot([], 'bg_0'),
+                  equipped: { weapon: null, armor: null, head: null, boots: null, artifact: null, accessory: null },
+                  ...baseStats
+              };
+              
+              setGameState(prev => {
+                  return {
+                      ...prev,
+                      systemPoints: (prev.systemPoints || 0) - config.createCost,
+                      companions: [...(prev.companions || []), newClone]
+                  };
+              });
+              
+              setStoryLog(logs => {
+                  const newLog = [...logs, 
+                      { type: 'action', text: `Hành động: Ta dứt khoát mở Bảng Hệ thống trên giao diện, tiêu tốn ${formatLargeNumber(config.createCost)} Điểm Hệ Thống để chế tạo một Phân Thân Hệ Thống cấp [${config.baseLevel}] mới mang danh xưng [${cloneName.trim()}]. Chờ đợi quyền năng hệ thống đúc nặn và bàn giao!`, chapter: gameState.chapterCount },
+                      { type: 'system', text: `[HỆ THỐNG PHÂN THÂN] Quá trình sinh trưởng hoàn tất! Phân thân [${cloneName.trim()}] đã sẵn sàng nhận lệnh.`, chapter: gameState.chapterCount }
+                  ];
+                  return newLog.length > 50 ? newLog.slice(-50) : newLog;
+              });
+              closeDialog();
+          }, 1000);
+      }, "Ví dụ: Ám Ảnh Số 1", false);
+  };

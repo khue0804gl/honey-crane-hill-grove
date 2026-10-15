@@ -1,0 +1,24 @@
+  const handleUpgradeCloneSystem = (e) => {
+      e.stopPropagation();
+      const currentLevel = gameState.cloneSystemLevel || 1;
+      const config = getCloneSystemConfig(currentLevel);
+      if (config.upCost === 0) return showAlert("Hệ thống phân thân đã đạt cấp tối đa!");
+      
+      showConfirm(`Bạn muốn tiêu tốn ${formatLargeNumber(config.upCost)} Điểm Hệ Thống để nâng cấp Hệ Thống Phân Thân lên Cấp ${currentLevel + 1}?\n\nPhân thân tạo ra ở cấp tiếp theo sẽ có gốc Cảnh giới [${getCloneSystemConfig(currentLevel + 1).baseLevel}] và giới hạn số lượng sẽ tăng.`, () => {
+          if ((gameState.systemPoints || 0) < config.upCost) return showAlert("Bạn không có đủ Điểm Hệ Thống!");
+          setGameState(prev => {
+              return {
+                  ...prev,
+                  systemPoints: (prev.systemPoints || 0) - config.upCost,
+                  cloneSystemLevel: currentLevel + 1
+              };
+          });
+          setStoryLog(logs => {
+              const newLog = [...logs, 
+                  { type: 'action', text: `Hành động: Ta mở Giao diện, tiêu tốn ${formatLargeNumber(config.upCost)} Điểm Hệ Thống để Nâng cấp Hệ Thống Phân Thân lên Cấp ${currentLevel + 1}. Máy chủ tái khởi động và mở rộng quyền năng!`, chapter: gameState.chapterCount },
+                  { type: 'system', text: `[HỆ THỐNG] Tiến trình cập nhật hoàn tất! Hệ Thống Phân Thân đã thăng lên Cấp ${currentLevel + 1}. Tính năng mở rộng!`, chapter: gameState.chapterCount }
+              ];
+              return newLog.length > 50 ? newLog.slice(-50) : newLog;
+          });
+      });
+  };

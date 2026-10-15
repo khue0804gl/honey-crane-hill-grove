@@ -1,0 +1,5 @@
+  const showStatInfo = (statName, baseValue, totalValue, desc, pMult = 1) => {
+    const currentLevel = displayCultivationLevel;
+    const multiplier = stageConfig.statMult;
+    showAlert(`CHI TIẾT CHỈ SỐ: ${statName}\n\n[ Sức Mạnh Thực Tế ]\nTổng: ${formatLargeNumber(totalValue)}\n= (Căn cơ gốc + Bị Động Thể Chất + Pháp Bảo + Yêu Linh + Buff tạm thời) × Hệ số ${currentLevel} (x${multiplier})${pMult > 1 ? ` × Bạo Kích Khí Vận (x${pMult})` : ''}\n\n[ Ý Nghĩa ]\n${desc}\n\n*Ghi chú: Điểm Căn cơ gốc rất khó tăng, thường chỉ được cộng thêm khi Đột Phá cảnh giới. Khi đột phá, Hệ số nhân sẽ tăng vọt giúp sức mạnh nhảy vọt!`);
+  };

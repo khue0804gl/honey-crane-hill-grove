@@ -1,0 +1,13 @@
+  const handleBatchDiscard = () => {
+      showConfirm(`Bạn có chắc chắn muốn vứt bỏ toàn bộ ${selectedInvNames.length} nhóm vật phẩm đã chọn?`, () => {
+          setGameState(prev => ({
+              ...prev,
+              inventory: prev.inventory.filter(i => !(selectedInvNames.includes(i.name) && (invSearchMode === 'all' ? (prev.containers || []).some(c => c.id === i.containerId) : i.containerId === activeContainerId)))
+          }));
+          setStoryLog(prev => {
+              const newLog = [...prev, { type: 'system', text: `[Hệ Thống] Đã vứt bỏ hàng loạt vật phẩm.`, chapter: gameState.chapterCount }];
+              return newLog.length > 50 ? newLog.slice(-50) : newLog;
+          });
+          setSelectedInvNames([]);
+      });
+  };

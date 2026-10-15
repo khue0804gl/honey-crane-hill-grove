@@ -1,0 +1,144 @@
+const repairAndParseJson = (str: string) => {
+    if (!str || typeof str !== 'string') throw new Error("Văn bản phản hồi từ Thiên Đạo bị trống");
+    let s = str.trim();
+    try { return JSON.parse(s); } catch (e) {}
+
+    const cbMatch = s.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
+    if (cbMatch) {
+        try { return JSON.parse(cbMatch[1]); } catch(e) {}
+    }
+
+    const firstBrace = s.indexOf('{');
+    if (firstBrace === -1) {
+        throw new Error("Không tìm thấy cấu trúc JSON trong phản hồi từ Thiên Đạo");
+    }
+
+    // V3.29 NÂNG CẤP: State Machine làm sạch comment, trailing commas và chuẩn hóa control chars trong string
+    let cleaned = '';
+    let inString = false;
+    let escape = false;
+    let i = firstBrace;
+
+    while (i < s.length) {
+        const ch = s[i];
+        const next = i + 1 < s.length ? s[i + 1] : '';
+
+        if (inString) {
+            if (escape) {
+                cleaned += ch;
+                escape = false;
+                i++;
+                continue;
+            }
+            if (ch === '\\') {
+                cleaned += ch;
+                escape = true;
+                i++;
+                continue;
+            }
+            if (ch === '"') {
+                cleaned += ch;
+                inString = false;
+                i++;
+                continue;
+            }
+            if (ch === '\n') {
+                cleaned += '\\n';
+                i++;
+                continue;
+            }
+            if (ch === '\r') {
+                i++;
+                continue;
+            }
+            if (ch === '\t') {
+                cleaned += '\\t';
+                i++;
+                continue;
+            }
+            cleaned += ch;
+            i++;
+        } else {
+            if (ch === '"') {
+                cleaned += ch;
+                inString = true;
+                i++;
+                continue;
+            }
+            // Bỏ qua line comment //
+            if (ch === '/' && next === '/') {
+                i += 2;
+                while (i < s.length && s[i] !== '\n') i++;
+                continue;
+            }
+            // Bỏ qua block comment /* */
+            if (ch === '/' && next === '*') {
+                i += 2;
+                while (i < s.length - 1 && !(s[i] === '*' && s[i + 1] === '/')) i++;
+                i += 2;
+                continue;
+            }
+            // Bỏ qua trailing comma trước } hoặc ]
+            if (ch === ',') {
+                let j = i + 1;
+                while (j < s.length && /\s/.test(s[j])) j++;
+                if (j < s.length && (s[j] === '}' || s[j] === ']')) {
+                    i++;
+                    continue;
+                }
+            }
+            cleaned += ch;
+            i++;
+        }
+    }
+
+    try { return JSON.parse(cleaned); } catch (e) {}
+
+    // Cân bằng ngoặc đóng (auto-close stack) nếu JSON bị cắt cụt do giới hạn token
+    let stack: string[] = [];
+    let inStr = false;
+    let esc = false;
+    for (let k = 0; k < cleaned.length; k++) {
+        const c = cleaned[k];
+        if (esc) { esc = false; continue; }
+        if (c === '\\') { esc = true; continue; }
+        if (c === '"') { inStr = !inStr; continue; }
+        if (!inStr) {
+            if (c === '{' || c === '[') stack.push(c);
+            else if (c === '}' && stack[stack.length - 1] === '{') stack.pop();
+            else if (c === ']' && stack[stack.length - 1] === '[') stack.pop();
+        }
+    }
+    let balanced = cleaned;
+    if (inStr) balanced += '"';
+    while (stack.length > 0) {
+        const top = stack.pop();
+        balanced += (top === '{' ? '}' : ']');
+    }
+
+    try {
+        return JSON.parse(balanced);
+    } catch (parseErr) {
+        // V3.29 FIX: Bóc tách Regex Rescue bảo toàn 100% options và story gốc của AI khi JSON lỗi cú pháp
+        const storyM = s.match(/"story"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/);
+        const storyText = storyM ? storyM[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : "Diễn biến tiếp tục thuận theo thiên địa quy luật vận chuyển, linh khí đất trời lắng đọng bảo bọc lấy thân thể.";
+
+        const optM = s.match(/"(?:options|nextOptions)"\s*:\s*\[([\s\S]*?)\]/);
+        let extractedOpts: string[] = [];
+        if (optM) {
+            extractedOpts = Array.from(optM[1].matchAll(/"([^"\\]*(?:\\.[^"\\]*)*)"/g))
+                .map(m => m[1].replace(/\\"/g, '"').replace(/\\n/g, ' ').trim())
+                .filter(Boolean);
+        }
+
+        return {
+            story: storyText,
+            options: extractedOpts.length > 0 ? extractedOpts : [
+                "Vận chuyển chu thiên linh lực củng cố đạo cơ, đề phòng biến cố",
+                "Thu thập chiến lợi phẩm, kiểm kê thiên tài địa bảo xung quanh",
+                "Khai mở thần thức bao quát tứ phương, tìm kiếm cơ duyên tiếp theo",
+                "Tịnh dưỡng thân thể, mưu định phương hướng hành động kế tiếp"
+            ]
+        };
+    }
+};

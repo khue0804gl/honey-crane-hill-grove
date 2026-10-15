@@ -1,0 +1,95 @@
+  const fetchLeaderboard = async () => {
+      setArenaState(prev => ({ ...prev, isLoadingBoard: true }));
+      try {
+          const snap = await getDocs(collection(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena'));
+          let board = [];
+          snap.forEach(d => board.push({ id: d.id, ...d.data() }));
+          
+          const globalRef = doc(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena_meta', 'global_state');
+          const globalSnap = await getDoc(globalRef);
+          let lastSimulation = globalSnap.exists() ? globalSnap.data().lastSimulationTime : 0;
+          let needsUpdateToCloud = false;
+
+          if (board.length === 0) {
+              const cachedBoard = loadBoardFromLocal();
+              if (cachedBoard && cachedBoard.length > 0) {
+                  board = cachedBoard;
+                  needsUpdateToCloud = true;
+              } else {
+                  board = generateArenaNPCs();
+                  board.forEach((p, i) => { p.rankPosition = i + 1; });
+                  needsUpdateToCloud = true;
+              }
+          } else {
+              saveBoardToLocal(board);
+          }
+
+          // V6.5 FIX LỖI ẢO TƯỞNG SỨC MẠNH: Tính toán lực chiến THỰC TẾ
+          const now = Date.now();
+          if (now - lastSimulation > 3600000 && board.length > 1) { // 1 Giờ
+              for (let i = 0; i < 3; i++) {
+                  const sorted = [...board].sort((a, b) => a.rankPosition - b.rankPosition);
+                  const idxChallenger = Math.floor(Math.random() * (sorted.length - 1)) + 1; 
+                  const idxDefender = Math.floor(Math.random() * idxChallenger); 
+                  
+                  const p1 = sorted[idxChallenger];
+                  const p2 = sorted[idxDefender];
+                  
+                  if (String(p1.id).startsWith('npc_')) {
+                      // Giải mã thông số ẩn để tính sức mạnh thực
+                      let p1Data = safeDecompress(p1.pvpDataStr) || { atk: 10, def: 10, spd: 10, spp: 10, maxHp: 100 };
+                      let p2Data = safeDecompress(p2.pvpDataStr) || { atk: 10, def: 10, spd: 10, spp: 10, maxHp: 100 };
+
+                      // Công thức: Máu * (Công + Thủ + Tốc + Thức). Chênh lệch càng lớn, tỉ lệ thắng càng cao.
+                      const p1Power = (Number(p1Data.maxHp) || 1) * ((Number(p1Data.atk)||0) + (Number(p1Data.def)||0) + (Number(p1Data.spd)||0) + (Number(p1Data.spp)||0));
+                      const p2Power = (Number(p2Data.maxHp) || 1) * ((Number(p2Data.atk)||0) + (Number(p2Data.def)||0) + (Number(p2Data.spd)||0) + (Number(p2Data.spp)||0));
+
+                      // Ngẫu nhiên thực chiến: Chênh lệch < 20% có thể lật kèo, Chênh lệch > 50% nghiền ép tuyệt đối.
+                      const rng = Math.random() * 0.4 + 0.8; // Trọng số ngẫu nhiên 0.8 -> 1.2
+                      const p1Won = (p1Power * rng) > p2Power;
+                      
+                      // Viết nguyên nhân cực ngầu
+                      let summaryDesc = p1Won 
+                          ? `Đánh bại ${p2.name} bằng thực lực áp đảo. Lực lượng nghiền ép hoàn toàn.` 
+                          : `Thất bại trước ${p2.name}. Nội lực khô kiệt, không thể xuyên phá phòng ngự.`;
+                          
+                      if (Math.abs(p1Power - p2Power) < p2Power * 0.2) {
+                          summaryDesc = p1Won ? `Suýt soát giành chiến thắng trước ${p2.name} sau ngàn vạn hiệp giao phong.` : `Hòa nhau đến hơi thở cuối cùng, nhưng ${p2.name} xuất chiêu nhanh hơn nửa nhịp.`;
+                      }
+
+                      const historyLog = { time: Date.now(), result: p1Won ? 'win' : 'loss', opp: p2.name, summary: summaryDesc };
+                      const historyLogOpp = { time: Date.now(), result: !p1Won ? 'win' : 'loss', opp: p1.name, summary: summaryDesc.replace(p2.name, p1.name).replace('Đánh bại', 'Bị đánh bại bởi').replace('Thất bại trước', 'Chặn đứng sự khiêu khích của') };
+
+                      p1.wins = (p1.wins || 0) + (p1Won ? 1 : 0);
+                      p1.losses = (p1.losses || 0) + (!p1Won ? 1 : 0);
+                      p1.matchHistory = [historyLog, ...(p1.matchHistory || [])].slice(0, 10);
+
+                      p2.wins = (p2.wins || 0) + (!p1Won ? 1 : 0);
+                      p2.losses = (p2.losses || 0) + (p1Won ? 1 : 0);
+                      p2.matchHistory = [historyLogOpp, ...(p2.matchHistory || [])].slice(0, 10);
+
+                      if (p1Won) {
+                          const tempRank = p1.rankPosition;
+                          p1.rankPosition = p2.rankPosition;
+                          p2.rankPosition = tempRank;
+                      }
+                      needsUpdateToCloud = true;
+                  }
+              }
+              await setDoc(globalRef, { lastSimulationTime: now }, { merge: true });
+          }
+
+          // Cập nhật lại dữ liệu Mây nếu có mô phỏng
+          if (needsUpdateToCloud) {
+              const batchUpdate = board.map(p => setDoc(doc(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena', p.id), p, { merge: true }));
+              await Promise.all(batchUpdate);
+          }
+
+          board.sort((a, b) => (a.rankPosition || 999999) - (b.rankPosition || 999999));
+          setArenaState(prev => ({ ...prev, leaderboard: board, isLoadingBoard: false }));
+      } catch (e) {
+          console.error(e);
+          const fallbackBoard = loadBoardFromLocal() || generateArenaNPCs();
+          setArenaState(prev => ({ ...prev, leaderboard: fallbackBoard, isLoadingBoard: false }));
+      }
+  };

@@ -1,0 +1,11 @@
+  const showStatModDetails = (e, statKey, statName) => {
+      e.stopPropagation();
+      const mods = (gameState.activeEffects || []).filter(eff => eff.statMods && eff.statMods[statKey]);
+      if (mods.length === 0) return;
+      let msg = `CHI TIẾT BIẾN ĐỘNG: ${statName}\n\n`;
+      mods.forEach(m => {
+          const val = m.statMods[statKey];
+          msg += `[${m.name}]: ${val > 0 ? '+'+val : val} (Còn ${formatEffTime(m.durationMinutes)})\n👉 ${m.desc}\n\n`;
+      });
+      showAlert(msg);
+  };

@@ -1,0 +1,17 @@
+  const closeArena = () => {
+      if (arenaState.tab === 'battle' && arenaState.myHP > 0 && arenaState.oppHP > 0) {
+          showConfirm("Đào tẩu lúc này sẽ bị giáng hạng! Xác nhận thoát?", async () => {
+              // Phạt điểm khi chuồn
+              if (user && arenaState.myProfileId) {
+                  try {
+                      const myRef = doc(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena', `${user?.uid}_${arenaState.myProfileId}`);
+                      const mySnap = await getDoc(myRef);
+                      if (mySnap.exists()) await setDoc(myRef, { rankScore: Math.max(0, (mySnap.data().rankScore||0) - 50) }, { merge: true });
+                  } catch(e){}
+              }
+              setIsArenaOpen(false);
+          });
+      } else {
+          setIsArenaOpen(false);
+      }
+  };

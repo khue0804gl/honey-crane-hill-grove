@@ -1,0 +1,16 @@
+  const handleShowDeathInfo = (e) => {
+    if (e) e.stopPropagation();
+    const historyArr = (gameState.deathHistory || []).map((h, i) => ({
+        time: h.time || 'Không rõ thời điểm',
+        reason: h.reason || 'Biến cố vô thường',
+        change: h.surviveReason || 'Hoàn hồn / Tái sinh',
+        breakdown: [
+            { action: `Nguyên nhân: ${h.reason || 'Vẫn lạc'}`, change: h.surviveReason || 'Đoạn kiếp', time: h.time || '' }
+        ]
+    }));
+    const introText = gameState.health <= 0 
+        ? `TÌNH TRẠNG HIỆN TẠI: VẪN LẠC\nNguyên nhân: "${gameState.deathReason || 'Thân xác tan thành cát bụi, linh lực quy hoàn thiên địa.'}"\n\n🌿 Vô Ngã Luân Hồi: Thân xác hữu hạn trả về thiên địa, linh hồn hòa vào đại đạo, chờ đợi nhân duyên tái sinh.`
+        : `GHI CHÉP SINH TỬ & TÁI SINH (${Number(gameState.rebirthCount) || 0} lần luân hồi)\n\n🌿 Duyên Khởi Bất Diệt: Trải qua sinh tử tôi luyện đạo tâm, vạn kiếp luân hồi chứng đạo trường sinh.`;
+    
+    showStatHistoryModal('Ghi Chép Sinh Tử & Luân Hồi', historyArr, introText);
+  };

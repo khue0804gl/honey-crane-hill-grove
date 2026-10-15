@@ -1,0 +1,70 @@
+  const toggleQuickSelect = (traitId) => {
+    if (selectedBgId === 'bg_thien_dao_khuoc_tu') {
+        const _tObj = TRAITS_POOL.find(t => t.id === traitId);
+        if (isForbiddenThienDaoKhuocTuTrait(_tObj)) {
+            showAlert("Xuất thân Thiên Đạo Khước Từ bị thiên địa ruồng bỏ, tuyệt đối không thể chọn Khí Vận may mắn, thiên mệnh hay hệ thống gia hộ!");
+            return;
+        }
+    }
+    if (lockedTraitIds.includes(traitId) && !selectedTraitIds.includes(traitId)) {
+        showAlert("Khí vận này xung khắc với Khí vận đã chọn!");
+        return;
+    }
+    // V1.49: KHÓA CỨNG BẰNG CODE - YÊU TỘC THUẦN CHỦNG CẤM CHỌN ĂN MÀY, NGỰ YÊU, HỆ THỐNG
+    if (isPureYeuTocBg(selectedBgId)) {
+        const _tObj = TRAITS_POOL.find(t => t.id === traitId);
+        if (traitId === 504 || traitId === 605 || traitId === 803 || traitId === 701 || (_tObj && (_tObj.isSystemParent || _tObj.isSystemChild))) {
+            showAlert("Xuất thân Yêu Tộc Thuần Chủng không thể chọn khí vận Kẻ Ăn Mày, Ngự Yêu hoặc Hệ Thống Gia Hộ!");
+            return;
+        }
+    }
+    const traitObj = TRAITS_POOL.find(t => t.id === traitId);
+    if (traitObj && traitObj.isSystemParent && !selectedTraitIds.includes(traitId)) {
+        setIsSystemModalOpen(true);
+        return;
+    }
+    if (traitObj && traitObj.isWeaponParent && !selectedTraitIds.includes(traitId)) {
+        setIsWeaponModalOpen(true);
+        return;
+    }
+    if (selectedTraitIds.includes(traitId)) {
+        let toRemove = [traitId];
+        if (traitId === 701) {
+            toRemove = [...toRemove, ...TRAITS_POOL.filter(t => t.isSystemChild).map(t => t.id)];
+        }
+        if (traitId === 302) {
+            toRemove = [...toRemove, ...TRAITS_POOL.filter(t => t.isWeaponChild).map(t => t.id)];
+        }
+        setSelectedTraitIds(prev => prev.filter(id => !toRemove.includes(id)));
+        
+        if (traitObj && (traitObj.isSystemChild || traitObj.isWeaponChild)) {
+            setRolledTraits(current => {
+                let parentId = null;
+                if (traitObj.isSystemChild) parentId = 701;
+                if (traitObj.isWeaponChild) parentId = 302;
+                
+                if (parentId) {
+                    const parentObj = TRAITS_POOL.find(t => t.id === parentId);
+                    const childIdx = current.findIndex(t => t.id === traitId);
+                    if (childIdx >= 0 && parentObj) {
+                        const newRolled = [...current];
+                        newRolled[childIdx] = parentObj;
+                        return newRolled;
+                    }
+                }
+                return current;
+            });
+        }
+    }
+    else if (selectedTraitIds.length < 4 || gameState.gameMode === 'mong_ao') {
+        setSelectedTraitIds(prev => [...prev, traitId]);
+        setRolledTraits(current => {
+          if (current.find(t => t.id === traitId)) return current;
+          const fullTrait = TRAITS_POOL.find(t => t.id === traitId);
+          const replaceIdx = current.findIndex(t => t && !selectedTraitIds.includes(t.id) && t.id !== traitId);
+          const newRolled = [...current];
+          if (replaceIdx >= 0) newRolled[replaceIdx] = fullTrait; else newRolled.push(fullTrait);
+          return newRolled;
+        });
+    } else showAlert("Chế độ Chân Thực giới hạn tối đa 4 Khí Vận!");
+  };

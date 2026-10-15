@@ -1,0 +1,85 @@
+  const registerToArena = async () => {
+      if (!user || !arenaState.mySnapshot) return;
+      if (!arenaState.myStrategy.trim()) return showAlert("Hãy thiết lập Tôn Chỉ Chiến Đấu (Chiến lược) để AI biết cách điều khiển bạn bảo vệ thứ hạng khi bạn offline!");
+      
+      const myName = arenaState.mySnapshot.name.trim();
+      
+      // BẢN VÁ LỖI: Cải tiến logic chống trùng tên. Dù bạn bị đổi UID ẩn danh nhưng nếu cùng 1 file nhân vật (profileId) thì vẫn được phép ghi đè lên tên cũ của mình!
+      const isNameTaken = arenaState.leaderboard.some(p => p.name === myName && p.profileId !== arenaState.myProfileId);
+      if (isNameTaken) return showAlert(`Tôn danh "${myName}" đã bị kẻ khác chiếm đoạt trên Thiên Bảng! Vui lòng đổi tên hoặc xóa hồ sơ cũ.`);
+
+      setDialog({ type: 'loading', message: "Đang khắc ấn thần hồn lên Thiên Bảng..." });
+      try {
+          // BẢN VÁ LỖI: Tìm lại Hồ sơ cũ trên Đám Mây bằng ID Nhân vật gốc, bất chấp việc UID tài khoản bị thay đổi!
+          const existingRecord = arenaState.leaderboard.find(p => p.profileId === arenaState.myProfileId);
+          const docId = existingRecord ? existingRecord.id : `${user?.uid}_${arenaState.myProfileId}`;
+          const rankRef = doc(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena', docId);
+          const snap = await getDoc(rankRef);
+          
+          let myRank = 999999; 
+          let myWins = 0; let myLosses = 0; let myHistory = [];
+          
+          if (snap.exists()) {
+              const data = snap.data();
+              myRank = data.rankPosition || data.rankScore || 999999; 
+              myWins = data.wins || 0;
+              myLosses = data.losses || 0;
+              myHistory = data.matchHistory || [];
+          } else {
+              const realPlayers = arenaState.leaderboard.filter(p => !String(p.id).startsWith('npc_'));
+              const maxRank = realPlayers.length > 0 ? Math.max(...realPlayers.map(p => p.rankPosition || 0)) : 10;
+              myRank = maxRank + 1;
+          }
+
+          const stConfig = getStageConfig(arenaState.mySnapshot.cultivationLevel);
+          const mHP = Math.floor(100 * stConfig.statMult * Math.pow(1.15, stConfig.id - 1)) + (Number(arenaState.mySnapshot.bonusMaxHp) || 0);
+          const mMP = Math.floor(50 * stConfig.statMult * Math.pow(1.15, stConfig.id - 1)) + (Number(arenaState.mySnapshot.bonusMaxMp) || 0);
+
+          const pvpData = {
+              name: myName, level: arenaState.mySnapshot.cultivationLevel, chapter: arenaState.mySnapshot.chapterCount || 0, bgId: arenaState.mySnapshot.backgroundId,
+              atk: (Number(arenaState.mySnapshot.attack) || 10) * stConfig.statMult, def: (Number(arenaState.mySnapshot.defense) || 10) * stConfig.statMult,
+              spd: (Number(arenaState.mySnapshot.speed) || 10) * stConfig.statMult, spp: (Number(arenaState.mySnapshot.spiritPower) || 10) * stConfig.statMult,
+              hp: mHP, maxHp: mHP, mp: mMP, maxMp: mMP, sta: Number(arenaState.mySnapshot.stamina) || 100, maxSta: 100,
+              skills: (arenaState.mySnapshot.journal?.skills || []).filter(s => arenaState.selectedSkills.includes(s.name)),
+              items: (arenaState.mySnapshot.inventory || []).filter(i => arenaState.selectedItems.includes(i.name)),
+              traits: arenaState.mySnapshot.traits || [], strategy: arenaState.myStrategy
+          };
+
+          await setDoc(rankRef, {
+              id: docId, uid: user?.uid, profileId: arenaState.myProfileId,
+              name: myName, level: pvpData.level,
+              rankPosition: myRank, wins: myWins, losses: myLosses, matchHistory: myHistory,
+              pvpDataStr: LZString.compressToBase64(JSON.stringify(pvpData)),
+              lastUpdated: Date.now()
+          }, { merge: true });
+
+          await setDoc(doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', arenaState.myProfileId), { pvpStrategy: arenaState.myStrategy }, { merge: true });
+          
+          try {
+              const updatedBoard = [...arenaState.leaderboard];
+              const existIdx = updatedBoard.findIndex(p => p.profileId === arenaState.myProfileId || p.id === docId);
+              const myEntry = {
+                  id: docId, uid: user?.uid, profileId: arenaState.myProfileId,
+                  name: myName, level: pvpData.level,
+                  rankPosition: myRank, wins: myWins, losses: myLosses, matchHistory: myHistory,
+                  pvpDataStr: LZString.compressToBase64(JSON.stringify(pvpData)),
+                  lastUpdated: Date.now()
+              };
+              if (existIdx >= 0) {
+                  updatedBoard[existIdx] = { ...updatedBoard[existIdx], ...myEntry };
+              } else {
+                  updatedBoard.push(myEntry);
+              }
+              saveBoardToLocal(updatedBoard);
+          } catch(err) {
+              console.warn("Lỗi lưu cache arena local:", err);
+          }
+
+          closeDialog();
+          showAlert("Khắc ấn thành công! Hãy chọn mục tiêu phía trên để leo hạng!");
+          setArenaState(prev => ({ ...prev, tab: 'board' }));
+          fetchLeaderboard();
+      } catch (e) {
+          closeDialog(); showAlert("Lỗi ghi danh: " + e.message);
+      }
+  };

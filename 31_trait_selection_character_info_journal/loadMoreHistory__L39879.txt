@@ -1,0 +1,51 @@
+  const loadMoreHistory = async (count = 50) => {
+      if (!user || !currentProfileId) return;
+      setIsLoadingHistory(true);
+      
+      const chaptersToFetch = [];
+      let startChapter = gameState.chapterCount;
+      if (loadedChapterIds.size > 0) {
+          startChapter = Math.min(...Array.from(loadedChapterIds)) - 1;
+      }
+
+      // V1.28.1: Giới hạn cứng trong 200 chương gần nhất (từ chapterCount - 199 đến chapterCount)
+      const minAllowedChapter = Math.max(1, (gameState.chapterCount || 1) - 199);
+
+      for (let i = startChapter; i >= Math.max(minAllowedChapter, startChapter - count + 1); i--) {
+          if (!loadedChapterIds.has(i)) chaptersToFetch.push(i);
+      }
+
+      if (chaptersToFetch.length === 0) {
+          setIsLoadingHistory(false);
+          return;
+      }
+
+      // V3.70: Dùng Promise.all tải song song để tối ưu tốc độ cho 200 chương
+      const fetchPromises = chaptersToFetch.map(async (chap) => {
+          try {
+              const logRef = doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', currentProfileId, 'logs', String(chap));
+              const logSnap = await getDoc(logRef);
+              if (logSnap.exists() && logSnap.data().dataStr) {
+                  return safeDecompressLogs(logSnap.data().dataStr);
+              }
+          } catch (e) { console.error(`Lỗi tải lịch sử chương ${chap}:`, e); }
+          return [];
+      });
+
+      const results = await Promise.all(fetchPromises);
+      let fetchedLogs = results.flat();
+
+      setLoadedChapterIds(prev => {
+          const newSet = new Set(prev);
+          chaptersToFetch.forEach(c => newSet.add(c));
+          return newSet;
+      });
+
+      setHistoryLogs(prev => {
+          const combined = [...fetchedLogs, ...prev];
+          const minChap = Math.max(1, (gameState.chapterCount || 1) - 199);
+          const filtered = combined.filter(l => (Number(l.chapter) || 0) >= minChap);
+          return filtered.sort((a,b) => (a.chapter || 0) - (b.chapter || 0));
+      });
+      setIsLoadingHistory(false);
+  };

@@ -1,0 +1,11 @@
+  const removeQuest = (e, questName) => {
+    e.stopPropagation();
+    if (checkSpam()) return;
+    showConfirm(`Bạn muốn từ bỏ / xóa bỏ nhiệm vụ "${questName}"?\nLưu ý: Bạn sẽ không nhận được phần thưởng, và Thiên Đạo có thể sẽ giáng hình phạt nếu đây là nhiệm vụ tông môn.`, () => {
+      setGameState(prev => ({ ...prev, quests: (prev.quests || []).filter(q => q.name !== questName) }));
+      setStoryLog(prev => {
+        const newLog = [...prev, { type: 'system', text: `[Nhiệm Vụ] Đã chủ động từ bỏ ủy thác: ${questName}.`, chapter: gameState.chapterCount }];
+        return newLog.length > 50 ? newLog.slice(-50) : newLog;
+      });
+    });
+  };

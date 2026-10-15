@@ -1,0 +1,125 @@
+  const showNPCInfo = (npc, forceFull = false) => {
+      const isNemesis = (npc.traits || []).includes('Thiên Mệnh Ma Nữ') || (npc.traits || []).includes('Thiên Mệnh Ma Tôn');
+      const isScouterBroken = gameState.traits?.some(t => t && t.name === 'Máy Đo Bị Hỏng');
+      
+      // V12.21 FIX: Sương Mù Tình Báo DBZ (Bắt buộc dùng Scouter)
+      const hasScouter = Object.values(gameState.equipped || {}).some(eq => eq && eq.name && (String(eq.name).toLowerCase().includes('scouter') || String(eq.name).toLowerCase().includes('máy đo lực chiến')));
+      const isDbzBlind = false;
+      const isSuppressed = isNpcSuppressed(npc);
+
+      if (isNemesis) {
+          let msg = `HỒ SƠ TÌNH BÁO: ${npc.name}\nĐộ Thấu Hiểu: [???% - Sương mù nhân quả che khuất]\n\n`;
+          msg += `Giới tính: ???\n`;
+          msg += `Tuổi tác: ???\n`;
+          msg += `Thể chất: ???\n`;
+          msg += `Tính cách: ???\n`;
+          msg += `Cảnh giới: ???\n`;
+          msg += `Chức vụ: ???\n\n`;
+          msg += `Thái độ: Tử Địch Truyền Kiếp\n`;
+          msg += `Trạng thái: Đang ẩn nấp trong bóng tối, chờ ngày đoạt mạng ngươi.\n\n`;
+          msg += `📖 Lai Lịch Bẩm Sinh:\n[Bị Phong Ấn] Kẻ này đã được Hắc Ám và Thiên Đạo che đậy hành tung. Không thể dùng thiên cơ bói toán!\n\n`;
+          msg += `🧠 Ký Ức Tích Lũy:\n???`;
+          showAlert(msg);
+          return;
+      }
+
+      const knowPct = forceFull ? 100 : (npc.knowledgePct !== undefined ? Number(npc.knowledgePct) : (npc.isDead ? 100 : 20));
+      const isCombatKnown = knowPct >= 60; 
+      const isLoreKnown = knowPct >= 90;   
+      
+      let displayLevel = npc.level || '???';
+      if (isDbzBlind) {
+          displayLevel = '[??? - Cần Máy Đo Lực Chiến]';
+      } else if (isCombatKnown && npc.realLevel && npc.realLevel !== npc.level) {
+          displayLevel = `${npc.realLevel} (Ngụy trang: ${npc.level})`;
+      } else if (!isCombatKnown && npc.realLevel && npc.realLevel !== npc.level) {
+          displayLevel = `${npc.level} (Có vẻ là vậy)`;
+      } else if (knowPct < 20) {
+          displayLevel = '??? (Chưa thể nhìn thấu)';
+      }
+
+      let msg = `HỒ SƠ TÌNH BÁO: ${npc.name}\nĐộ Thấu Hiểu: [${isDbzBlind ? '???' : knowPct}%]\n\n`;
+      
+      msg += `Giới tính: ${isDbzBlind ? '???' : (knowPct >= 20 ? (npc.gender || 'Không rõ') : '???')}\n`;
+      msg += `Tuổi tác: ${isDbzBlind ? '???' : (knowPct >= 30 ? (npc.age || 'Không rõ') : '???')}\n`;
+      {
+          msg += `Thể chất: ${isDbzBlind ? '???' : (knowPct >= 30 ? (npc.physique || 'Phàm thể') : '???')}\n`;
+      }
+      msg += `Linh căn: ${isDbzBlind ? '???' : (knowPct >= 20 ? (npc.spiritualRoots ? (Array.isArray(npc.spiritualRoots) ? npc.spiritualRoots.join(', ') : npc.spiritualRoots) : getNpcSpiritualRoots(npc)) : '???')}\n`;
+      if (hasNpcInnerWorld(npc)) {
+          msg += `Nội Thiên Địa: ${isDbzBlind ? '???' : (knowPct >= 30 ? `[${getNpcInnerWorldStage(npc)}]` : '???')}\n`;
+      }
+      msg += `Tính cách: ${isDbzBlind ? '???' : (knowPct >= 40 ? (npc.personality || 'Khó đoán') : '???')}\n`;
+      msg += `${'Cảnh giới'}: ${displayLevel}\n`;
+      msg += `Chức vụ: ${isDbzBlind ? '???' : (knowPct >= 20 ? (npc.role || 'Kẻ lang thang') : '???')}\n`;
+      if (!isDbzBlind && knowPct >= 20) {
+          msg += `Ngoại hình: ${npc.appearance || (npc.gender === 'Nữ' ? 'Dáng người thon thả uyển chuyển, khí chất thanh nhã, y phục chỉnh tề' : 'Khôi ngô tuấn tú, phong thái đĩnh đạc')}\n`;
+      }
+      msg += `\n`;
+
+      if (knowPct >= 60 && !isDbzBlind) {
+          {
+              msg += `[Chỉ Số Thể Phách]\n`;
+              msg += `Công: ${npc.attack || '???'} | Thủ: ${npc.defense || '???'} | Tốc: ${npc.speed || '???'} | Thức: ${npc.spiritPower || '???'}\n`;
+          }
+          msg += `Máu (HP): ${Math.floor(npc.hp || 0)}/${npc.maxHp || '???'}\n\n`;
+
+          {
+              msg += `[Trang Bị Nhục Thân]\n`;
+          }
+          if (npc.equipped && Object.values(npc.equipped).some(val => val !== null)) {
+              const eq = npc.equipped;
+              if (eq.weapon) msg += `- Vũ Khí: ${eq.weapon.name} ${eq.weapon.attackBonus ? `(Công +${eq.weapon.attackBonus})` : ''}\n`;
+              if (eq.armor) msg += `- Pháp Y: ${eq.armor.name} ${eq.armor.defenseBonus ? `(Thủ +${eq.armor.defenseBonus})` : ''}\n`;
+              if (eq.head) msg += `- Hộ Đầu: ${eq.head.name} ${eq.head.defenseBonus ? `(Thủ +${eq.head.defenseBonus})` : ''}\n`;
+              if (eq.boots) msg += `- Hài Ngoa: ${eq.boots.name} ${eq.boots.speedBonus ? `(Tốc +${eq.boots.speedBonus})` : ''}\n`;
+              if (eq.artifact) msg += `- Pháp Bảo: ${eq.artifact.name}\n`;
+              if (eq.accessory) msg += `- Trang Sức: ${eq.accessory.name}\n`;
+          } else if (npc.equippedStr) {
+              msg += `- ${npc.equippedStr}\n`;
+          } else {
+              msg += `- (Chưa có trang bị khắc ấn)\n`;
+          }
+          msg += `\n`;
+
+          msg += `[Hành Trang / Tài Sản]\n`;
+          if (npc.inventory && npc.inventory.length > 0) {
+              npc.inventory.forEach(i => {
+                  msg += `- ${i.name} (x${i.quantity || 1})\n`;
+              });
+          } else if (npc.lootStr) {
+              msg += `- ${npc.lootStr}\n`;
+          } else {
+              msg += `- Mạn phép không có đồ đạc quý giá.\n`;
+          }
+          msg += `\n`;
+
+          msg += `[${'Tuyệt Học Bổn Mạng'}]\n`;
+          if (npc.skills && npc.skills.length > 0) {
+              npc.skills.forEach(s => {
+                  msg += `- ${s.name} (${s.level || 'Nhập môn'})\n`;
+              });
+          } else {
+              msg += `- ${'Chưa thu thập đủ tình báo hoặc chưa thi triển tuyệt kỹ.'}\n`;
+          }
+          msg += `\n`;
+      }
+      
+      msg += `Thái độ: ${isDbzBlind ? '???' : (npc.relationType || 'Người dưng')}\n`;
+      msg += `Trạng thái: ${isDbzBlind ? '???' : (npc.state || 'Bình thường')}\n`;
+      msg += `\n📖 Lai Lịch Bẩm Sinh:\n`;
+      if (isLoreKnown) {
+          msg += `${npc.background || 'Chưa có ghi chép.'}\n\n`;
+      } else {
+          msg += `[Bị Phong Ấn] Cần Độ Thấu Hiểu >= 90% để mở khóa.\n\n`;
+      }
+
+      msg += `🧠 Ký Ức Tích Lũy:\n`;
+      msg += `${npc.historySummary || 'Chưa có biến cố nào đáng kể.'}`;
+      
+      if (isSuppressed) {
+          setDialog({ type: 'npcInfoSuppressed', name: npc.name, message: msg });
+      } else {
+          showAlert(msg);
+      }
+  };

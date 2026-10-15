@@ -1,0 +1,13 @@
+  const getCloneSystemConfig = (level) => {
+      const lv = Number(level) || 1;
+      if (lv === 1) return { createCost: 50, maxClones: 5, upCost: 1000, baseLevel: 'Luyện Khí Kỳ' };
+      if (lv === 2) return { createCost: 5000, maxClones: 15, upCost: 5000, baseLevel: 'Trúc Cơ Kỳ' };
+      if (lv === 3) return { createCost: 20000, maxClones: 30, upCost: 20000, baseLevel: 'Kim Đan Kỳ' };
+      if (lv === 4) return { createCost: 100000, maxClones: 65, upCost: 100000, baseLevel: 'Nguyên Anh Kỳ' };
+      if (lv === 5) return { createCost: 500000, maxClones: 100, upCost: 500000, baseLevel: 'Hóa Thần Kỳ' };
+      if (lv === 6) return { createCost: 2000000, maxClones: 200, upCost: 2000000, baseLevel: 'Luyện Hư Kỳ' };
+      if (lv === 7) return { createCost: 10000000, maxClones: 400, upCost: 10000000, baseLevel: 'Hợp Thể Kỳ' };
+      if (lv === 8) return { createCost: 50000000, maxClones: 800, upCost: 50000000, baseLevel: 'Đại Thừa Kỳ' };
+      if (lv === 9) return { createCost: 200000000, maxClones: 1000, upCost: 200000000, baseLevel: 'Độ Kiếp Kỳ' };
+      return { createCost: 1000000000, maxClones: 10000, upCost: 0, baseLevel: 'Chân Tiên' };
+  };

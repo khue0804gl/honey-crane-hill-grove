@@ -1,0 +1,27 @@
+  const handleReviveClone = (e, clone) => {
+      e.stopPropagation();
+      const stConfig = getStageConfig(clone.level || 'Phàm Nhân');
+      const reviveCost = 50 * Math.pow(5, Math.max(0, stConfig.id - 2)); // Phàm/Lk 50, Trực cơ 250, Kim Đan 1250...
+      
+      showConfirm(`Khôi phục dữ liệu và đắp nặn nhục thể cho phân thân [${clone.name}]?\n\nCảnh giới: ${clone.level}\nSẽ tiêu tốn ${formatLargeNumber(reviveCost)} Điểm Hệ Thống để hồi sinh. Cảnh giới sẽ được giữ nguyên!`, () => {
+          if ((gameState.systemPoints || 0) < reviveCost) return showAlert(`Không đủ Điểm Hệ Thống để tiến hành khôi phục! (Cần ${formatLargeNumber(reviveCost)} Điểm)`);
+          
+          setGameState(prev => {
+              const newComps = prev.companions.map(c => {
+                  if (c.id === clone.id) {
+                      return { ...c, hp: c.maxHp, status: 'Hoạt động bình thường' };
+                  }
+                  return c;
+              });
+              return {
+                  ...prev,
+                  systemPoints: (prev.systemPoints || 0) - reviveCost,
+                  companions: newComps
+              };
+          });
+          setStoryLog(logs => {
+              const newLog = [...logs, { type: 'system', text: `[HỆ THỐNG] Lõi dữ liệu đã được phục hồi! Phân thân [${clone.name}] khôi phục 100% hình thể và sinh lực tại cảnh giới ${clone.level}! (Tiêu hao ${formatLargeNumber(reviveCost)} Điểm HT)`, chapter: gameState.chapterCount }];
+              return newLog.length > 50 ? newLog.slice(-50) : newLog;
+          });
+      });
+  };

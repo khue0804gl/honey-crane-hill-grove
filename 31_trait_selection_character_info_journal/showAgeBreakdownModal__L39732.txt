@@ -1,0 +1,27 @@
+  const showAgeBreakdownModal = () => {
+      let msg = "CHI TIẾT TUỔI TÁC (THỌ NGUYÊN):\n\n";
+      msg += `- Tuổi khởi điểm (Xuyên không): ${gameState.startAge} tuổi\n\n`;
+      
+      const breakdown = gameState.ageBreakdown || { [gameState.currentLocation || 'Thế giới hiện tại']: Math.max(0, gameState.age - gameState.startAge) };
+      let hasData = false;
+
+      Object.entries(breakdown).forEach(([realm, years]) => {
+          if (years > 0.005) {
+              const y = Math.floor(years);
+              const d = Math.floor((years % 1) * 360);
+              msg += `📍 Tại [${realm}]: Nhục thân trải qua ${y > 0 ? y + ' năm ' : ''}${d > 0 ? d + ' ngày' : ''}\n`;
+              hasData = true;
+          }
+      });
+      
+      if (!hasData) msg += "Chưa có biến động thời gian đáng kể.\n";
+      
+      msg += `\nTổng Tuổi Sinh Học (Nhục Thân): ${Math.floor(gameState.age)} tuổi\n`;
+      if (gameState.soulAge && Math.floor(gameState.soulAge) > Math.floor(gameState.age)) {
+          msg += `Tổng Tuổi Linh Hồn (Tâm Trí): ${Math.floor(gameState.soulAge)} tuổi\n`;
+      }
+      msg += `(Tuổi thọ tối đa: ${gameState.maxAge >= 999999 ? 'Vô Hạn' : gameState.maxAge + ' tuổi'})\n\n`;
+      msg += `*Lưu ý: Nhục thân quyết định sinh lão bệnh tử. Tuy nhiên, nếu bạn trải qua huyễn mộng, xuất hồn hoặc ý thức tiến vào chiều không gian khác, Tuổi Linh Hồn sẽ tiếp tục già dặn đi trong khi nhục thân được bảo toàn!`;
+      
+      showAlert(msg);
+  };

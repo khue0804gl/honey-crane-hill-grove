@@ -1,0 +1,31 @@
+  const selectWeaponChild = (childId) => {
+      let newSelected = selectedTraitIds.filter(id => {
+          const t = TRAITS_POOL.find(x => x.id === id);
+          return !(t && t.isWeaponChild) && id !== 302;
+      });
+      if (newSelected.length >= 4 && gameState.gameMode !== 'mong_ao') {
+          showAlert("Chế độ này giới hạn tối đa 4 Khí Vận!");
+          return;
+      }
+      newSelected.push(childId);
+      setSelectedTraitIds(newSelected);
+      
+      setRolledTraits(current => {
+          const fullChild = TRAITS_POOL.find(t => t.id === childId);
+          if (!fullChild) return current;
+          const parentIdx = current.findIndex(t => t.id === 302);
+          const newRolled = [...current];
+          if (parentIdx >= 0) {
+              newRolled[parentIdx] = fullChild;
+          } else {
+              if (!current.find(t => t.id === childId)) {
+                  const replaceIdx = current.findIndex(t => !newSelected.includes(t.id) && t.id !== childId);
+                  if (replaceIdx >= 0) newRolled[replaceIdx] = fullChild; 
+                  else newRolled.push(fullChild);
+              }
+          }
+          return newRolled;
+      });
+
+      setIsWeaponModalOpen(false);
+  };

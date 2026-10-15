@@ -1,0 +1,1330 @@
+  const startGame = async () => { 
+    if (checkSpam() || isProcessingRef.current) return; 
+    isProcessingRef.current = true; 
+    try {
+    let initialTraits = selectedTraitIds.map(id => TRAITS_POOL.find(t => t.id === id)).filter(Boolean);
+    
+    // V10.36 FIX: AUTO KÍCH HOẠT KHÍ VẬN ĐỎ MIỄN PHÍ VÀ SET CẢNH GIỚI CAO CHO HOÀNG TỘC
+    let startingCultivationLevel = 'Phàm Nhân';
+    let initStones = 0;
+    let initMortalCoins = 0;
+    let startingInventory = [];
+    
+    // V12.15 FIX: CẤP SẴN TƯỚNG MẠO BÌNH PHÀM VÀ CHẶN TƯỚNG MẠO XẤU XÍ KHI MỚI VÀO GAME
+    const beautyTraits = ['Khuynh Quốc Khuynh Thành', 'Mị Cốt Thiên Sương', 'Hợp Hoan Mị Cốt', 'Bán Tinh Linh (Huyết Mạch Lai)', 'Bán Mị Ma (Huyết Mạch Lai)', 'Thiên Mệnh Chi Tử', 'Khí Vận Chi Tử', 'Khí Vận Chi Nữ', 'Thiên Mệnh Hồng Nhan'];
+    const beautyBgs = ['bg_elf', 'bg_high_elf', 'bg_dark_elf', 'bg_angel', 'bg_blood_angel', 'bg_succubus', 'bg_ho_toc', 'bg_chan_thien_menh'];
+    
+    if (beautyBgs.includes(selectedBgId)) {
+        if (!initialTraits.some(t => beautyTraits.includes(t.name))) {
+            const bpTrait = TRAITS_POOL.find(t => t.id === 801);
+            if (bpTrait) initialTraits.push({ ...bpTrait, cost: 0 });
+        }
+    }
+    if (beautyBgs.includes(selectedBgId) || initialTraits.some(t => beautyTraits.includes(t.name))) {
+        initialTraits = initialTraits.filter(t => t.name !== 'Tướng Mạo Xấu Xí');
+    }
+
+    // V1.88 (Báo lỗi Hunggth8): Khai báo addFreeTrait lên đầu hàm để triệt tiêu vĩnh viễn ReferenceError TDZ
+    const addFreeTrait = (traitName) => {
+        if (!initialTraits.some(t => t.name === traitName)) {
+            const tObj = TRAITS_POOL.find(t => t.name === traitName);
+            if (tObj) initialTraits.push({...tObj, cost: 0}); // Gán cost 0 để không ảnh hưởng Điểm Luân Hồi
+        }
+    };
+
+    // V2.78: CẮT GỌT HỆ THỐNG MA ĐẠO THEO PHÁN QUYẾT TOÀ ÁN PHÊ DUYỆT (LOẠI BỎ 2 KHÍ VẬN TẶNG KÈM)
+    if (initialTraits.some(t => t.id === 7016 || t.name === 'Hệ Thống Ma Đạo')) {
+        initialTraits = initialTraits.filter(t => ![201, 815, 307, 105, 401, 404, 803].includes(t.id));
+    }
+
+    // V1.86: BÀN CỔ HUYẾT MẠCH ĐI KÈM CỰ NHÂN TỘC (GÓP Ý HOENGGG & DARK)
+    if (initialTraits.some(t => t.id === 301 || t.name === 'Bàn Cổ Huyết Mạch')) {
+        addFreeTrait('Cự Nhân Thể');
+    }
+
+    let initialContainer = { id: 'default', name: 'Túi Không Gian', capacity: 50, rarity: 'Trắng', type: 'spatial' };
+    let targetNode: LocationNode | null = null;
+
+    // V2.98 BÁO LỖI MINHH: Khai báo sớm initialActiveDLCsSet & chosenElfRace lên đầu hàm để triệt tiêu vĩnh viễn ReferenceError TDZ khi vào luân hồi
+    let initialActiveDLCsSet = new Set<string>();
+    let chosenElfRace: string | null = null;
+    if (selectedBgId === 'bg_elf') {
+        const isDarkElf = Math.random() < 0.5;
+        chosenElfRace = isDarkElf ? 'Ám Tinh Linh (Dark Elf)' : 'Tiên Tộc (High Elf)';
+        if (isDarkElf) addFreeTrait('Vạn Ác Tội Thể'); // Ám Tinh Linh đi theo tà đạo
+        else addFreeTrait('Hạo Nhiên Chính Khí'); // Tiên Tộc đi theo quang minh
+    }
+
+    if (selectedBgId === 'bg_long_toc') {
+        addFreeTrait('Tiên Thiên Đại Yêu'); addFreeTrait('Ngôn Xuất Pháp Tùy');
+        startingCultivationLevel = 'Yêu Đan'; 
+    } else if (selectedBgId === 'bg_10') {
+        addFreeTrait('Bán Yêu (Huyết Mạch Lai)');
+        startingCultivationLevel = 'Tiểu Yêu'; 
+    } else if (selectedBgId === 'bg_con_bang') {
+        addFreeTrait('Thôn Kim Phệ Cốt Thể'); addFreeTrait('Thuấn Di Bản Năng');
+        startingCultivationLevel = 'Hóa Hình'; 
+    } else if (isPureYeuTocBg(selectedBgId)) {
+        startingCultivationLevel = 'Tiểu Yêu';
+    } else if (selectedBgId === 'bg_yeu_thuan_ngu') {
+        const seaNode = currentWorldGraph['dong_thang_hai_uyen_co_vuc'] || FIXED_WORLD_GRAPH['dong_thang_hai_uyen_co_vuc'];
+        if (seaNode) {
+            targetNode = seaNode;
+        }
+    } else if (selectedBgId === 'bg_vien_co_cu_long') {
+        addFreeTrait('Vạn Pháp Bất Xâm'); addFreeTrait('Nhục Thân Cự Long');
+        startingCultivationLevel = 'Hóa Hình';
+    } else if (selectedBgId === 'bg_ho_toc') {
+        addFreeTrait('Huyễn Mộng Chân Thể'); addFreeTrait('Mị Cốt Thiên Sương');
+        startingCultivationLevel = 'Yêu Đan';
+    } else if (selectedBgId === 'bg_vu_toc') {
+        addFreeTrait('Bàn Cổ Huyết Mạch'); addFreeTrait('Vạn Pháp Bất Xâm'); addFreeTrait('Cự Nhân Thể');
+        startingCultivationLevel = 'Kim Thân'; 
+        // V10.54: Random 1 trong 12 Truyền Thừa Vu Tộc (Lấy từ TRAITS_POOL)
+        const vuTocInheritanceIds = [9101, 9102, 9103, 9104, 9105, 9106, 9107, 9108, 9109, 9110, 9111, 9112];
+        const randomId = vuTocInheritanceIds[Math.floor(Math.random() * vuTocInheritanceIds.length)];
+        const randomVuToc = TRAITS_POOL.find(t => t.id === randomId);
+        if (randomVuToc) {
+            initialTraits.push(randomVuToc);
+            if (randomVuToc.name.includes('Xa Tỉ Thi')) addFreeTrait('Ách Nan Độc Thể');
+        }
+    } else if (selectedBgId === 'bg_25') {
+        startingCultivationLevel = 'Đại Yêu';
+    } else if (selectedBgId === 'bg_taotie') {
+        addFreeTrait('Thôn Kim Phệ Cốt Thể');
+        startingCultivationLevel = 'Hóa Hình';
+    // V10.65: CHÂN THIÊN MỆNH CHI ĐẾ
+    } else if (selectedBgId === 'bg_chan_thien_menh') {
+        addFreeTrait('Đế Vương Chi Khí'); addFreeTrait('Hỗn Độn Đạo Thể'); addFreeTrait('Thái Dương Thần Thể');
+        startingCultivationLevel = 'Yêu Đế'; 
+    } else if (selectedBgId === 'bg_ctan') {
+        addFreeTrait('Tạo Hóa Huyết Nhục');
+        addFreeTrait('Cơ Giới Hắc Quang Thể');
+        addFreeTrait('Thôn Kim Phệ Cốt Thể');
+        startingCultivationLevel = 'Đạo Tổ'; 
+    } else if (selectedBgId === 'bg_26') {
+        addFreeTrait('Lệnh Bài Chưởng Môn');
+    }
+    // V12.23: AUTO TÍCH HỢP 3 HỆ CHUYÊN BIỆT MỚI
+    else if (selectedBgId === 'vo_cong') { addFreeTrait('Võ Đạo Đỉnh Phong'); addFreeTrait('Tướng Mạo Bình Phàm'); startingCultivationLevel = 'Tam Lưu Võ Giả'; }
+    else if (selectedBgId === 'dau_khi') { addFreeTrait('Nghịch Mệnh Đấu Giả'); addFreeTrait('Tàn Hồn Lão Gia Gia'); startingCultivationLevel = 'Đấu Chi Khí'; }
+    else if (selectedBgId === 'ma_phap') { addFreeTrait('Ma Pháp Khởi Nguyên'); addFreeTrait('Ngộ Tính Siêu Phàm'); startingCultivationLevel = 'Học Đồ Ma Pháp'; }
+        // V10.64 & V3.6: AUTO NHẬN KHÍ VẬN CHO CÁC CHỦNG TỘC ĐA VŨ TRỤ (LỆNH THÉP THÀNH KHÔN)
+    else if (selectedBgId === 'bg_hu_khong') { addFreeTrait('Vạn Ác Tội Thể'); }
+    else if (selectedBgId === 'bg_high_elf' || selectedBgId === 'bg_elf') { addFreeTrait('Ngộ Tính Siêu Phàm'); addFreeTrait('Mị Cốt Thiên Sương'); addFreeTrait('Ma Pháp Khởi Nguyên'); }
+    else if (selectedBgId === 'bg_dark_elf') { addFreeTrait('Vạn Ác Tội Thể'); addFreeTrait('Mị Cốt Thiên Sương'); addFreeTrait('Ma Pháp Khởi Nguyên'); }
+    else if (selectedBgId === 'bg_angel') { addFreeTrait('Phật Cốt Xá Lợi'); addFreeTrait('Mị Cốt Thiên Sương'); }
+    else if (selectedBgId === 'bg_blood_angel') { addFreeTrait('Thiên Ma Thể'); addFreeTrait('Hạn Bạt Viêm Thể'); /* Thân phận: Huyết Thần Sủng Nhi */ }
+    else if (selectedBgId === 'bg_succubus') { addFreeTrait('Hợp Hoan Mị Cốt'); /* Thân phận: Dục Thần Sủng Nhi */ }
+    else if (selectedBgId === 'bg_titan') { addFreeTrait('Bàn Cổ Huyết Mạch'); addFreeTrait('Cự Nhân Thể'); addFreeTrait('Vạn Pháp Bất Xâm'); addFreeTrait('Phù Văn Truyền Thừa'); }
+    else if (selectedBgId === 'bg_behemoth') { addFreeTrait('Bàn Cổ Huyết Mạch'); addFreeTrait('Ngự Trù Bạo Chúa'); addFreeTrait('Ách Nan Độc Thể'); /* Thân phận: Bệnh Thần Sủng Nhi */ }
+    else if (selectedBgId === 'bg_nightmare') { addFreeTrait('Huyễn Mộng Chân Thể'); addFreeTrait('Vô Ngã Vô Tướng Thể'); /* Thân phận: Ảo Thần Sủng Nhi */ }
+    else if (selectedBgId === 'bg_undead') { addFreeTrait('Thi Âm Luyện Sư'); /* Thân phận: Tử Thần Sủng Nhi */ }
+    else if (selectedBgId === 'ma_phap') { addFreeTrait('Ma Pháp Khởi Nguyên'); addFreeTrait('Ngộ Tính Siêu Phàm'); }
+    // V3.9 HARD CODE GUARD: Khai báo hasTrait bao quát toàn bộ tiến trình khởi tạo
+    const hasTrait = (name: string) => initialTraits.some(t => (t.name || t) === name);
+    // V1.66 HARD CODE GUARD: Khóa cứng cảnh giới khởi sinh theo Đạo Lộ Tu Luyện
+    // Chống triệt để việc Yêu Tu bị gán nhầm cảnh giới Luyện Khí của Pháp Tu
+    const determinedInitPath = getCultivationPath(selectedBgId, initialTraits, startingCultivationLevel);
+    if (determinedInitPath === 'yeu_tu' && (startingCultivationLevel === 'Luyện Khí Kỳ' || startingCultivationLevel === 'Luyện Khí')) {
+        startingCultivationLevel = 'Tiểu Yêu';
+    }
+    
+    
+    // V11.75 FIX: KỲ NGỘ THIÊN MỆNH (GACHA KHỞI ĐIỂM)
+    let destinyJackpotMsg = "";
+    if (initialTraits.some(t => t.name === 'Thiên Mệnh Chi Tử')) {
+        const destinyRoll = Math.floor(Math.random() * 100); // Đổ xúc xắc từ 0 đến 99
+        if (destinyRoll < 5) { // 5% Tỷ lệ trúng Jackpot cả 2
+            addFreeTrait('Trùng Đồng Nhãn');
+            addFreeTrait('Chí Tôn Cốt');
+            destinyJackpotMsg = " LỆNH TỐI CAO: Kẻ này vừa sinh ra đã mang dị tượng kinh hoàng! Sở hữu cả [Trùng Đồng Nhãn] nhìn thấu vạn vật và [Chí Tôn Cốt] ẩn chứa bảo thuật. Hãy miêu tả thiên địa rung chuyển, vạn tộc khiếp sợ trước tư chất nghịch thiên này!";
+        } else if (destinyRoll < 20) { // 15% Tỷ lệ trúng Trùng Đồng Nhãn
+            addFreeTrait('Trùng Đồng Nhãn');
+            destinyJackpotMsg = " LỆNH TỐI CAO: Kẻ này vừa sinh ra đã mang dị tượng! Đôi mắt có hai con ngươi [Trùng Đồng Nhãn] nhìn thấu thiên cơ. Hãy miêu tả sự dị biệt và uy áp từ đôi mắt này!";
+        } else if (destinyRoll < 35) { // 15% Tỷ lệ trúng Chí Tôn Cốt
+            addFreeTrait('Chí Tôn Cốt');
+            destinyJackpotMsg = " LỆNH TỐI CAO: Kẻ này vừa sinh ra đã mang dị tượng! Lồng ngực phát sáng rực rỡ, ẩn chứa [Chí Tôn Cốt] vô thượng. Hãy miêu tả sự chấn động của gia tộc hoặc người xung quanh!";
+        }
+        // 65% còn lại không nhận được gì thêm, rèn luyện ý chí
+    }
+
+    // V7.86 FIX: Lưới lọc Khóa Chéo Nghịch Lý
+    const hasThienMenh = initialTraits.some(t => t.id === 201 || t.name === 'Thiên Mệnh Chi Tử' || t.name === 'Khí Vận Chi Tử' || t.name === 'Khí Vận Chi Nữ');
+    const hasVanAc = initialTraits.some(t => t.id === 1310 || t.name === 'Vạn Ác Tội Thể');
+    const hasThaiAm = initialTraits.some(t => t.id === 1306 || t.name === 'Thái Âm Táng Thể');
+    
+    if (hasThienMenh && hasVanAc) {
+        isProcessingRef.current = false;
+        return showAlert("Nghịch lý logic! Không thể vừa là con cưng Thiên Đạo (Thiên Mệnh) vừa bị Thiên Địa cự tuyệt (Vạn Ác Tội Thể). Vui lòng bỏ 1 trong 2!");
+    }
+    if (hasThaiAm && (selectedBgId === 'bg_nho_sinh' || selectedBgId === 'bg_17')) {
+        isProcessingRef.current = false;
+        return showAlert("Thể chất Thái Âm Táng Thể mang tử khí quá nặng, không thể xuất hiện ở phàm giới (Nho Sinh / Nông Dân) vì sẽ làm chết sạch NPC. Vui lòng đổi xuất thân hoặc thể chất!");
+    }
+
+    const totalPoints = 10 - initialTraits.reduce((sum, trait) => sum + (Number(trait.cost) || 0), 0) - (BACKGROUNDS_POOL.find(b => b.id === selectedBgId)?.cost || 0);
+
+    const trimmedName = (gameState.name || '').trim();
+    
+    // V10.30 FIX: Tách bạch các thông báo lỗi để hướng dẫn Tân Thủ
+    if (!trimmedName) {
+        isProcessingRef.current = false;
+        return showAlert("Vui lòng nhập Tôn Danh (Tên nhân vật) ở ô trống phía trên trước khi bước vào luân hồi!");
+    }
+    if (!gameState.daoHeart || gameState.daoHeart === 'Chưa định hình' || gameState.daoHeart === 'Chưa định hình (Sẽ phát triển tự nhiên theo thời gian)') {
+        isProcessingRef.current = false;
+        return showAlert("Vui lòng lựa chọn Tính Cách Cốt Lõi (Bản ngã) cho nhân vật!\n\nThiên Đạo cần lấy đây làm cơ sở để phán xét Tâm Tâm/Tà Niệm của bạn.");
+    }
+    if (selectedBgId === 'bg_thien_dao_khuoc_tu') {
+        const forbiddenTrait = selectedTraitIds.map(tid => TRAITS_POOL.find(x => x.id === tid)).find(t => isForbiddenThienDaoKhuocTuTrait(t));
+        if (forbiddenTrait) {
+            isProcessingRef.current = false;
+            return showAlert(`Xuất thân Thiên Đạo Khước Từ xung khắc hoàn toàn với Khí Vận [${forbiddenTrait.name}]! Vui lòng bỏ chọn trước khi bước vào luân hồi.`);
+        }
+    }
+    if (isPureYeuTocBg(selectedBgId)) {
+        const forbiddenYeu = selectedTraitIds.find(tid => {
+            const t = TRAITS_POOL.find(x => x.id === tid);
+            return tid === 504 || tid === 605 || tid === 803 || tid === 701 || (t && (t.isSystemParent || t.isSystemChild));
+        });
+        if (forbiddenYeu) {
+            const t = TRAITS_POOL.find(x => x.id === forbiddenYeu);
+            isProcessingRef.current = false;
+            return showAlert(`Xuất thân Yêu Tộc Thuần Chủng xung khắc hoàn toàn với Khí Vận [${t?.name || forbiddenYeu}]! Vui lòng bỏ chọn trước khi bước vào luân hồi.`);
+        }
+    }
+    if (gameState.gameMode !== 'mong_ao' && selectedTraitIds.length > 4) {
+        isProcessingRef.current = false;
+        return showAlert("Chế độ này chỉ cho phép mang theo TỐI ĐA 4 Khí Vận. Vui lòng bỏ bớt!");
+    }
+    if (gameState.gameMode !== 'mong_ao' && totalPoints < 0) {
+        isProcessingRef.current = false;
+        return showAlert(`${'Điểm Luân Hồi'} của bạn đang bị Âm (< 0)!\n\nVui lòng chọn các Khí Vận màu Đen/Xám để bù lại điểm, hoặc bỏ bớt Khí Vận Đỏ/Cam.`);
+    }
+
+    // V12.20 FIX: Lưới khóa chéo DBZ
+    // V5.5: Bắt buộc tạo mật khẩu nếu ở Liên Giới
+    if (gameState.gameMode === 'coop' && !(gameState.coopPassword || '').trim()) {
+        isProcessingRef.current = false;
+        return showAlert("Vui lòng thiết lập Mật Khẩu Khôi Phục để bảo vệ nhân vật Liên Giới!");
+    }
+    
+    if (profiles.some(p => String(p.name || '').trim().toLowerCase() === trimmedName.toLowerCase())) {
+        isProcessingRef.current = false;
+        return showAlert(`Tôn danh "${trimmedName}" đã tồn tại trong luân hồi. Xin đạo hữu vui lòng chọn một danh xưng khác!`);
+    }
+    
+    // V1.26: Mộng Ảo có 2 chế độ. 'co_dinh' = thế giới gốc Cửu Châu (bản đồ + dòng thời gian +
+    // biến cố Canon y như Chân Thực). 'sang_tao' = tự do sáng tạo thế giới.
+    const isMongAoSangTao = gameState.gameMode === 'mong_ao' && (gameState.mongAoWorldMode || 'sang_tao') === 'sang_tao';
+    // V3.82: Xử lý Mộng Ảo
+    let finalCustomDesc = '';
+    if (isMongAoSangTao) {
+        if (gameState.isPremadeWorld && gameState.premadeWorldId) {
+            finalCustomDesc = (PREMADE_WORLDS.find(w => w.id === gameState.premadeWorldId)?.worldDesc) || '';
+        } else {
+            finalCustomDesc = String(gameState.customWorldDesc || '').slice(0, 50000).replace(/[<>`]/g, '').trim();
+            if (finalCustomDesc.length > 50 && new Set(finalCustomDesc.split('')).size < 5) {
+                finalCustomDesc = ''; 
+            }
+            if (!finalCustomDesc) {
+                const randomWorlds = [
+                    "Một thế giới tu chân tàn khốc, linh khí cạn kiệt, mọi người giết chóc lẫn nhau vì một viên linh thạch.",
+                    "Một thế giới hỗn độn nguyên thủy, nơi yêu thú khổng lồ cai trị thiên địa, con người làm thức ăn.",
+                    "Một thế giới cyberpunk kết hợp tu tiên, phi kiếm được gắn động cơ phản lực và linh thạch thay bằng pin năng lượng.",
+                    "Thế giới ma pháp phương Tây, nơi một tu sĩ phương Đông vô tình lưu lạc đến mang theo kiếm đạo.",
+                    "Một thế giới hậu tận thế zombie nhưng con người lại thức tỉnh được linh căn để sinh tồn."
+                ];
+                finalCustomDesc = randomWorlds[Math.floor(Math.random() * randomWorlds.length)];
+            }
+        }
+    }
+
+    const initMaxAge = calculateMaxAge('Phàm Nhân', initialTraits, (gameState.gameMode === 'mong_ao' && !(gameState.isPremadeWorld && gameState.premadeWorldId === 'dau_pha')) ? 'bg_0' : selectedBgId, 0);
+    const newId = Date.now().toString(); setCurrentProfileId(newId); 
+
+    const generatedRoot = getSpiritualRoot(initialTraits, (gameState.gameMode === 'mong_ao' && !(gameState.isPremadeWorld && gameState.premadeWorldId === 'dau_pha')) ? 'bg_0' : selectedBgId); // V12.15: Tính Linh Căn theo xuất thân
+    let initTalent = 10, initEnlightenment = 10, initAtk = 10, initDef = 10, initSpd = 10, initSp = 10;
+
+    // V12.15: Hệ Thống Thần Hồn Khởi Điểm
+    const soulConfig = getSoulMechanism(
+        (gameState.gameMode === 'mong_ao' && !(gameState.isPremadeWorld && gameState.premadeWorldId === 'dau_pha')) ? 'bg_0' : selectedBgId, 
+        initialTraits
+    );
+
+    if (soulConfig.type === "Ma Uyên Nghịch Hồn") { initSp += 15; initAtk += 5; }
+    else if (soulConfig.type === "Bồ Đề Kim Hồn") { initSp += 25; }
+    else if (soulConfig.type === "Man Hoang Thiên Hồn") { initSp += 5; initSpd += 5; initAtk += 10; }
+    else if (soulConfig.type === "Hạo Nhiên Chính Hồn") { initSp += 30; initDef += 5; initEnlightenment += 5; }
+    else if (soulConfig.type === "Lăng Kính Trận Hồn") { initSp += 40; initDef -= 5; }
+    else if (soulConfig.type === "Vật Linh Khí Hồn") { initSp += 10; initDef += 15; initEnlightenment -= 5; }
+    else if (soulConfig.type === "Thái Hư Ảo Hồn") { initSp += 35; initDef -= 5; }
+    else if (soulConfig.type === "Kiếm Ý Sát Hồn") { initSp += 15; initAtk += 10; }
+
+    // V9.59 & V12.15: Gán Tốc độ tu luyện (Thiên Phú) và Ngộ Đạo dựa trên Linh Căn
+    if (generatedRoot.name.includes('Hỗn Độn')) { initTalent += 50; initEnlightenment += 50; }
+    else if (generatedRoot.name.includes('Thiên Linh Căn')) { initTalent += 100; initEnlightenment += 50; }
+    else if (generatedRoot.name.includes('Dị Linh Căn')) { initTalent += 20; }
+    else if (generatedRoot.name.includes('Song Linh Căn')) { initTalent += 15; }
+    else if (generatedRoot.name.includes('Ngũ (Tạp)')) { initTalent -= 5; initEnlightenment -= 5; }
+    else if (generatedRoot.name.includes('Vô Linh Căn')) { initTalent -= 15; initEnlightenment -= 5; }
+
+    initialTraits.forEach(t => {
+       if (t.name === 'Thiên Linh Căn') { initTalent += 60; initEnlightenment += 30; }
+       if (t.name === 'Ngộ Tính Siêu Phàm') { initEnlightenment += 20; initSp += 15; }
+       if (t.name === 'Bàn Cổ Huyết Mạch') { initDef += 20; initAtk += 10; initSpd -= 5; }
+       if (t.name === 'Tuyệt Thế Kiếm Tu') { initAtk += 25; initDef -= 10; }
+       if (t.name === 'Vạn Pháp Bất Xâm') { initDef += 20; initSp += 10; }
+       if (t.name === 'Phong Ảnh Thể') initSpd += 25;
+       if (t.name === 'Ma Tôn Chuyển Thế') { initAtk += 20; initSpd += 10; }
+       if (t.name === 'Phật Cốt Xá Lợi') { initSp += 30; initDef += 15; }
+       if (t.name === 'Mọt Sách') initSp += 5;
+       if (t.name === 'Ký Ức Tiền Kiếp') { initEnlightenment += 10; } // V9.02: Bỏ initSp += 5 để dùng chung hệ thống Tuổi Linh Hồn
+       if (t.name === 'Tiên Phong Đạo Cốt' || t.name === 'Dược Vương Hóa Thân') initSp += 10;
+       if (t.name === 'Đoạn Kinh Mạch') { initTalent = Math.max(1, initTalent - 8); initAtk -= 10; initSpd -= 10; }
+       if (t.name === 'Ngộ Tính Ngu Độn') initEnlightenment = Math.max(1, initEnlightenment - 10);
+       if (t.name === 'Thiên Đạo Áp Chế') { initTalent = Math.max(1, initTalent - 10); initEnlightenment = Math.max(1, initEnlightenment - 10); initAtk -= 5; initDef -= 5; initSpd -= 5; initSp -= 5; }
+       if (t.name === 'Thiên Sinh Phế Vật') { initTalent = 1; initEnlightenment = 1; }
+       if (t.name === 'Thiên Sinh Rác Rưởi') { initTalent = Math.max(1, initTalent - 10); }
+    });
+
+    // RANDOM NGẪU NHIÊN DÒNG THỜI GIAN (TIMELINE) KHI VÀO GAME MỚI
+    const availableTimelineKeys = Object.keys(TIMELINES_CONFIG);
+    const chosenTimelineId = availableTimelineKeys[Math.floor(Math.random() * availableTimelineKeys.length)];
+    const chosenTimeline = TIMELINES_CONFIG[chosenTimelineId] || TIMELINES_CONFIG["timeline_thanh_van"];
+    const currentWorldGraph = chosenTimeline.worldGraph || FIXED_WORLD_GRAPH;
+    const allAvailableNodes = Object.values(currentWorldGraph);
+
+    // Thuật toán chọn điểm khởi đầu ngẫu nhiên đa dạng và hợp lý theo từng xuất thân
+    let candidateNodes: LocationNode[] = [];
+    if (chosenTimeline.candidateStartNodes && chosenTimeline.candidateStartNodes.length > 0) {
+        candidateNodes = chosenTimeline.candidateStartNodes.map(id => currentWorldGraph[id]).filter(Boolean);
+    }
+    if (candidateNodes.length === 0) {
+        candidateNodes = allAvailableNodes.filter(n => n.tier === "HaViDien" && (selectedBgId === 'bg_vien_co_cu_long' || (n.id !== 'dlc_dark_fantasy_farum_azula' && !n.name?.includes('Farum Azula') && !n.rulingFaction?.includes('Tổ Long Xà Trùng'))));
+    }
+
+    // V2.92 THÀNH KHÔN ĐẶC QUYỀN: KHÓA CỨNG ĐIỂM SPAWN & VÙNG AN TOÀN 100% CHO CÁC XUẤT THÂN ĐA VŨ TRỤ
+    if (selectedBgId === 'ma_phap') {
+        initialActiveDLCsSet.add('dlc_dark_fantasy');
+        const dalaranNode = DLC_WORLD_GRAPH['dlc_violet_citadel_dalaran'] || ALL_WORLD_GRAPH['dlc_violet_citadel_dalaran'];
+        if (dalaranNode) targetNode = dalaranNode;
+    } else if (selectedBgId === 'bg_titan') {
+        initialActiveDLCsSet.add('dlc_dark_fantasy');
+        const valhallaNode = DLC_WORLD_GRAPH['dlc_valhalla_new_asgard'] || ALL_WORLD_GRAPH['dlc_valhalla_new_asgard'];
+        if (valhallaNode) targetNode = valhallaNode;
+    } else if (selectedBgId === 'bg_do_thi_tu_tien') {
+        initialActiveDLCsSet.add('dlc_cyberpunk');
+        const scifiNode = DLC_WORLD_GRAPH['dlc_khoa_ky_cong_quoc'] || ALL_WORLD_GRAPH['dlc_khoa_ky_cong_quoc'];
+        if (scifiNode) targetNode = scifiNode;
+    } else if (selectedBgId === 'bg_elf') {
+        initialActiveDLCsSet.add('dlc_dark_fantasy');
+        const isDarkElf = chosenElfRace && chosenElfRace.includes('Dark Elf');
+        const elfNodeId = isDarkElf ? 'dlc_commorragh_naggaroth' : 'dlc_alfheim_lothlorien';
+        const elfNode = DLC_WORLD_GRAPH[elfNodeId] || ALL_WORLD_GRAPH[elfNodeId];
+        if (elfNode) targetNode = elfNode;
+    } else if (selectedBgId === 'bg_angel') {
+        initialActiveDLCsSet.add('dlc_dark_fantasy');
+        const angelNode = DLC_WORLD_GRAPH['dlc_thien_duc_gioi_holy_palace'] || ALL_WORLD_GRAPH['dlc_thien_duc_gioi_holy_palace'];
+        if (angelNode) targetNode = angelNode;
+    } else if (selectedBgId === 'bg_blood_angel') {
+        initialActiveDLCsSet.add('dlc_dark_fantasy');
+        const bloodNode = DLC_WORLD_GRAPH['dlc_warp_khorne_huyet_vuc'] || ALL_WORLD_GRAPH['dlc_warp_khorne_huyet_vuc'];
+        if (bloodNode) targetNode = bloodNode;
+    } else if (selectedBgId === 'bg_succubus') {
+        initialActiveDLCsSet.add('dlc_dark_fantasy');
+        const succNode = DLC_WORLD_GRAPH['dlc_warp_slaanesh_mi_vuc'] || ALL_WORLD_GRAPH['dlc_warp_slaanesh_mi_vuc'];
+        if (succNode) targetNode = succNode;
+    } else if (selectedBgId === 'bg_nightmare') {
+        initialActiveDLCsSet.add('dlc_dark_fantasy');
+        const nightNode = DLC_WORLD_GRAPH['dlc_warp_tzeentch_huyen_vuc'] || ALL_WORLD_GRAPH['dlc_warp_tzeentch_huyen_vuc'];
+        if (nightNode) targetNode = nightNode;
+    } else if (selectedBgId === 'bg_undead') {
+        initialActiveDLCsSet.add('dlc_dark_fantasy');
+        const undeadNode = DLC_WORLD_GRAPH['dlc_warp_orcus_tu_vuc'] || ALL_WORLD_GRAPH['dlc_warp_orcus_tu_vuc'];
+        if (undeadNode) targetNode = undeadNode;
+    } else if (selectedBgId === 'bg_behemoth') {
+        initialActiveDLCsSet.add('dlc_dark_fantasy');
+        const behemothNode = DLC_WORLD_GRAPH['dlc_warp_nurgle_benh_vuc'] || ALL_WORLD_GRAPH['dlc_warp_nurgle_benh_vuc'];
+        if (behemothNode) targetNode = behemothNode;
+    }
+
+    // V2.92 LỆNH THÉP THÀNH KHÔN: KHÔNG BẬT DLC THÌ CẤM SPAM MAP DLC VÀO BASE GAME!
+    const isSpecialMultiBg = ['ma_phap', 'bg_high_elf', 'bg_dark_elf', 'bg_elf', 'bg_angel', 'bg_blood_angel', 'bg_succubus', 'bg_nightmare', 'bg_undead', 'bg_titan', 'bg_behemoth', 'bg_vien_co_cu_long', 'bg_do_thi_tu_tien', 'bg_ctan'].includes(selectedBgId);
+    if (!isSpecialMultiBg) {
+        // Lọc sạch toàn bộ các node DLC khỏi candidateNodes nếu người chơi không mang xuất thân đa vũ trụ
+        candidateNodes = candidateNodes.filter(n => !n.id.startsWith('dlc_') && !/(dalaran|valhalla|khoa kỹ công quốc|alfheim|commorragh|holy palace|warp|farum azula|lothlórien|neu jerusalem)/i.test(n.name || ''));
+        if (targetNode && (targetNode.id.startsWith('dlc_') || /(dalaran|valhalla|khoa kỹ công quốc|alfheim|commorragh|holy palace|warp|farum azula|neu jerusalem)/i.test(targetNode.name || ''))) {
+            targetNode = currentWorldGraph['dong_thang_thien_nam_phuong_thi'] || FIXED_WORLD_GRAPH['dong_thang_thien_nam_phuong_thi'] || candidateNodes[0];
+        }
+    }
+
+    if (!targetNode) { targetNode = candidateNodes[Math.floor(Math.random() * candidateNodes.length)] || allAvailableNodes[0]; }
+
+    // V1.57 FIX: Khóa cứng xuất thân Viễn Cổ Cự Long về đúng The Land Between - Farum Azula (Tổ Long Xà Trùng)
+    if (selectedBgId === 'bg_vien_co_cu_long') {
+        const farumNode = DLC_WORLD_GRAPH['dlc_dark_fantasy_farum_azula'] || ALL_WORLD_GRAPH['dlc_dark_fantasy_farum_azula'];
+        if (farumNode) {
+            targetNode = farumNode;
+        }
+    } else {
+        // Khóa cứng: Các xuất thân khác TUYỆT ĐỐI KHÔNG sinh ra ở Farum Azula (Tổ Long Xà Trùng)
+        if (targetNode.id === 'dlc_dark_fantasy_farum_azula' || targetNode.name?.includes('Farum Azula') || targetNode.rulingFaction?.includes('Tổ Long Xà Trùng')) {
+            const fallbackNode = currentWorldGraph['dong_thang_thien_nam_phuong_thi'] || FIXED_WORLD_GRAPH['dong_thang_thien_nam_phuong_thi'] || allAvailableNodes.find(n => !n.id.startsWith('dlc_') && n.tier === 'HaViDien') || allAvailableNodes[0];
+            if (fallbackNode) {
+                targetNode = fallbackNode;
+            }
+        }
+    }
+
+    let randomStartLoc = isMongAoSangTao ? 'Đang xác định...' : targetNode.name;
+    let initialAgeNum = 18; // Mặc định v7.30
+    
+    // --- V12.13 LOGIC: ĐỊNH HÌNH TUỔI TÁC KHỞI ĐIỂM TÙY CHỈNH ---
+    if (gameState.customStartAge !== undefined && String(gameState.customStartAge).trim() !== '') {
+        const parsedAge = parseInt(gameState.customStartAge);
+        if (isNaN(parsedAge) || parsedAge <= 0) {
+            isProcessingRef.current = false;
+            return showAlert("Tuổi khởi đầu không hợp lệ! Chỉ được phép nhập từ 1 tuổi trở lên.");
+        }
+        if (parsedAge > initMaxAge) {
+            isProcessingRef.current = false;
+            return showAlert(`Tuổi khởi đầu (${parsedAge}) không được vượt quá giới hạn thọ nguyên của chủng tộc/thể chất này (${initMaxAge} tuổi)!`);
+        }
+        initialAgeNum = parsedAge;
+    } else if (gameState.gameMode !== 'mong_ao') {
+        if (['bg_21', 'bg_22', 'bg_23', 'bg_24', 'bg_25'].includes(selectedBgId)) {
+            initialAgeNum = 5000 + Math.floor(Math.random() * 5000); // 5000 - 10000 tuổi
+        } else if (['bg_long_toc', 'bg_con_bang', 'bg_ho_toc', 'bg_vu_toc', 'bg_vien_co_cu_long'].includes(selectedBgId)) {
+            initialAgeNum = 800 + Math.floor(Math.random() * 1200); // V10.38 FIX: Hoàng tộc ngủ vùi hàng ngàn năm
+        } else if (['bg_dan_su', 'bg_26'].includes(selectedBgId) || hasTrait('Tuế Nguyệt Khô Vinh Thể')) {
+            initialAgeNum = 490 + Math.floor(Math.random() * 8); // Lão quái vật sắp hết thọ nguyên (Max 500)
+        } else if (['bg_17', 'bg_19', 'bg_nho_sinh', 'bg_kiem_no', 'bg_tieu_nhi'].includes(selectedBgId) || hasTrait('Kẻ Ăn Mày')) {
+            initialAgeNum = 12 + Math.floor(Math.random() * 4); // Thiếu niên 12-15 tuổi
+        } else if (['bg_lang_y', 'bg_phu_thuy', 'bg_dao_tac', 'bg_vo_su_pham', 'bg_tieu_thuong'].includes(selectedBgId)) {
+            initialAgeNum = 20 + Math.floor(Math.random() * 15); // Giang hồ giảo hoạt 20-35 tuổi
+        } else if (['bg_ngu_phu', 'bg_ca_ki', 'bg_nguoi_thuong'].includes(selectedBgId)) {
+            initialAgeNum = 16 + Math.floor(Math.random() * 6); // 16-22 tuổi
+        } else if (['bg_4', 'bg_6'].includes(selectedBgId) || hasTrait('Luân Hồi Chi Tôn')) {
+            initialAgeNum = 0; // Trẻ sơ sinh
+        }
+    }
+    // V1.51 FIX: Yêu Tộc Thuần Chủng khởi đầu ở dạng ấu thú/linh điểu non nớt (1 tuổi)
+    if (isPureYeuTocBg(selectedBgId)) {
+        initialAgeNum = 1;
+    }
+
+    // V7.66 FIX: Ngăn chặn lỗi đột tử (chết già ngay lượt 1) do Tuổi khởi điểm > Thọ nguyên mặc định của Phàm nhân
+    let startingBonusMaxAge = 0;
+    if (initialAgeNum >= initMaxAge) {
+        startingBonusMaxAge = (initialAgeNum - initMaxAge) + 10; // Bù đắp thọ nguyên, luôn cho sống thêm ít nhất 10 năm để tìm cơ duyên
+    }
+    const finalMaxAge = initMaxAge + startingBonusMaxAge;
+
+    // V3.83: Hành trang khởi điểm đa dạng
+    if (gameState.gameMode === 'mong_ao') {
+         startingInventory.push(
+             { name: 'Trang phục Tân thủ', quantity: 1, desc: 'Trang phục khởi đầu, sẽ được Thiên Đạo biến hóa theo bối cảnh.', type: 'equip', tier: 'Tân Thủ', rarity: 'Trắng', durability: 100, maxDurability: 100, containerId: 'default' }, 
+             { name: 'Gói Sinh Tồn', quantity: 3, desc: 'Nhu yếu phẩm cơ bản, sẽ được biến hóa theo bối cảnh.', type: 'food', freshness: 90, maxFreshness: 90, containerId: 'default' }
+         );
+         if (initialTraits.some(t => ['Tuyệt Thế', 'Ma Tôn Chuyển Thế', 'Sát Khí', 'Cương Khí'].some(kw => t.name.includes(kw)))) {
+             startingInventory.push({ name: 'Vũ khí Tân thủ', quantity: 1, desc: 'Vũ khí phòng thân, sẽ được biến hóa theo bối cảnh.', type: 'equip', tier: 'Tân Thủ', rarity: 'Trắng', durability: 100, maxDurability: 100, containerId: 'default' });
+         }
+    } else {
+         if (['bg_8', 'bg_9'].includes(selectedBgId)) {
+             startingInventory.push(
+                 { name: selectedBgId === 'bg_9' ? 'Đạo Bào Tinh Xảo' : 'Đạo Bào Tông Môn', quantity: 1, desc: 'Trang phục dành cho đệ tử có địa vị.', type: 'equip', tier: 'Pháp Khí', rarity: selectedBgId === 'bg_9' ? 'Xanh lam' : 'Xanh lá', durability: selectedBgId === 'bg_9' ? 500 : 200, maxDurability: selectedBgId === 'bg_9' ? 500 : 200, containerId: 'default' },
+                 { name: 'Tụ Khí Đan', quantity: selectedBgId === 'bg_9' ? 5 : 2, desc: 'Đan dược hỗ trợ tu luyện cơ bản.', type: 'food', freshness: 3600, maxFreshness: 3600, containerId: 'default' }
+             );
+             if (selectedBgId === 'bg_9') startingInventory.push({ name: 'Thanh Phong Kiếm', quantity: 1, desc: 'Phi kiếm cấp thấp của tông môn.', type: 'equip', tier: 'Pháp Khí', rarity: 'Xanh lam', durability: 500, maxDurability: 500, containerId: 'default' });
+         } else if (selectedBgId === 'bg_10') {
+             startingInventory.push(
+                 { name: 'Da thú thô ráp', quantity: 1, desc: 'Tấm da thú quấn tạm quanh người.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 100, maxDurability: 100, containerId: 'default' },
+                 { name: 'Thịt dã thú tươi', quantity: 3, desc: 'Thịt thú rừng dai nhách.', type: 'food', freshness: 15, maxFreshness: 15, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_16') {
+             startingInventory.push(
+                 { name: 'Khố đẫm máu', quantity: 1, desc: 'Áo tù nhân rách rưới.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 50, maxDurability: 50, containerId: 'default' },
+                 { name: 'Trảm Thủ Đao (Cùn)', quantity: 1, desc: 'Đao đao phủ đã chém nhiều người, đầy oán khí.', type: 'equip', tier: 'Phàm Khí', rarity: 'Xanh lá', durability: 200, maxDurability: 200, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_19') {
+             startingInventory.push(
+                 { name: 'Áo choàng xám xịt', quantity: 1, desc: 'Đồng phục tạp dịch ma tông.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 100, maxDurability: 100, containerId: 'default' },
+                 { name: 'Huyết Đan (Tạp)', quantity: 2, desc: 'Đan dược cấp thấp luyện từ máu huyết, tanh tưởi.', type: 'food', freshness: 3600, maxFreshness: 3600, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_20') {
+             startingInventory.push({ name: 'Lá cây ngụy trang', quantity: 1, desc: 'Vài chiếc lá lớn che đậy bản thể.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 100, maxDurability: 100, containerId: 'default' });
+         } else if (selectedBgId === 'bg_21') {
+             startingInventory.push({ name: 'Lớp rêu phong', quantity: 1, desc: 'Rêu mọc bám trên đá.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 100, maxDurability: 100, containerId: 'default' });
+         } else if (selectedBgId === 'bg_22') {
+             startingInventory.push(
+                 { name: 'Khung kim loại gỉ sét', quantity: 1, desc: 'Vỏ bọc máy móc rẻ tiền.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 100, maxDurability: 100, containerId: 'default' },
+                 { name: 'Mảnh vụn linh thạch', quantity: 2, desc: 'Dùng để duy trì lõi năng lượng.', type: 'food', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_23') {
+             startingInventory.push({ name: 'Vỏ kiếm gãy nát', quantity: 1, desc: 'Bản thể ký túc hiện tại.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 50, maxDurability: 50, containerId: 'default' });
+         } else if (selectedBgId === 'bg_24') {
+             startingInventory.push({ name: 'Linh dịch Bản nguyên', quantity: 2, desc: 'Chắt lọc từ cơ thể, ẩn chứa linh khí tinh thuần.', type: 'food', freshness: 9999, maxFreshness: 9999, containerId: 'default' });
+         } else if (selectedBgId === 'bg_25') {
+             startingInventory.push(
+                 { name: 'Vảy ngược Hộ tâm', quantity: 1, desc: 'Lớp vảy cứng cáp bẩm sinh che chở nhục thân.', type: 'equip', tier: 'Yêu Khí', rarity: 'Xanh lam', durability: 500, maxDurability: 500, containerId: 'default' },
+                 { name: 'Thịt dã thú tươi', quantity: 5, desc: 'Thức ăn săn được trong rừng.', type: 'food', freshness: 15, maxFreshness: 15, containerId: 'default' }
+             );
+         } else if (initialTraits.some(t => t.name === 'Kẻ Ăn Mày')) {
+             startingInventory.push(
+                 { name: 'Quần áo rách rưới', quantity: 1, desc: 'Tả tơi, bốc mùi hôi thối, chỉ đủ che thân.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 20, maxDurability: 20, containerId: 'default' }, 
+                 { name: 'Bát mẻ', quantity: 1, desc: 'Công cụ hành nghề ăn xin, dính đầy bụi bẩn.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 50, maxDurability: 50, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_long_toc') {
+             startingInventory.push(
+                 { name: 'Vảy Ngược Chân Long', quantity: 1, desc: 'Lớp vảy cứng nhất bảo vệ nhục thân, không sợ đao kiếm.', type: 'equip', tier: 'Yêu Khí', rarity: 'Vàng', durability: 5000, maxDurability: 5000, containerId: 'default' },
+                 { name: 'Huyết Cỏ Vạn Năm', quantity: 5, desc: 'Linh thảo sinh ra từ máu rồng, ăn vào no rất lâu.', type: 'food', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_con_bang') {
+             startingInventory.push(
+                 { name: 'Khung Xương Tinh Kim', quantity: 1, desc: 'Hài cốt của Cự Thú, cực kỳ cứng rắn.', type: 'equip', tier: 'Yêu Khí', rarity: 'Cam', durability: 8000, maxDurability: 8000, containerId: 'default' },
+                 { name: 'Thiên Thạch Rơi', quantity: 10, desc: 'Cục thiên thạch cực lớn, nhai tạm để cản lại Cơn đói Vĩnh Hằng.', type: 'food', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_thien_dao_khuoc_tu') {
+             startingInventory.push(
+                 { name: 'Mảnh Khăn Tang Rách', quantity: 1, desc: 'Mảnh khăn tang rách nát từ ngày cha mẹ qua đời khi sinh ra, mang tử khí và chấp niệm nghịch mệnh.', type: 'equip', tier: 'Phàm Khí', rarity: 'Xám', durability: 50, maxDurability: 50, containerId: 'default' },
+                 { name: 'Thảo Dược Khô Đắng', quantity: 3, desc: 'Nắm cỏ thuốc đắng ngắt nhặt nhạnh ven đường để kéo dài hơi tàn.', type: 'food', freshness: 60, maxFreshness: 60, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_yeu_thuan_long') {
+             startingInventory.push(
+                 { name: 'Vảy Ấu Long Bẩm Sinh', quantity: 1, type: 'Vật Phẩm', rarity: 'Tím', desc: 'Mảnh vảy rồng sơ sinh chứa yêu khí bảo hộ kinh mạch.', containerId: 'default' },
+                 { name: 'Huyết Nhục Yêu Thú Tươi', quantity: 5, type: 'food', rarity: 'Lam', desc: 'Thịt tươi yêu thú giúp bổ sung thể lực và chuyển hóa yêu lực.', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_yeu_thuan_phuong') {
+             startingInventory.push(
+                 { name: 'Phượng Vũ Linh Hỏa', quantity: 1, type: 'Vật Phẩm', rarity: 'Tím', desc: 'Lông vũ phượng hoàng chứa linh hỏa bản mệnh, kích phát niết bàn.', containerId: 'default' },
+                 { name: 'Linh Quả Hỏa Tinh', quantity: 5, type: 'food', rarity: 'Lam', desc: 'Linh quả chứa hỏa khí thuần dương giúp tăng trưởng thể lực.', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_yeu_thuan_mieu') {
+             startingInventory.push(
+                 { name: 'Móng Vuốt Linh Miêu', quantity: 1, type: 'Vật Phẩm', rarity: 'Lam', desc: 'Móng vuốt sắc nhọn bẩm sinh xé rách con mồi.', containerId: 'default' },
+                 { name: 'Cá Tươi Đầm Lầy', quantity: 5, type: 'food', rarity: 'Lục', desc: 'Thịt cá tươi giàu đạm tiếp thêm thể lực dã tính.', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_yeu_thuan_ho') {
+             startingInventory.push(
+                 { name: 'Linh Hồ Y', quantity: 1, type: 'Vật Phẩm', rarity: 'Lam', desc: 'Lớp lông tơ mềm mại che chở yêu khí ban đầu.', containerId: 'default' },
+                 { name: 'Huyễn Nguyệt Thảo', quantity: 5, type: 'food', rarity: 'Lục', desc: 'Cỏ đêm trăng hấp thu ánh nguyệt thanh lọc cơ thể.', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_yeu_thuan_dieu') {
+             startingInventory.push(
+                 { name: 'Linh Vũ Bằng Ưng', quantity: 1, type: 'Vật Phẩm', rarity: 'Lam', desc: 'Chiếc lông vũ cứng cáp tăng tốc độ lướt gió.', containerId: 'default' },
+                 { name: 'Quả Rừng Tinh Huyết', quantity: 5, type: 'food', rarity: 'Lục', desc: 'Quả rừng mọng nước bồi bổ thể lực và yêu lực.', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_yeu_thuan_ngu') {
+            startingInventory.push(
+                { name: 'Hải Lam Vảy Thần', quantity: 1, type: 'Vật Phẩm', rarity: 'Lam', desc: 'Vảy cá biển sâu phát quang lam dịu, kháng áp suất nước và độc tố nhẹ.', containerId: 'default' },
+                { name: 'Thâm Hải Tảo Tươi', quantity: 5, type: 'food', rarity: 'Lục', desc: 'Rong biển ngàn năm đáy đại dương dồi dào thủy linh khí và thể lực.', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+            );
+        } else if (selectedBgId === 'bg_yeu_thuan_di_toc') {
+             startingInventory.push(
+                 { name: 'Thú Cốt Bẩm Sinh', quantity: 1, type: 'Vật Phẩm', rarity: 'Lam', desc: 'Khúc xương thú linh thiêng mang linh tính tộc đàn.', containerId: 'default' },
+                 { name: 'Thịt Tươi Dã Thú', quantity: 5, type: 'food', rarity: 'Lục', desc: 'Nguồn sống cơ bản nuôi dưỡng yêu lực dã tính.', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_vien_co_cu_long') {
+             startingInventory.push(
+                 { name: 'Vảy Ngược Cự Long Viễn Cổ', quantity: 1, desc: 'Lớp vảy rồng viễn cổ cứng cáp bất diệt, kháng phép thuật và đao kiếm.', type: 'equip', tier: 'Yêu Khí', rarity: 'Cam', durability: 9000, maxDurability: 9000, containerId: 'default' },
+                 { name: 'Long Tức Đan', quantity: 5, desc: 'Đan dược ngưng tụ từ hơi thở rồng, hồi phục yêu lực và bồi bổ long hồn.', type: 'food', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_ho_toc') {
+             startingInventory.push(
+                 { name: 'Thiên Ti Y', quantity: 1, desc: 'Y phục dệt từ mây trời, vô cùng mỏng manh quyến rũ.', type: 'equip', tier: 'Pháp Khí', rarity: 'Tím', durability: 1000, maxDurability: 1000, containerId: 'default' },
+                 { name: 'Huyễn Mộng Đan', quantity: 5, desc: 'Đan dược bảo hộ tâm trí khi chìm vào giấc ngủ rũ.', type: 'food', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_vu_toc') {
+             startingInventory.push(
+                 { name: 'Cốt Giáp Thái Thản', quantity: 1, desc: 'Giáp làm từ xương cự thú viễn cổ.', type: 'equip', tier: 'Chân Khí', rarity: 'Cam', durability: 8000, maxDurability: 8000, containerId: 'default' },
+                 { name: 'Huyết Sâm Thái Cổ', quantity: 5, desc: 'Nhân sâm nhuốm máu thần ma, bổ sung khí huyết khổng lồ.', type: 'food', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_kiem_no') {
+             startingInventory.push(
+                 { name: 'Áo vải sờn rách', quantity: 1, desc: 'Trang phục nô bộc ướt đẫm mồ hôi và nhọ nồi.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 50, maxDurability: 50, containerId: 'default' },
+                 { name: 'Mảnh Khí Kiếm Gãy', quantity: 1, desc: 'Binh khí tàn tạ lượm lặt khi cọ rửa kiếm, vô cùng sắc bén.', type: 'equip', equipSlot: 'weapon', tier: 'Phàm Khí', rarity: 'Xanh lá', durability: 80, maxDurability: 80, attackBonus: 5, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_tieu_nhi') {
+             startingInventory.push(
+                 { name: 'Đồng phục Tiểu Nhị', quantity: 1, desc: 'Áo quần thoang thoảng mùi rượu và thức ăn thiu.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 60, maxDurability: 60, containerId: 'default' },
+                 { name: 'Nữ Nhi Hồng (Pha Nước)', quantity: 2, desc: 'Rượu thừa mót được của khách, uống vào say bét nhè.', type: 'food', freshness: 100, maxFreshness: 100, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_lang_y') {
+             startingInventory.push(
+                 { name: 'Đạo Bào Rởm', quantity: 1, desc: 'Áo đạo sĩ giả danh tiên phong đạo cốt.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 70, maxDurability: 70, containerId: 'default' },
+                 { name: 'Bột Thất Thập Hương', quantity: 3, desc: 'Hỗn hợp nhảm nhí, có khả năng làm cay mắt kẻ thù nếu ném trúng.', type: 'misc', tier: 'Đạo Cụ', rarity: 'Xanh lá', containerId: 'default' },
+                 { name: 'Cao Dán Máu Đỉa', quantity: 2, desc: 'Bôi vào tuy hôi thối nhưng cầm máu được một chút.', type: 'food', freshness: 200, maxFreshness: 200, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_phu_thuy') {
+             startingInventory.push(
+                 { name: 'Hắc Y Rách Rưới', quantity: 1, desc: 'Trang phục tỏa ra mùi tử khí ẩm mốc.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 80, maxDurability: 80, containerId: 'default' },
+                 { name: 'Phù Nguyền Rủa (Sơ Cấp)', quantity: 2, desc: 'Cổ thuật cấp thấp, dán lên người khiến đối phương ngứa ngáy nổi mẩn điên cuồng.', type: 'misc', tier: 'Vu Chú', rarity: 'Xanh lam', containerId: 'default' },
+                 { name: 'Rết Độc Phơi Khô', quantity: 3, desc: 'Dùng để nhai giải khuây hoặc luyện cổ thuật.', type: 'food', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_linh_quen') {
+             startingInventory.push(
+                 { name: 'Đao sứt mẻ dính máu', quantity: 1, desc: 'Binh khí nhặt từ xác đồng đội.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 50, maxDurability: 50, containerId: 'default' },
+                 { name: 'Giáp da thủng lỗ', quantity: 1, desc: 'Áo giáp rẻ tiền của binh lính.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 80, maxDurability: 80, containerId: 'default' },
+                 { name: 'Lương khô cứng như đá', quantity: 2, desc: 'Đồ ăn cấp phát của quân đội.', type: 'food', freshness: 360, maxFreshness: 360, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_nguoi_thuong') {
+             startingInventory.push(
+                 { name: 'Trang phục phàm nhân', quantity: 1, desc: 'Áo quần bằng nỉ thông dụng của người phàm.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 50, maxDurability: 50, containerId: 'default' },
+                 { name: 'Bánh màn thầu', quantity: 3, desc: 'Thức ăn no bụng của bá tánh.', type: 'food', freshness: 10, maxFreshness: 10, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_no_le') {
+             startingInventory.push(
+                 { name: 'Quần áo rách bươm', quantity: 1, desc: 'Vải che thân dính đầy vết roi.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 10, maxDurability: 10, containerId: 'default' },
+                 { name: 'Xiềng Xích Nô Lệ', quantity: 1, desc: 'Cùm sắt trói chân tay, cực kỳ vướng víu.', type: 'equip', tier: 'Phàm Khí', rarity: 'Đen', durability: 9999, maxDurability: 9999, speedBonus: -30, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_tu_tu') {
+             startingInventory.push(
+                 { name: 'Áo Tù Chữ Tử', quantity: 1, desc: 'Y phục của kẻ sắp bị hành hình.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 30, maxDurability: 30, containerId: 'default' },
+                 { name: 'Gông Cùm Gỗ Lim', quantity: 1, desc: 'Khóa chặt cổ và hai tay.', type: 'equip', tier: 'Phàm Khí', rarity: 'Đen', durability: 500, maxDurability: 500, speedBonus: -50, attackBonus: -10, containerId: 'default' },
+                 { name: 'Bát cơm từ biệt', quantity: 1, desc: 'Bữa ăn thịnh soạn trước khi lên máy chém.', type: 'food', freshness: 3, maxFreshness: 3, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_ngu_phu') {
+             startingInventory.push(
+                 { name: 'Quần áo tơi tả ướt sũng', quantity: 1, desc: 'Trang phục bốc mùi cá tanh.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 50, maxDurability: 50, containerId: 'default' },
+                 { name: 'Lưới đánh cá rách', quantity: 1, desc: 'Có thể dùng làm bẫy trói phàm nhân.', type: 'equip', equipSlot: 'artifact', tier: 'Phàm Khí', rarity: 'Xanh lá', durability: 100, maxDurability: 100, containerId: 'default' },
+                 { name: 'Cá sấy khô phơi lạt', quantity: 3, desc: 'Đồ ăn mang theo khi đi biển.', type: 'food', freshness: 180, maxFreshness: 180, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_tieu_thuong') {
+             startingInventory.push(
+                 { name: 'Y phục gọn gàng xỉn màu', quantity: 1, desc: 'Đồ của kẻ bán hàng dạo, dễ chạy trốn.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 60, maxDurability: 60, containerId: 'default' },
+                 { name: 'Bàn tính gỗ gãy góc', quantity: 1, desc: 'Bàn tính dùng để tính tiền.', type: 'equip', equipSlot: 'artifact', tier: 'Phàm Khí', rarity: 'Trắng', durability: 80, maxDurability: 80, containerId: 'default' },
+                 { name: 'Bánh màn thầu lạnh', quantity: 4, desc: 'Hàng ế đem cất làm lương khô.', type: 'food', freshness: 10, maxFreshness: 10, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_dao_tac') {
+             startingInventory.push(
+                 { name: 'Hắc Y Dạ Hành', quantity: 1, desc: 'Áo đen đi đêm, mỏng nhẹ.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 70, maxDurability: 70, speedBonus: 2, containerId: 'default' },
+                 { name: 'Chủy thủ tẩm độc (Cùn)', quantity: 1, desc: 'Vũ khí ám sát cự ly gần.', type: 'equip', equipSlot: 'weapon', tier: 'Phàm Khí', rarity: 'Xanh lá', durability: 120, maxDurability: 120, attackBonus: 3, containerId: 'default' },
+                 { name: 'Bột Mê Phàm Trần', quantity: 2, desc: 'Quăng vào mặt làm hắt hơi, mù mắt phàm nhân.', type: 'misc', tier: 'Đạo Cụ', rarity: 'Trắng', containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_vo_su_pham') {
+             startingInventory.push(
+                 { name: 'Võ Phục Giang Hồ', quantity: 1, desc: 'Áo vải chắc chắn của võ sư.', type: 'equip', tier: 'Phàm Khí', rarity: 'Xanh lá', durability: 150, maxDurability: 150, defenseBonus: 2, containerId: 'default' },
+                 { name: 'Đại Đao Rèn Thiết', quantity: 1, desc: 'Binh khí nặng tay, chém sắt như bùn (phàm vật).', type: 'equip', equipSlot: 'weapon', tier: 'Phàm Khí', rarity: 'Xanh lam', durability: 300, maxDurability: 300, attackBonus: 5, containerId: 'default' },
+                 { name: 'Kim Sang Dược', quantity: 2, desc: 'Thuốc trị thương của võ lâm.', type: 'food', freshness: 300, maxFreshness: 300, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'vo_cong') {
+             startingInventory.push(
+                 { name: 'Dạ Hành Y', quantity: 1, desc: 'Áo đen đi đêm cực nhẹ, thích hợp thi triển khinh công.', type: 'equip', tier: 'Tuyệt Phẩm', rarity: 'Tím', durability: 300, maxDurability: 300, speedBonus: 10, containerId: 'default' },
+                 { name: 'Trường Kiếm Bách Luyện', quantity: 1, desc: 'Kiếm thép trăm dập, sắc bén vô cùng.', type: 'equip', equipSlot: 'weapon', tier: 'Tuyệt Phẩm', rarity: 'Xanh lam', durability: 500, maxDurability: 500, attackBonus: 15, containerId: 'default' },
+                 { name: 'Phi Tiêu (Ám Khí)', quantity: 10, desc: 'Ám khí tôi độc nhẹ.', type: 'misc', tier: 'Đạo Cụ', rarity: 'Xanh lá', containerId: 'default' }
+             );
+         } else if (selectedBgId === 'dau_khi') {
+             startingInventory.push(
+                 { name: 'Hắc Cốt Giới Chỉ', quantity: 1, desc: 'Giới chỉ đen nhánh do mẫu thân để lại. Bên trong dường như có một tia linh hồn đang kêu gọi.', type: 'spatial', tier: 'Thần Khí', rarity: 'Đỏ', capacity: 10000, containerId: 'default', savedId: 'ring_dau_khi_1' },
+                 { name: 'Trọng Kiếm Vô Phong', quantity: 1, desc: 'Thanh đại kiếm đen kịt đen thui, vô cùng nặng nề. Vác nó lên người đi lại vô cùng khó khăn nhưng lại rèn luyện thân thể.', type: 'equip', equipSlot: 'weapon', tier: 'Chân Khí', rarity: 'Cam', durability: 9999, maxDurability: 9999, attackBonus: 30, speedBonus: -15, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'ma_phap') {
+             startingInventory.push(
+                 { name: 'Pháp Phục Phù Thủy', quantity: 1, desc: 'Áo choàng hội pháp sư cấp thấp, khắc vài ma trận tăng cường tinh thần lực.', type: 'equip', tier: 'Ma Đạo Cụ', rarity: 'Xanh lam', durability: 300, maxDurability: 300, spiritPowerBonus: 15, containerId: 'default' },
+                 { name: 'Ma Trượng Gỗ Sồi', quantity: 1, desc: 'Đũa phép đính tinh thể nguyên tố nhỏ ở đầu.', type: 'equip', equipSlot: 'weapon', tier: 'Ma Đạo Cụ', rarity: 'Xanh lam', durability: 300, maxDurability: 300, attackBonus: 10, containerId: 'default' },
+                 { name: 'Lọ Mana Potion', quantity: 3, desc: 'Thuốc hồi mana đặc chế của Tây Phương.', type: 'food', freshness: 3600, maxFreshness: 3600, containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_ca_ki') {
+             startingInventory.push(
+                 { name: 'Y Phục Lụa Sặc Sỡ', quantity: 1, desc: 'Trang phục mỏng manh quyến rũ.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 30, maxDurability: 30, containerId: 'default' },
+                 { name: 'Cổ Cầm Bằng Trúc', quantity: 1, desc: 'Nhạc cụ chơi tiêu khiển, cấu trúc tinh xảo.', type: 'equip', equipSlot: 'weapon', tier: 'Phàm Khí', rarity: 'Xanh lá', durability: 100, maxDurability: 100, containerId: 'default' },
+                 { name: 'Hộp Son Phấn', quantity: 1, desc: 'Đồ trang điểm giúp che giấu sắc mặt.', type: 'misc', tier: 'Đạo Cụ', rarity: 'Trắng', containerId: 'default' }
+             );
+         } else if (selectedBgId === 'bg_ctan') {
+             startingInventory.push(
+                 { name: 'Vỏ Bọc Necrodermis', quantity: 1, desc: 'Lớp vỏ bọc kim loại lỏng bao phủ linh hồn năng lượng.', type: 'equip', tier: 'Thần Khí', rarity: 'Đỏ', durability: 99999, maxDurability: 99999, containerId: 'default' },
+                 { name: 'Ngôi Sao Hấp Hối (Vật Chất Tinh Thần)', quantity: 3, desc: 'Nguồn phóng xạ duy trì sự sống ban đầu. Ăn vào để áp chế cơn đói vĩ mô.', type: 'food', freshness: 9999, maxFreshness: 9999, containerId: 'default' }
+             );
+         } else {
+             const randomStarterKits = [
+                 [
+                     { name: 'Quần áo vải thô', quantity: 1, desc: 'Trang phục cũ kỹ, nhuộm màu sương gió.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 100, maxDurability: 100, containerId: 'default' }, 
+                     { name: 'Bánh bao khô', quantity: 3, desc: 'Lương khô lót dạ, nhai mỏi cả hàm.', type: 'food', freshness: 90, maxFreshness: 90, containerId: 'default' }
+                 ],
+                 [
+                     { name: 'Áo da dã thú mỏng', quantity: 1, desc: 'Áo chắp vá từ da thú, giữ ấm khá tốt.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 120, maxDurability: 120, containerId: 'default' },
+                     { name: 'Thịt khô phơi sương', quantity: 4, desc: 'Thịt thú phơi khô mặn chát, ăn để sinh tồn.', type: 'food', freshness: 150, maxFreshness: 150, containerId: 'default' },
+                     { name: 'Dao găm sứt mẻ', quantity: 1, desc: 'Một thanh dao găm rỉ sét phòng thân.', type: 'equip', equipSlot: 'weapon', tier: 'Phàm Khí', rarity: 'Trắng', durability: 80, maxDurability: 80, attackBonus: 2, containerId: 'default' }
+                 ],
+                 [
+                     { name: 'Thanh Sam bạc màu', quantity: 1, desc: 'Y phục xám xịt đã sờn rách nhiều chỗ.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 80, maxDurability: 80, containerId: 'default' },
+                     { name: 'Bánh lương khô mốc', quantity: 2, desc: 'Loại bánh rẻ tiền, hơi có vị chua chua.', type: 'food', freshness: 30, maxFreshness: 30, containerId: 'default' },
+                     { name: 'Bầu hồ lô gỗ', quantity: 1, desc: 'Dùng để đựng nước dắt bên hông.', type: 'equip', equipSlot: 'artifact', tier: 'Phàm Khí', rarity: 'Trắng', durability: 60, maxDurability: 60, containerId: 'default' }
+                 ],
+                 [
+                     { name: 'Y phục bá tánh', quantity: 1, desc: 'Đồ mặc thường ngày của phàm nhân, lấm lem bùn đất.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 90, maxDurability: 90, containerId: 'default' },
+                     { name: 'Bánh bột ngô', quantity: 5, desc: 'Thức ăn rẻ tiền đầy sạn cát.', type: 'food', freshness: 60, maxFreshness: 60, containerId: 'default' },
+                     { name: 'Bùa bình an (Hết phép)', quantity: 1, desc: 'Miếng bùa vàng đã phai mực, giữ làm kỷ niệm.', type: 'misc', tier: 'Vật Kỷ Niệm', rarity: 'Trắng', containerId: 'default' }
+                 ],
+                 [
+                     { name: 'Hắc y rách nát', quantity: 1, desc: 'Bộ đồ từng màu đen nay đã vấy bẩn xám xịt.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 70, maxDurability: 70, containerId: 'default' },
+                     { name: 'Rễ cây linh đằng', quantity: 2, desc: 'Rễ cây chứa lượng linh khí nhạt nhòa, nhai sống cho đỡ đói.', type: 'food', freshness: 120, maxFreshness: 120, containerId: 'default' }
+                 ]
+             ];
+             const chosenKit = randomStarterKits[Math.floor(Math.random() * randomStarterKits.length)];
+             chosenKit.forEach(item => startingInventory.push(item));
+
+             if (selectedBgId === 'bg_18') {
+                 startingInventory.push({ name: 'Búa rèn rỉ sét', quantity: 1, desc: 'Tuy cũ kỹ nhưng cầm khá đầm tay.', type: 'equip', tier: 'Phàm Khí', rarity: 'Xanh lá', durability: 200, maxDurability: 200, containerId: 'default' });
+             }
+         }
+
+         if (initialTraits.some(t => String(t.name).startsWith('Tuyệt Thế ')) && !['bg_9', 'bg_16', 'bg_23'].includes(selectedBgId)) {
+                 const weaponTrait = initialTraits.find(t => String(t.name).startsWith('Tuyệt Thế '));
+                 const weaponType = weaponTrait.name.split(' ')[2];
+                 startingInventory.push({ name: `${weaponType} sắt mẻ`, quantity: 1, desc: 'Binh khí phàm trần để phòng thân.', type: 'equip', tier: 'Phàm Khí', rarity: 'Trắng', durability: 100, maxDurability: 100, containerId: 'default' });
+             }
+             if (initialTraits.some(t => t.name === 'Dược Vương Hóa Thân')) {
+                 startingInventory.push({ name: 'Hồi Xuân Đan', quantity: 1, desc: 'Đan dược trị thương phẩm chất khá.', type: 'food', freshness: 3600, maxFreshness: 3600, containerId: 'default' });
+             }
+             if (initialTraits.some(t => t.name === 'Huyền Thiên Trấn Ma Hồ Lô')) {
+                 startingInventory.push({ name: 'Huyền Thiên Trấn Ma Hồ Lô (Hỏng)', quantity: 1, desc: 'Thần Khí Thượng Cổ bị hỏng. Chủ nhân có thể bỏ đồ rác/phế đan vào đợi thời gian sẽ Luyện hóa ra đồ Đỏ. Có khả năng Trữ vật vô hạn, Tự động độ rung báo Radar khoáng thạch, Bắt giữ/Nuốt chửng linh hồn và hóa thành Phụ thể vĩnh viễn.', type: 'artifact', tier: 'Thần Khí', rarity: 'Đỏ', durability: 99999, maxDurability: 99999, containerId: 'default', perks: ['Luyện Hóa Cực Phẩm', 'Không Gian Vô Hạn', 'Radar Tầm Bảo', 'Nuốt Chửng Đoạt Xá'] });
+             }
+             if (initialTraits.some(t => t.name === 'Tụ Bảo Bồn')) {
+                 startingInventory.push({ name: 'tụ bảo bồn', quantity: 1, desc: 'Một chiếc chậu đất đen ngòm, cũ kỹ bị vứt lăn lóc. Nhìn vẻ ngoài bình phàm nhưng bên trong tự thành không gian bảo quản. Cốt lõi bảo vật nghịch thiên có khả năng biến phế thành bảo, nhân bản (1 thành 2) và thăng cấp vạn vật lên Cực Phẩm (1 lần duy nhất). Giới hạn năng lực tùy thuộc vào cảnh giới lớn của chủ nhân. Có thể thu phóng kích thước tùy tâm, dung nhập và cất giấu an toàn trong đan điền.', type: 'artifact', tier: 'Thần Khí', rarity: 'Đỏ', durability: 99999, maxDurability: 99999, containerId: 'default', perks: ['Cường Hóa Thăng Cấp', 'Nhân Bản Vạn Vật', 'Biến Phế Thành Bảo', 'Thu Phóng Tùy Tâm'] });
+             }
+        }
+
+        // --- V7.30 LOGIC: BÓP MÉO HOÀN CẢNH & HÀNH TRANG THEO KHÍ VẬN ---
+    if (gameState.gameMode !== 'mong_ao') {
+        if (selectedBgId === 'bg_kiem_no') { initDef += 5; initSpd -= 2; }
+        if (selectedBgId === 'bg_tieu_nhi') { initSp += 3; initSpd += 2; }
+        if (selectedBgId === 'bg_lang_y') { initSp += 4; }
+        if (selectedBgId === 'bg_phu_thuy') { initSp += 8; initDef -= 4; }
+        if (selectedBgId === 'bg_ngu_phu') { initDef += 2; initSpd += 2; }
+        if (selectedBgId === 'bg_tieu_thuong') { initSp += 2; }
+        // V1.51 FIX: Chỉ số bẩm sinh cho 6 Xuất Thân Yêu Tộc Thuần Chủng
+        if (selectedBgId === 'bg_yeu_thuan_long') { initAtk += 20; initSp += 15; initDef += 15; initSpd += 5; }
+        if (selectedBgId === 'bg_yeu_thuan_phuong') { initAtk += 15; initSpd += 25; initSp += 15; initDef += 5; }
+        if (selectedBgId === 'bg_yeu_thuan_mieu') { initSpd += 25; initAtk += 15; initDef += 5; }
+        if (selectedBgId === 'bg_yeu_thuan_ho') { initSp += 25; initSpd += 15; initDef += 5; }
+        if (selectedBgId === 'bg_yeu_thuan_dieu') { initSp += 20; initSpd += 20; initAtk += 10; }
+        if (selectedBgId === 'bg_yeu_thuan_di_toc') { initAtk += 15; initDef += 15; initSpd += 15; }
+        if (selectedBgId === 'bg_yeu_thuan_ngu') { initDef += 15; initSp += 25; initSpd += 15; initAtk += 10; }
+        if (selectedBgId === 'bg_dao_tac') { initSpd += 4; initAtk += 2; initSp -= 2; }
+        if (selectedBgId === 'bg_vo_su_pham') { initAtk += 4; initDef += 2; initSpd += 2; initEnlightenment = Math.max(1, initEnlightenment - 2); }
+        if (selectedBgId === 'bg_ca_ki') { initSp += 4; initDef -= 2; initAtk -= 2; }
+        if (selectedBgId === 'bg_1') { initSpd += 3; initAtk += 2; } 
+        if (selectedBgId === 'bg_2') initSp += 3; 
+        if (selectedBgId === 'bg_4') initSp += 5; // V8.39 FIX: Thần thức +5
+        if (selectedBgId === 'bg_6') { initAtk += 3; initSpd += 3; } // V8.39 FIX: Thêm Tốc +3
+        if (selectedBgId === 'bg_8') { initDef += 5; initEnlightenment += 5; } // V8.39 FIX: Thêm Ngộ +5
+        if (selectedBgId === 'bg_9') { initAtk += 5; initDef += 5; initSpd += 5; initSp += 5; } 
+        if (selectedBgId === 'bg_10') { initAtk += 5; initSpd += 5; } 
+        if (selectedBgId === 'bg_16') { initAtk += 8; initEnlightenment -= 5; } 
+        if (selectedBgId === 'bg_18') { initAtk += 2; initSp -= 2; }
+        if (selectedBgId === 'bg_19') { initAtk += 6; }
+        if (selectedBgId === 'bg_20') { initSp += 5; } 
+        if (selectedBgId === 'bg_21') { initDef += 15; initSpd -= 10; initEnlightenment = Math.max(1, initEnlightenment - 5); } 
+        if (selectedBgId === 'bg_22') { initDef += 10; initAtk += 5; } 
+        if (selectedBgId === 'bg_23') { initAtk += 15; initDef -= 5; } 
+        if (selectedBgId === 'bg_24') { initTalent += 10; initEnlightenment += 10; initSp += 10; } 
+        if (selectedBgId === 'bg_25') { initAtk += 15; initDef += 15; initSpd += 10; } 
+        if (selectedBgId === 'bg_ctan') { initAtk += 200; initDef += 200; initSpd += 200; initSp += 200; initTalent += 500; initEnlightenment += 500; } 
+
+        const currentBgData = BACKGROUNDS_POOL.find(b => b.id === selectedBgId) || BACKGROUNDS_POOL[0];
+        // V3.24: Lọc sạch 100% node DLC khỏi allGraphNodes của base game khi DLC không hoạt động
+        const allGraphNodes = Object.values(currentWorldGraph).filter(n => !n.id.startsWith('dlc_'));
+        
+        // Ngẫu nhiên hóa điểm xuất phát đa dạng và phong phú theo từng nhóm xuất thân
+        let potentialStartNodeIds: string[] = [];
+        
+        // V3.6 LỆNH THÉP THÀNH KHÔN: KHÓA CỨNG 100% VỊ TRÍ KHỞI SINH ĐA VŨ TRỤ
+        if (selectedBgId === 'ma_phap') {
+            potentialStartNodeIds = ['dlc_violet_citadel_dalaran'];
+        } else if (selectedBgId === 'bg_high_elf' || (selectedBgId === 'bg_elf' && (!chosenElfRace || !chosenElfRace.includes('Dark')))) {
+            potentialStartNodeIds = ['dlc_alfheim_lothlorien'];
+        } else if (selectedBgId === 'bg_dark_elf' || (selectedBgId === 'bg_elf' && chosenElfRace && chosenElfRace.includes('Dark'))) {
+            potentialStartNodeIds = ['dlc_commorragh_naggaroth'];
+        } else if (selectedBgId === 'bg_angel') {
+            potentialStartNodeIds = ['dlc_thien_duc_gioi_holy_palace'];
+        } else if (selectedBgId === 'bg_blood_angel') {
+            potentialStartNodeIds = ['dlc_warp_khorne_huyet_vuc'];
+        } else if (selectedBgId === 'bg_succubus') {
+            potentialStartNodeIds = ['dlc_warp_slaanesh_mi_vuc'];
+        } else if (selectedBgId === 'bg_nightmare') {
+            potentialStartNodeIds = ['dlc_warp_tzeentch_huyen_vuc'];
+        } else if (selectedBgId === 'bg_undead') {
+            potentialStartNodeIds = ['dlc_warp_orcus_tu_vuc'];
+        } else if (selectedBgId === 'bg_behemoth') {
+            potentialStartNodeIds = ['dlc_warp_nurgle_benh_vuc'];
+        } else if (selectedBgId === 'bg_titan') {
+            potentialStartNodeIds = ['dlc_valhalla_new_asgard'];
+        } else if (selectedBgId === 'bg_do_thi_tu_tien') {
+            potentialStartNodeIds = ['dlc_khoa_ky_cong_quoc'];
+        } else if (selectedBgId === 'bg_vien_co_cu_long') {
+            potentialStartNodeIds = ['dlc_dark_fantasy_farum_azula'];
+        } else if (currentBgData.startLocId && (currentWorldGraph[currentBgData.startLocId] || FIXED_WORLD_GRAPH[currentBgData.startLocId])) {
+            potentialStartNodeIds = [currentBgData.startLocId];
+        } else if (['bg_19', 'bg_thi_am_tong'].includes(selectedBgId)) {
+            potentialStartNodeIds = allGraphNodes
+                .filter(n => n.rulingFaction.includes('Ma') || n.facilities.includes('LuyenThiTrang') || n.facilities.includes('HuyetTri') || n.id.includes('ma') || n.id.includes('thi_am'))
+                .map(n => n.id);
+        } else if (selectedBgId === 'bg_nho_sinh') {
+            potentialStartNodeIds = allGraphNodes
+                .filter(n => n.facilities.includes('ThuVien') || n.rulingFaction.includes('Nho') || n.id.includes('hao_nhien') || n.id.includes('kham_thien'))
+                .map(n => n.id);
+        } else if (['bg_17', 'bg_nguoi_thuong', 'bg_ngu_phu'].includes(selectedBgId)) {
+            potentialStartNodeIds = allGraphNodes
+                .filter(n => !n.id.startsWith('dlc_') && (n.facilities.includes('LinhDien') || n.facilities.includes('YQuanThon') || n.id.includes('than_moc') || n.id.includes('phuong_thi') || n.id.includes('nguyet_nha')))
+                .map(n => n.id);
+            if (potentialStartNodeIds.length === 0) {
+                potentialStartNodeIds = ['dong_thang_thien_nam_phuong_thi', 'nam_thiem_than_moc_thon'];
+            }
+        } else if (['bg_10', 'bg_25', 'bg_1'].includes(selectedBgId)) {
+            potentialStartNodeIds = allGraphNodes
+                .filter(n => n.rulingFaction.includes('Yêu') || n.rulingFaction.includes('Man') || n.id.includes('thap_van') || n.id.includes('hac_quy') || n.id.includes('dam_lay'))
+                .map(n => n.id);
+        } else if (['bg_8', 'bg_9'].includes(selectedBgId)) {
+            // Đệ tử môn phái: Ngẫu nhiên giữa các Tông Môn khác nhau (Kiếm Tông, Nho Tông, Phật Tự, Tiên Các, Băng Cốt...)
+            potentialStartNodeIds = allGraphNodes
+                .filter(n => n.facilities.includes('TangKinhCac') || n.facilities.includes('DanPhong') || n.rulingFaction.includes('Tông') || n.rulingFaction.includes('Tự') || n.rulingFaction.includes('Các') || n.rulingFaction.includes('Cung'))
+                .map(n => n.id);
+        } else if (['bg_16', 'bg_tu_tu'].includes(selectedBgId)) {
+            potentialStartNodeIds = allGraphNodes
+                .filter(n => n.id.includes('tu_nguc') || n.id.includes('vo_lam') || n.id.includes('can_long'))
+                .map(n => n.id);
+        } else if (['bg_tieu_nhi', 'bg_tieu_thuong', 'bg_lang_y', 'bg_vo_su_pham', 'bg_ca_ki'].includes(selectedBgId)) {
+            potentialStartNodeIds = allGraphNodes
+                .filter(n => n.facilities.includes('PhuongThi') || n.facilities.includes('QuanTro') || n.facilities.includes('LoiDai') || n.id.includes('phuong_thi') || n.id.includes('kinh_do'))
+                .map(n => n.id);
+        } else {
+            // bg_0 (Tán tu vô danh) và các xuất thân tự do: Ngẫu nhiên khắp các phường thị, dịch trạm, suối nguồn, thung lũng, thảo đình trên Cửu Châu (Không dính DLC)
+            potentialStartNodeIds = allGraphNodes
+                .filter(n => n.tier === "HaViDien" && !n.id.startsWith('dlc_') && n.id !== "dong_thang_thanh_van_tong" && n.id !== "dlc_dark_fantasy_farum_azula" && !n.name?.includes("Farum Azula") && !n.rulingFaction?.includes("Tổ Long Xà Trùng"))
+                .map(n => n.id);
+            // Thêm cả Thanh Vân Kiếm Tông vào như 1 lựa chọn công bằng, không thiên vị
+            if (currentWorldGraph["dong_thang_thanh_van_tong"]) {
+                potentialStartNodeIds.push("dong_thang_thanh_van_tong");
+            }
+        }
+
+        if (potentialStartNodeIds.length === 0) {
+            potentialStartNodeIds = allGraphNodes.map(n => n.id);
+        }
+
+        const pickedStartNodeId = potentialStartNodeIds[Math.floor(Math.random() * potentialStartNodeIds.length)];
+        targetNode = currentWorldGraph[pickedStartNodeId] || FIXED_WORLD_GRAPH[pickedStartNodeId] || allGraphNodes[0];
+
+        // V3.7 HARD CODE GUARD: Khóa cứng 100% vị trí khởi sinh theo xuất thân đặc quyền đa vũ trụ
+        if (selectedBgId === 'bg_vien_co_cu_long') {
+            const node = DLC_WORLD_GRAPH['dlc_dark_fantasy_farum_azula'] || ALL_WORLD_GRAPH['dlc_dark_fantasy_farum_azula'];
+            if (node) targetNode = node;
+        } else if (selectedBgId === 'ma_phap') {
+            const node = DLC_WORLD_GRAPH['dlc_violet_citadel_dalaran'] || ALL_WORLD_GRAPH['dlc_violet_citadel_dalaran'];
+            if (node) targetNode = node;
+        } else if (selectedBgId === 'bg_titan') {
+            const node = DLC_WORLD_GRAPH['dlc_valhalla_new_asgard'] || ALL_WORLD_GRAPH['dlc_valhalla_new_asgard'];
+            if (node) targetNode = node;
+        } else if (selectedBgId === 'bg_do_thi_tu_tien') {
+            const node = DLC_WORLD_GRAPH['dlc_khoa_ky_cong_quoc'] || ALL_WORLD_GRAPH['dlc_khoa_ky_cong_quoc'];
+            if (node) targetNode = node;
+        } else if (selectedBgId === 'bg_elf' || selectedBgId === 'bg_high_elf' || selectedBgId === 'bg_dark_elf') {
+            const isDarkElf = selectedBgId === 'bg_dark_elf' || (chosenElfRace && chosenElfRace.includes('Dark'));
+            const elfNodeId = isDarkElf ? 'dlc_commorragh_naggaroth' : 'dlc_alfheim_lothlorien';
+            const node = DLC_WORLD_GRAPH[elfNodeId] || ALL_WORLD_GRAPH[elfNodeId];
+            if (node) targetNode = node;
+        } else if (selectedBgId === 'bg_angel') {
+            const node = DLC_WORLD_GRAPH['dlc_thien_duc_gioi_holy_palace'] || ALL_WORLD_GRAPH['dlc_thien_duc_gioi_holy_palace'];
+            if (node) targetNode = node;
+        } else if (selectedBgId === 'bg_blood_angel') {
+            const node = DLC_WORLD_GRAPH['dlc_warp_khorne_huyet_vuc'] || ALL_WORLD_GRAPH['dlc_warp_khorne_huyet_vuc'];
+            if (node) targetNode = node;
+        } else if (selectedBgId === 'bg_succubus') {
+            const node = DLC_WORLD_GRAPH['dlc_warp_slaanesh_mi_vuc'] || ALL_WORLD_GRAPH['dlc_warp_slaanesh_mi_vuc'];
+            if (node) targetNode = node;
+        } else if (selectedBgId === 'bg_nightmare') {
+            const node = DLC_WORLD_GRAPH['dlc_warp_tzeentch_huyen_vuc'] || ALL_WORLD_GRAPH['dlc_warp_tzeentch_huyen_vuc'];
+            if (node) targetNode = node;
+        } else if (selectedBgId === 'bg_undead') {
+            const node = DLC_WORLD_GRAPH['dlc_warp_orcus_tu_vuc'] || ALL_WORLD_GRAPH['dlc_warp_orcus_tu_vuc'];
+            if (node) targetNode = node;
+        } else if (selectedBgId === 'bg_behemoth') {
+            const node = DLC_WORLD_GRAPH['dlc_warp_nurgle_benh_vuc'] || ALL_WORLD_GRAPH['dlc_warp_nurgle_benh_vuc'];
+            if (node) targetNode = node;
+        } else {
+            // Các xuất thân khác TUYỆT ĐỐI KHÔNG sinh ra ở Farum Azula hoặc bất kỳ map DLC nào
+            if (targetNode.id.startsWith('dlc_') || targetNode.id === 'dlc_dark_fantasy_farum_azula' || targetNode.name?.includes('Farum Azula') || targetNode.rulingFaction?.includes('Tổ Long Xà Trùng')) {
+                const fallbackNode = currentWorldGraph['dong_thang_thien_nam_phuong_thi'] || FIXED_WORLD_GRAPH['dong_thang_thien_nam_phuong_thi'] || allGraphNodes.find(n => !n.id.startsWith('dlc_') && n.tier === 'HaViDien') || allGraphNodes[0];
+                if (fallbackNode) {
+                    targetNode = fallbackNode;
+                }
+            }
+        }
+        randomStartLoc = targetNode.name;
+        gameState.currentLocationNodeId = targetNode.id;
+        
+        // V8.39 FIX: Đã gỡ bỏ biến knowsRealm. Người chơi mặc định biết toàn bộ Cảnh Giới từ bản v8.02.
+        
+        // V1.27 FIX: Gỡ duplicate Búa rèn bg_18 (đã push ở block trên)
+
+        // V7.30 & V3.7: BÓP MÉO ĐỊA ĐIỂM BẰNG KHÍ VẬN (CÁC XUẤT THÂN ĐA VŨ TRỤ MIỄN NHIỄM 100%)
+        const isSpecialMultiBgFinal = ['ma_phap', 'bg_titan', 'bg_do_thi_tu_tien', 'bg_elf', 'bg_high_elf', 'bg_dark_elf', 'bg_angel', 'bg_blood_angel', 'bg_succubus', 'bg_nightmare', 'bg_undead', 'bg_behemoth', 'bg_vien_co_cu_long'].includes(selectedBgId);
+        if (!isSpecialMultiBgFinal) {
+            if (hasTrait('Phú Giáp Nhất Phương') || hasTrait('Uy Chấn Giang Hồ')) {
+                const luxLocs = ['Tịch Nguyệt Lâu (Phòng Chữ Thiên)', 'Sân sau Đấu Giá Hội', 'Trang Viện Biệt Lập'];
+                randomStartLoc = luxLocs[Math.floor(Math.random() * luxLocs.length)];
+            } else if (hasTrait('Kẻ Ăn Mày')) {
+                const poorLocs = ['Khu đổ rác Tông Môn', 'Gầm cầu xó chợ', 'Con hẻm hôi hám'];
+                randomStartLoc = poorLocs[Math.floor(Math.random() * poorLocs.length)];
+            } else if (hasTrait('Đại Nạn Bất Tử') || hasTrait('Phong Ảnh Thể') || hasTrait('Cừu Nhân Khắp Chốn')) {
+                const dangerLocs = ['Đang rơi xuống Vực Sâu Vạn Trượng', 'Tâm điểm Vạn Yêu Cốc', 'Phế tích nhuốm máu'];
+                randomStartLoc = dangerLocs[Math.floor(Math.random() * dangerLocs.length)];
+            }
+        }
+
+        // V7.30: NHUỐM MÀU ĐỊA ĐIỂM (Tự động cập nhật hậu quả môi trường)
+        if (hasTrait('Hạn Bạt Viêm Thể')) randomStartLoc += ' (Nóng rực, khô cằn)';
+        if (hasTrait('Thái Âm Táng Thể')) randomStartLoc += ' (Âm u, đầy tử khí)';
+        if (hasTrait('Tuế Nguyệt Khô Vinh Thể')) randomStartLoc += ' (Cây cỏ xung quanh đang héo úa)';
+
+        // V7.30: BÓP MÉO HÀNH TRANG THEO THỂ CHẤT ĐẶC DỊ
+        if (hasTrait('Thôn Kim Phệ Cốt Thể')) {
+            startingInventory = startingInventory.map(i => {
+                if (i.type === 'equip') {
+                    i.name = `${i.name} (Bị cắn nham nhở)`;
+                    i.desc = 'Bị chính chủ nhân gặm nhấm vì quá đói sắt thép.';
+                    i.durability = Math.floor((i.durability || 100) * 0.2);
+                }
+                return i;
+            });
+        }
+        if (hasTrait('Thiên Sát Cô Tinh')) {
+            startingInventory.push({ name: 'Ngọc Bội Vỡ Nát (Đẫm Máu)', quantity: 1, desc: 'Di vật của một người thân thiết vừa bị bạn khắc chết ngày hôm qua.', type: 'misc', tier: 'Vật Kỷ Niệm', rarity: 'Đỏ', containerId: 'default' });
+        }
+    }
+
+    // V4.85: Khởi tạo thời gian ngẫu nhiên từ 6h sáng đến 17h chiều (thay vì 0h đêm)
+    const randomStartMinutes = Math.floor(Math.random() * (17 * 60 - 6 * 60 + 1)) + 6 * 60; 
+    const startAgeOffset = randomStartMinutes / (360 * 24 * 60);
+    const initialAge = initialAgeNum + startAgeOffset;
+
+    // V9.01 FIX: TÍNH TOÁN TUỔI LINH HỒN KHỞI ĐIỂM DỰA TRÊN KHÍ VẬN TRÙNG SINH/ĐOẠT XÁ
+    let initialSoulAge = initialAge;
+    if (initialTraits.some(t => t.name === 'Ký Ức Tiền Kiếp')) initialSoulAge += 300 + Math.floor(Math.random() * 500); // 300 - 800 năm
+    if (initialTraits.some(t => t.name === 'Ma Tôn Chuyển Thế')) initialSoulAge += 3000 + Math.floor(Math.random() * 2000); // 3000 - 5000 năm
+    if (initialTraits.some(t => t.name === 'Trận Tổ Chuyển Thế')) initialSoulAge += 5000 + Math.floor(Math.random() * 5000); // 5000 - 10000 năm
+
+    // V8.65 FIX: Tự động kích hoạt ĐA DLC cộng hưởng dựa trên toàn bộ Xuất thân và Khí vận (initialActiveDLCsSet & chosenElfRace đã được khai báo ở đầu hàm startNewGame để chống TDZ)
+
+    // V10.62 & V10.82: XÚC XẮC CHỦNG TỘC NGẦM CHO NÔ LỆ
+    if (selectedBgId === 'bg_no_le') {
+        const slaveRaces = ['Nhân Tộc', 'Yêu Tộc', 'Mị Ma', 'Hắc Tinh Linh', 'Bán Yêu', 'Ma Tộc'];
+        const rolledRace = slaveRaces[Math.floor(Math.random() * slaveRaces.length)];
+        
+        if (rolledRace === 'Mị Ma') addFreeTrait('Hợp Hoan Mị Cốt'); 
+        else if (rolledRace === 'Hắc Tinh Linh') addFreeTrait('Thiên Ma Thể');
+        else if (rolledRace === 'Yêu Tộc') addFreeTrait('Tiên Thiên Đại Yêu');
+        else if (rolledRace === 'Bán Yêu') {
+            addFreeTrait('Bán Yêu (Huyết Mạch Lai)');
+        }
+        else if (rolledRace === 'Ma Tộc') addFreeTrait('Vạn Ác Tội Thể');
+        
+        gameState.v1062_SlaveRace = rolledRace; 
+    }
+
+    // 1. Nhóm Linh Võng (Cyber-Xianxia / Mạng Xã Hội)
+    if (initialTraits.some(t => ['Thánh Bàn Phím', 'Hắc Khách Thiên Cơ', 'Thánh Nữ Mạng', 'Xuyên Không Gia Trì', 'Ngự Trù Bạo Chúa'].includes(t.name))) {
+        initialActiveDLCsSet.add('dlc_linh_vong');
+    }
+    
+    // 2. Nhóm Hồng Hoang (Cự Thú / Sinh Tồn / Nấu Ăn)
+    // V10.83 FIX: Xóa bg_behemoth khỏi nhóm Hồng Hoang
+    if (['bg_taotie', 'bg_10', 'bg_25', 'bg_long_toc', 'bg_con_bang', 'bg_ho_toc', 'bg_vu_toc', 'bg_chan_thien_menh'].includes(selectedBgId) || 
+        initialTraits.some(t => ['Thái Cổ Ngự Yêu Sư', 'Ngự Trù Bạo Chúa', 'Thôn Phệ Tinh Không', 'Cự Nhân Thể', 'Vạn Thú Thân Hòa', 'Tiên Thiên Đại Yêu', 'Bán yêu (Dị loại)', 'Bán Yêu (Nô Lệ)'].includes(t.name) || String(t.name).includes('Truyền Thừa'))) {
+        initialActiveDLCsSet.add('dlc_hong_hoang');
+    }
+
+    // 3. Nhóm Thánh Chiến Quang Ám (Dark Fantasy / Hậu Duệ Trọng Sinh / Ma Pháp)
+    // V10.83 FIX: Thêm bg_behemoth vào nhóm Quang Ám (Thái thản tha hóa)
+    if (['bg_elf', 'bg_angel', 'bg_succubus', 'bg_nightmare', 'bg_undead', 'bg_hu_khong', 'bg_19', 'bg_thi_am_tong', 'bg_long_toc', 'bg_ho_toc', 'bg_chan_thien_menh', 'bg_titan', 'bg_behemoth', 'ma_phap', 'bg_vien_co_cu_long'].includes(selectedBgId) || 
+        initialTraits.some(t => ['Vạn Ác Tội Thể', 'Thiên Ma Thể', 'Quỷ Đạo Truyền Nhân', 'Thái Âm Táng Thể', 'Ma Pháp Khởi Nguyên'].includes(t.name) || String(t.name).includes('Chúc Phúc'))) {
+        initialActiveDLCsSet.add('dlc_dark_fantasy');
+    }
+
+    // 4. Nhóm Nho Tu / Triều Đình
+    if (['bg_nho_sinh'].includes(selectedBgId) || 
+        initialTraits.some(t => ['Hạo Nhiên Chính Khí', 'Thuyết Khách'].includes(t.name))) {
+        initialActiveDLCsSet.add('dlc_nho_tu');
+    }
+
+    // 5. Nhóm Cơ Khí Giáng Lâm (Máy móc / Chế tạo)
+    if (initialTraits.some(t => ['Hắc Quang Bệnh Độc (Blacklight Virus)', 'Cơ Giới Bệnh Độc (Technocyte Virus)', 'Đồng Biến Lượng Tử'].includes(t.name)) || selectedBgId === 'bg_ctan') {
+        initialActiveDLCsSet.add('dlc_cyberpunk');
+    }
+
+    let initialActiveDLCs = Array.from(initialActiveDLCsSet);
+
+    // V10.28 FIX: ĐỘNG CƠ KHỞI TẠO NHÂN QUẢ (KARMA INITIALIZATION ENGINE)
+    let startingKarma = 0;
+
+    // 1. Phân tích Xuất Thân (Nhục Thân Tiền Kiếp)
+    if (selectedBgId === 'bg_16' || selectedBgId === 'bg_thi_am_tong') startingKarma -= 300;
+    if (['bg_succubus', 'bg_nightmare', 'bg_undead'].includes(selectedBgId)) startingKarma -= 800;
+    if (selectedBgId === 'bg_hu_khong') startingKarma -= 1500;
+    if (selectedBgId === 'bg_angel') startingKarma += 800;
+    if (selectedBgId === 'bg_nho_sinh' || selectedBgId === 'bg_2') startingKarma += 50;
+    
+    // V10.62: Nhân quả Đáy xã hội
+    if (selectedBgId === 'bg_tu_tu') startingKarma -= 500; // Mang ác danh tày trời
+    if (selectedBgId === 'bg_linh_quen') startingKarma -= 100; // Tay dính máu chiến trường
+
+    // 2. Phân tích Khí Vận (Linh Hồn Tiền Kiếp)
+    initialTraits.forEach(t => {
+        if (t.name === 'Vạn Ác Tội Thể') startingKarma -= 5000;
+        if (t.name === 'Thiên Ma Thể') startingKarma -= 3000;
+        if (t.name === 'Ma Tôn Chuyển Thế') startingKarma -= 2000;
+        if (t.name === 'Hệ Thống Ma Đạo' || t.id === 7016) startingKarma -= 5000;
+        if (t.name === 'Thi Âm Luyện Sư' || t.name === 'Quỷ Đạo Truyền Nhân') startingKarma -= 1500;
+        if (t.name === 'Thái Âm Táng Thể' || t.name === 'Hạn Bạt Viêm Thể' || t.name === 'Ách Nan Độc Thể') startingKarma -= 800;
+        if (t.name === 'Thiên Sát Cô Tinh' || t.name === 'Tuế Nguyệt Khô Vinh Thể') startingKarma -= 1000;
+
+        if (t.name === 'Phật Cốt Xá Lợi') startingKarma += 3000;
+        if (t.name === 'Hạo Nhiên Chính Khí') startingKarma += 1500;
+        if (t.name === 'Mệnh Quý Nhân') startingKarma += 300;
+    });
+
+    // 3. Lưới Lọc Khóa Trần Khởi Điểm (Giới hạn từ -5000 đến +5000 để chừa đường phấn đấu)
+    // V1.70 DARK & THÀNH KHÔN: Khởi đầu Thiên Mệnh Ma Tôn
+    let startingReputation = 0;
+    let startingAlignment = 'Trung Dung';
+    if (initialTraits.some(t => t.name === 'Thiên Mệnh Ma Tôn' || t.id === 2088)) {
+        startingKarma = -10000;
+        startingReputation = -1000;
+        startingAlignment = 'Ma Đạo';
+    } else {
+        startingKarma = Math.min(5000, Math.max(-5000, startingKarma));
+    }
+
+    // V10.35 FIX: Sinh ra Hạt Giống Thế Giới theo đúng Dòng Thời Gian được chọn
+    const worldSeed = generateInitialWorldMap(selectedBgId, initialTraits, initialActiveDLCs, randomStartLoc, startAgeOffset, chosenTimeline.id);
+
+    // V10.35 FIX: GÁNH NẶNG NHÂN QUẢ TIỀN KIẾP (Bơm NPC có sẵn)
+    let startingNpcs = [];
+    const createNpcId = () => 'npc_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    
+    if (selectedBgId === 'bg_17') {
+        startingNpcs.push({ id: createNpcId(), name: "Lý Địa Chủ", level: "Luyện Khí Kỳ", state: "Đang thúc giục gia đinh thu tiền tô.", historySummary: "Tên địa chủ bóc lột tại quê nhà.", relationType: "Kẻ bóc lột", hostility: 60, affinity: 0, alignment: "Phàm nhân", role: "Địa chủ", lastUpdated: Date.now() });
+    } else if (selectedBgId === 'bg_8' || selectedBgId === 'bg_9') {
+        startingNpcs.push({ id: createNpcId(), name: "Trưởng Lão Chấp Sự", level: "Kim Đan Kỳ", state: "Đang bế quan tại Tông môn.", historySummary: "Người từng dẫn dắt ngươi nhập môn.", relationType: "Sư trưởng", hostility: 0, affinity: 30, alignment: "Chính đạo", role: "Trưởng Lão", lastUpdated: Date.now() });
+        startingNpcs.push({ id: createNpcId(), name: "Triệu Sư Huynh", level: "Trúc Cơ Kỳ", state: "Đang tìm cách hãm hại ngươi đoạt tài nguyên.", historySummary: "Kẻ luôn đố kỵ với tư chất của ngươi.", relationType: "Kẻ cạnh tranh", hostility: 50, affinity: 0, alignment: "Trung lập", role: "Đệ tử nội môn", lastUpdated: Date.now() });
+    } else if (selectedBgId === 'bg_19' || selectedBgId === 'bg_thi_am_tong') {
+        startingNpcs.push({ id: createNpcId(), name: "Huyết Ma Lão Tổ", level: "Hóa Thần Kỳ", state: "Đang say ngủ trong huyết trì.", historySummary: "Lão quái vật cai quản tà tông, coi đệ tử như cỏ rác.", relationType: "Tông Chủ", hostility: 30, affinity: 0, alignment: "Ma đạo", role: "Tông Chủ", lastUpdated: Date.now() });
+    }
+
+    if (initialTraits.some(t => t.name === 'Ma Tôn Chuyển Thế' || t.name === 'Trận Tổ Chuyển Thế')) {
+        startingNpcs.push({ id: createNpcId(), name: "Phản Đồ Vô Danh", level: "Đại Thừa Kỳ", state: "Hiện đang xưng bá một phương, chưa biết ngươi đã trọng sinh.", historySummary: "Kẻ từng đâm lén ngươi ở kiếp trước để cướp đoạt truyền thừa.", relationType: "Tử địch tiền kiếp", hostility: 100, affinity: 0, alignment: "Không rõ", role: "Cường giả", lastUpdated: Date.now() });
+    }
+    
+    // V10.65: Cấp Vợ cho Lục Áp
+    if (selectedBgId === 'bg_chan_thien_menh') {
+        startingNpcs.push({ id: createNpcId(), name: "Vọng Thư", level: "Tiên Vương Kỳ", realLevel: "Tiên Vương Đỉnh Phong (Thiên Đạo Cực Cảnh)", state: "Đang tọa trấn Khối Cộng Trị Nhật Nguyệt, lo lắng cho phu quân.", historySummary: "Thống trị Thái Âm Tộc. Sống từ thời Đế Tuấn đến nay, chung thủy tuyệt đối.", relationType: "Thê tử", hostility: 0, affinity: 100, alignment: "Khối Cộng Trị", role: "Thái Âm Tinh Quân", physique: "Thái Âm Thần Thể", lastUpdated: Date.now() });
+    }
+
+    // Bổ sung DLC Hồng Hoang: Cổ Nguyệt Phương Nguyên (Bản Nữ)
+    if (gameState.gender === 'Nam' && initialTraits.some(t => t.name === 'Thiên Mệnh Hồng Nhan') && initialActiveDLCs.includes('dlc_hong_hoang') && Math.random() < 0.5) {
+        startingNpcs.push({
+            id: createNpcId(), 
+            name: "Cổ Nguyệt Phương Nguyên (Bản Nữ)", 
+            level: "Phàm Nhân", 
+            realLevel: "Đại Ái Tiên Tôn", 
+            state: "Tu vi Cổ giới hoàn toàn về không, Xuân Thu Thiền ngủ say như chết, cơ thể Hư Không Lậu Thể ốm yếu bộc phát bệnh tật, miệng vương máu độc. Đang bị gia tộc giam lỏng để gả đi.", 
+            historySummary: "Đại ma đầu Cổ giới, đâm xuyên Thời Gian Trường Hà đến Hồng Hoang đoạt xá thiên kim Cổ Nguyệt tộc. Nhục thân mới sở hữu nhan sắc 'Độc Dược Bọc Đường' tinh khiết đỉnh cao nhưng ma mị nguy hiểm, mắt đen láy sâu thẳm ẩn tia sáng đỏ tà dị của Độc Đạo. Vóc dáng cao ráo săn chắc, cặp ngực kiêu sa đầy đặn đối lập hoàn toàn vòng eo thon và rãnh chậu hằn sâu gợi tình, vùng mu tròn đầy kiêu hãnh ẩn hiện dưới y phục hắc y xẻ tà cao bí ẩn chết chóc. Thần thái xa cách, thờ ơ, Đạo Tâm Vĩnh Sinh vạn pháp bất xâm (Miễn nhiễm 100% thần thức/hủ hóa/thao túng linh hồn/khế ước nô dịch). Lực tràng xung quanh tĩnh lặng đáng sợ như một cỗ máy lý trí hoàn hảo.", 
+            relationType: "Hôn thê định mệnh / Tử địch", 
+            hostility: 10, 
+            affinity: 0, 
+            alignment: "Ma Đạo Cực Đoan", 
+            role: "Thiên Mệnh Chi Nữ", 
+            physique: "Hư Không Lậu Thể",
+            personality: "Điềm Tĩnh Vô Hạn, Lãnh Khốc Tàn Nhẫn, Sắc Sảo Quyết Đoán, Cỗ Máy Lý Trí",
+            background: "Săn đoạt quy tắc vạn giới, cắn nuốt yêu ma thần thú làm nguyên liệu luyện Cổ. Mệnh cách Nghịch Thiên, vây sát không chết. Mục tiêu: Khôi phục sức mạnh Tiên Tôn, nghiền nát thiên đạo, đạt đến Vĩnh Sinh tuyệt đối.",
+            longTermGoal: "Khôi phục sức mạnh Tiên Tôn, nghiền nát thiên đạo, đạt đến Vĩnh Sinh tuyệt đối.",
+            traits: ["Thuấn Di Bản Năng", "Hư Không Lậu Thể", "Đạo Tâm Vĩnh Sinh Vạn Pháp Bất Xâm", "Ma Tôn Chuyển Thế", "Mị Cốt Thiên Sương", "Thiên Mệnh Chi Nữ", "Đại Khí Vận"],
+            skills: [
+                { name: "Tiên Đạo Vạn Ngã - Đại Thủ Ấn", level: "Tuyệt đỉnh", desc: "Dung hợp Lực Đạo Vu Tộc và Khí Vận. Giơ tay hóa hư ảnh bàn tay trăm mét phong tỏa không gian, đập nát pháp bảo và tiên sơn." },
+                { name: "Tiên Đạo Vạn Ngã - Nghịch Lưu Hộ Thân Ấn", level: "Tuyệt đỉnh", desc: "Áo giáp nước từ Nghịch Lưu Hà (bí cảnh thiên địa) rửa trôi toàn bộ sát thương nhận vào, chảy ngược lại kẻ địch hoặc hóa giải thành hư vô. Cần sạc lại năng lượng bằng linh dịch." },
+                { name: "Tiên Đạo Vạn Ngã - Lạc Phách Ấn", level: "Đại Thành", desc: "Dùng Lạc Phách Cốc trảm linh hồn kẻ địch thành cát bụi. Địch tu vi cao hơn sẽ bị Hủ hóa Trì trệ giảm 90% phản xạ và tư duy." },
+                { name: "Xuân Thu Tất Thành (Trụ Đạo)", level: "Viên Mãn", desc: "Tuyệt học bản mạng kết hợp Nhân Quả. Vay mượn tương lai, tuyệt diệt khả năng thất bại. Chặt đứt nhánh tương lai thất bại ép thực tại vào nhánh thành công. Hồi chiêu 2 lượt." },
+                { name: "Chí Tôn Đan Điền", level: "Viên Mãn", desc: "Hấp thụ linh khí chuyển thành Phản Vật Chất Hố Đen, tạo Dị Không Gian sinh thái khép kín nuôi hàng vạn Cổ trùng bằng nhục thân địch." }
+            ],
+            inventory: [
+                { name: "Xuân Thu Thiền (Ngủ Say)", quantity: 1, type: "misc", tier: "Tiên Cổ Độc Nhất", rarity: "Đỏ", desc: "Trụ đạo Tiên Cổ. Che giấu hoàn toàn thiên cơ trước Thánh Nhân. Tích tụ oán niệm nghiệp lực tử lôi nếu lạm dụng." },
+                { name: "Trí Tuệ Cổ", quantity: 1, type: "misc", tier: "Tiên Cổ Độc Nhất", rarity: "Đỏ", desc: "Hào quang tăng 10.000 lần ngộ đạo, trí tuệ, thiên phú. Trừ 100 năm tuổi thọ mỗi lượt (Không ảnh hưởng Phương Nguyên)." },
+                { name: "Định Tiên Du Cổ", quantity: 1, type: "spatial", tier: "Tiên Cổ Độc Nhất", rarity: "Đỏ", desc: "Thần Uy Định Tiên Du, chỉ cần hình dung tọa độ là xé rách hư không dịch chuyển đến đó, bất kể khoảng cách." }
+            ],
+            lastUpdated: Date.now()
+        });
+    }
+
+    // V10.35 FIX: BƠM DƯ BA LỊCH SỬ VÀ BIẾN CỐ ĐƯƠNG THỜI
+    const worldEventsList = [
+        "Chính Ma đại chiến đang ở giai đoạn giằng co tại Trung Vị Diện. Linh thạch lạm phát.",
+        "Một khu di tích Thượng Cổ vừa phát ra dị quang ở Nam Vực, thu hút vô số tu sĩ.",
+        "Dịch bệnh ma khí đang hoành hành ở các trấn phàm nhân do yêu thú di cư.",
+        "Đấu Giá Hội trăm năm một lần của Vạn Giới Thương Hội sắp sửa bắt đầu.",
+        "Một vị cường giả vô danh vừa độ kiếp phi thăng thất bại, pháp bảo văng khắp nơi."
+    ];
+    const startWorldEvent = worldEventsList[Math.floor(Math.random() * worldEventsList.length)];
+    
+    const startChronicles = [
+        { time: "[Truyền Thuyết Viễn Cổ]", summary: "Bí ẩn Sáng Thế", details: "Tương truyền vạn năm trước, một thanh Thần kiếm từ ngoài không gian đã đâm thủng bầu trời, tạo ra vết nứt vĩnh cửu ở Trung Vị Diện.", isObj: true },
+        { time: "[Truyền Thuyết Ngầm]", summary: "Thế lực bóng tối", details: `Gần đây, tổ chức sát thủ Ám Võng Điện bắt đầu hoạt động mạnh trở lại, gieo rắc nỗi kinh hoàng cho các Tông môn lớn.`, isObj: true }
+    ];
+
+    // V10.38 & V10.39 FIX: Bơm Máu, Mana, Thể Lực, Dạ Dày & Không Gian Đặc Quyền cho Hoàng Tộc
+    const startStageConfigForInit = getStageConfig(startingCultivationLevel);
+    const baseHpCore = Math.floor(100 * startStageConfigForInit.statMult * Math.pow(1.15, startStageConfigForInit.id - 1));
+    const baseMpCore = Math.floor(50 * startStageConfigForInit.statMult * Math.pow(1.15, startStageConfigForInit.id - 1));
+    
+    // V12.14 & V14.7: TẠO BẢNG KÝ ỨC HIỂU BIẾT BẨM SINH (SƯƠNG MÙ KÝ ỨC THEO XUẤT THÂN & KHÍ VẬN)
+      let initialMcKnowledge = "Phàm nhân kiến thức hạn hẹp, tầm nhìn quanh quẩn chuyện thường ngày. Hoàn toàn không hiểu tu tiên, linh khí hay công pháp là gì. Coi người bay lượn là Thần Tiên.";
+      if (['bg_8', 'bg_9', 'bg_19'].includes(selectedBgId)) initialMcKnowledge = "Lớn lên trong môi trường Tông môn tàn khốc. Ký ức in đậm các bài giảng về hệ thống cảnh giới, cách phân biệt linh thảo, pháp bảo, và quy tắc cá lớn nuốt cá bé. Nắm rõ sơ đồ thế lực lân cận.";
+      else if (selectedBgId === 'bg_nho_sinh') initialMcKnowledge = "Mười năm hàn song khổ độc. Ký ức ngập tràn thi thư, Tứ Thư Ngũ Kinh và luật pháp vương triều. Không có khái niệm về tu tiên, chỉ tin vào Hạo Nhiên Chính Khí và luân lý đạo đức.";
+      else if (selectedBgId === 'bg_dan_su') initialMcKnowledge = "Ký ức ngập trong mùi thuốc và lửa lò. Thuộc lòng hàng vạn loại thảo dược, dược lý tương sinh tương khắc, và các phương thuốc từ trị bệnh phàm nhân đến đan dược tu sĩ cấp thấp.";
+      else if (selectedBgId === 'bg_26') initialMcKnowledge = "Ký ức đau thương về sự sụp đổ của Tông môn. Nhớ rõ các công pháp trấn phái (dù chưa luyện thành), cấu trúc quản lý tông môn, và gương mặt của những kẻ phản đồ/kẻ thù đã ra tay.";
+      else if (selectedBgId === 'bg_1') initialMcKnowledge = "Lớn lên trong rừng sâu. Ký ức rèn giũa bản năng sinh tồn: cách đọc dấu chân thú, giăng bẫy, lẩn trốn dã thú và tìm nguồn nước. Lờ mờ nghe truyền thuyết về Tiên nhân.";
+      else if (selectedBgId === 'bg_17') initialMcKnowledge = "Cả đời gắn bó với đồng ruộng. Ký ức quanh quẩn mùa màng, hạn hán, nộp tô thuế. Nhìn tu sĩ bay lượn trên trời bằng ánh mắt kính sợ như thần linh.";
+      else if (selectedBgId === 'bg_nguoi_thuong') initialMcKnowledge = "Sinh ra là một người phàm bình thường. Hiểu biết nhỏ bé quanh việc sinh hoạt, buôn bán vặt vãnh. Hoàn toàn mù mờ về tu tiên, chỉ tin vào những câu chuyện truyền thuyết.";
+      else if (selectedBgId === 'bg_ngu_phu') initialMcKnowledge = "Sóng to gió lớn là nhà. Ký ức về các luồng lạch, bão tố, cách bắt cá và sinh tồn trên mặt nước. Không biết gì về thế giới đất liền rộng lớn hay tu đạo.";
+      else if (selectedBgId === 'bg_tieu_thuong') initialMcKnowledge = "Bôn ba buôn bán. Ký ức chứa đầy mánh khóe thương trường, cách mặc cả, nhận biết giá trị phàm vật và nhìn thấu tâm lý khách hàng phàm nhân. Rất sợ đắc tội tu sĩ.";
+      else if (selectedBgId === 'bg_dao_tac') initialMcKnowledge = "Sống ngoài vòng pháp luật. Ký ức là những đêm đi ăn trộm, lẩn trốn quan phủ, các mánh khóe bẻ khóa, chế độc dược hạ cấp và tàn nhẫn để sinh tồn.";
+      else if (selectedBgId === 'bg_vo_su_pham') initialMcKnowledge = "Lăn lộn võ lâm phàm tục. Nhớ rõ các chiêu thức quyền cước, điểm huyệt, binh khí phổ thông. Từng nghĩ mình là cao thủ cái thế cho đến khi biết sự tồn tại của Tu Tiên Giả.";
+      else if (selectedBgId === 'bg_ca_ki') initialMcKnowledge = "Sống trong chốn lầu xanh hoa lệ. Ký ức đầy ắp tiếng đàn, nụ cười giả tạo, cách đọc sắc mặt kẻ quyền thế và những cay đắng tủi nhục chốn phong trần.";
+      else if (selectedBgId === 'vo_cong') initialMcKnowledge = "Lăn lộn trong võ lâm phàm tục nhiều năm, tinh thông thập bát ban võ nghệ, khinh công, nội công. Trải qua vô số trận huyết chiến đao kiếm phàm tục, có kinh nghiệm thực chiến phong phú.";
+      else if (selectedBgId === 'dau_khi') initialMcKnowledge = "Từng là thiên tài của dòng họ, sau đó bị phế tu vi trở thành rác rưởi. Nếm đủ thói đời nóng lạnh. Hiểu rõ sự tàn khốc của phương Đông Đấu Khí, phân liệt cảnh giới Đấu Giả, dị hỏa và đan dược.";
+      else if (selectedBgId === 'ma_phap') initialMcKnowledge = "Thuộc lòng lý luận ma pháp nguyên tố, cơ chế vẽ vòng tròn ma thuật và ngâm xướng chú ngữ. Hiểu rành rọt về thần linh phương Tây và phân cấp Pháp Sư.";
+      else if (selectedBgId === 'bg_0') initialMcKnowledge = "Kinh nghiệm giang hồ mánh khóe vặt vãnh, lừa đảo, lẩn trốn. Biết giấu tài, tránh né cường giả. Cách tu luyện chỉ là những mảnh vỡ chắp vá học lỏm, chưa hề có nền tảng vững vàng.";
+      else if (selectedBgId === 'bg_ctan') initialMcKnowledge = "Không có ký ức tuổi thơ. Tồn tại từ thuở sơ khai vũ trụ, ký ức là sự hấp thụ các vì sao, cái lạnh chân không và cuộc chiến với Cựu Thần. Lạnh lẽo, vô tình, coi sinh mệnh như bụi cát.";
+      else if (selectedBgId === 'bg_tu_tu') initialMcKnowledge = "Chờ chết trong ngục tối. Ký ức tràn ngập sự tra tấn, u ám, thù hận, và nỗi sợ hãi cái chết trước ngày ra pháp trường lăng trì.";
+      else if (selectedBgId === 'bg_no_le') initialMcKnowledge = "Ký ức nhuốm máu và nước mắt. Bị coi như súc vật, đánh đập, mua bán. Mang sự căm phẫn sâu sắc với kẻ quyền thế và khao khát tự do mãnh liệt.";
+      else if (selectedBgId === 'bg_kiem_no') initialMcKnowledge = "Ngày đêm rửa kiếm cạnh lò rèn nóng rực. Ký ức quen thuộc với sức nóng, độ sắc bén của binh khí, cấu trúc kim loại và sự nhục nhã khi bị sai bảo.";
+      else if (selectedBgId === 'bg_tieu_nhi') initialMcKnowledge = "Làm việc tại khách điếm nhộn nhịp. Ký ức là những mảnh ghép tin đồn, bí mật giang hồ nghe lỏm được từ đủ loại khách nhân thập phương.";
+      else if (selectedBgId === 'bg_lang_y') initialMcKnowledge = "Lang băm lừa lọc khắp nơi. Ký ức gồm các mánh khóe chế thuốc giả, chạy trốn, nhưng cũng nắm được một số phương thuốc cầm máu, giải độc cỏ dại thực tế.";
+      else if (selectedBgId === 'bg_phu_thuy') initialMcKnowledge = "Sống chui lủi trong đầm lầy sương độc. Ký ức xoay quanh việc nuôi độc trùng, chế ngải, luyện cổ và sự xa lánh, thù ghét của thế nhân đối với tà thuật.";
+      else if (selectedBgId === 'bg_linh_quen') initialMcKnowledge = "Binh lính pháo hôi. Ký ức ám ảnh bởi máu thịt bay tứ tung, tiếng thét gào trên chiến trường, và phản xạ sinh tồn bản năng giữa mưa tên bão giáo.";
+      else if (['bg_ho_toc', 'bg_con_bang', 'bg_long_toc', 'bg_vu_toc', 'bg_chan_thien_menh', 'bg_vien_co_cu_long'].includes(selectedBgId)) initialMcKnowledge = "Sinh ra trong Hoàng tộc Thái Cổ. Ký ức mang theo niềm kiêu hãnh tuyệt đối, truyền thừa huyết mạch viễn cổ, hiểu rõ lịch sử sơ khai của vũ trụ và khinh thường các sinh vật hạ đẳng.";
+      else if (selectedBgId === 'bg_thien_dao_khuoc_tu') initialMcKnowledge = "Sinh ra đã bị thiên địa ruồng bỏ, khước từ mọi cơ duyên may mắn. Cha mẹ tử vong ngay lúc chào đời, chỉ còn lại mảnh tàn y đẫm máu và chấp niệm nghịch mệnh. Linh căn tạp loạn phế phẩm, bước chân vào tu đạo phải chịu lôi kiếp x2 sát thương chuẩn diệt tuyệt. Mọi kẻ thân cận đều mang tử kiếp ngầm.";
+      else if (selectedBgId === 'bg_yeu_thuan_ngu') initialMcKnowledge = "Sinh ra là Ngư Tộc Thuần Chủng nguyên bản dưới đáy biển sâu vạn trượng. Khởi đầu là linh ngư non nớt mang Đơn Thủy Linh Căn, hô hấp dưới nước, giao tiếp tầm xa hoàn toàn bằng thần thức. Chưa đột phá Kim Đan Kỳ tuyệt đối cấm lên bờ (sẽ ngạt thở và khô cạn máu). Quy luật sinh tồn cá lớn nuốt cá bé tàn khốc, nuốt sinh vật biển chuyển hóa tu vi. Đến Hóa Thần Kỳ thức tỉnh bí pháp Thần Nguyện Khế Ước: kẻ khác cầu xin điều ước phải hiến tế tu vi cho bản thân, hoặc bản thân hy sinh 80% HP và toàn bộ tu vi để ban phúc cứu người yêu/người thân (có giới hạn trần chặn bất tử/vô hạn máu). Đêm trăng tròn cuồng ăn và cần nguồn nước bảo bọc.";
+      else if (isPureYeuTocBg(selectedBgId)) initialMcKnowledge = "Sinh ra là Yêu Tộc Thuần Chủng nguyên bản, khởi đầu mang hình hài dã thú hoặc linh điểu non nớt. Tu luyện thuần túy hệ Yêu Lực. Ký ức mang theo bản năng dã tính sinh tồn hoang dã, săn mồi thôn phệ tinh huyết chuyển hóa tu vi và thể lực. Kiên trì tu luyện chờ ngày đột phá Kim Đan Kỳ vượt Hóa Hình Lôi Kiếp để lột xác thành người.";
+      else if (['bg_elf', 'bg_angel', 'bg_blood_angel', 'bg_succubus', 'bg_nightmare', 'bg_undead', 'bg_hu_khong'].includes(selectedBgId)) initialMcKnowledge = "Ký ức của các chủng tộc Thánh Chiến. Mang theo sự hiểu biết về cuộc chiến Quang-Ám ngàn năm, sự tồn tại của Thiên Đường, Địa Ngục và sự thù hận cắm rễ vào cốt tủy giữa các phe phái.";
+      
+      const initialTraitNames = initialTraits.map(t => t.name);
+      if (initialTraitNames.includes('Ký Ức Tiền Kiếp') || initialTraitNames.includes('Ma Tôn Chuyển Thế') || initialTraitNames.includes('Trận Tổ Chuyển Thế') || initialTraitNames.includes('Đạo Tổ Niết Bàn') || initialTraitNames.includes('Đế Vương Chi Khí')) {
+          initialMcKnowledge += "\n[Ký Ức Thức Tỉnh]: Sâu trong thức hải dung hợp mảnh vỡ ký ức của một tồn tại vĩ đại từ kiếp trước. Tinh thông vạn loại công pháp chư thiên, nắm trùm quy tắc vũ trụ, nhìn thấu điểm yếu đối thủ. Biến cố kiếp trước đã tạo nên một Đạo Tâm vô cùng vững chắc.";
+      }
+      if (initialTraitNames.some(n => n.includes('Đại Đạo Trùng Tu'))) {
+          initialMcKnowledge += "\n[Ký Ức Trùng Tu]: Từng bị tàn phá đan điền, nếm trải nỗi đau kinh mạch đứt đoạn. Nhớ rõ từng kẻ đã sỉ nhục, hãm hại mình. Mang khao khát phục thù và kinh nghiệm tu luyện phong phú để làm lại từ đầu.";
+      }
+      if (initialTraitNames.some(n => n.includes('Hệ Thống'))) {
+          initialMcKnowledge += "\n[Ký Ức Dị Biệt]: Mang trong đầu một thực thể bí ẩn gọi là 'Hệ Thống', biết rõ mình là một dị số của thế giới này, khao khát dùng hệ thống để vượt lên trên quy luật thiên địa.";
+      }
+      if (initialTraitNames.includes('Ách Nan Độc Thể') || initialTraitNames.includes('Thủy Băng Hàn Thể') || initialTraitNames.includes('Hạn Bạt Viêm Thể') || initialTraitNames.includes('Thái Âm Táng Thể')) {
+          initialMcKnowledge += "\n[Ký Ức Thể Chất]: Từ nhỏ đã bị mọi người xa lánh, coi như quái vật vì thể chất gây tai họa xung quanh. Hiểu rõ sự lạnh nhạt của nhân tâm và khao khát kiểm soát sức mạnh bản thân.";
+      }
+      if (initialTraitNames.includes('Thiên Mệnh Chi Tử') || initialTraitNames.includes('Đại Khí Vận') || initialTraitNames.includes('Thiên Mệnh Hồng Nhan')) {
+          initialMcKnowledge += "\n[Ký Ức Mệnh Cách]: Thường xuyên gặp may mắn hoặc tai họa kỳ lạ từ nhỏ. Trong tiềm thức luôn vang vọng một tiếng gọi mờ ảo của thiên địa, dự cảm bản thân gánh vác một nhân quả cực lớn.";
+      }
+      if (initialTraitNames.includes('Xuyên Không Gia Trì')) {
+          initialMcKnowledge += "\n[Ký Ức Dị Giới]: Trong não tràn ngập những khái niệm phi logic với thế giới này: Vật lý lượng tử, toán học, hóa học, súng đạn, máy tính... Thường nhìn thế giới tu tiên dưới góc độ khoa học thực dụng.";
+      }
+
+      // Chuẩn hóa định dạng mẩu tri thức khởi đầu gắn nhãn Đã Kiểm Chứng kèm mốc thời gian
+      const startInGameTime = getRealmTimeStr(randomStartLoc, worldSeed.realms);
+      initialMcKnowledge = initialMcKnowledge.split('\n').filter(l => l.trim().length > 0).map(line => {
+          const cleanL = line.replace(/^-\s*/, '').trim();
+          return `- 🟢 [Đã Kiểm Chứng] [${startInGameTime}] [Chương 1 (Tuổi ${Math.floor(initialAge)})]: ${cleanL}`;
+      }).join('\n');
+
+    // V11.41: ĐỘNG CƠ KHỞI NGUYÊN TƯƠNG THÍCH (ADAPTIVE ORIGIN SYSTEM)
+    // Phân tích Thiên Hướng (Archetype) dựa trên chỉ số đã được Khí Vận/Xuất Thân cộng dồn
+    const isTanker = initDef >= 25 || initialTraits.some(t => /(Bàn Cổ|Cự Nhân|Thiết Cốt|Thạch Thần)/.test(t.name));
+    const isMage = initSp >= 25 || initialTraits.some(t => /(Phật Cốt|Huyễn Mộng|Ngộ Tính|Trận Tổ)/.test(t.name));
+    const isAssassin = initSpd >= 25 || initialTraits.some(t => /(Phong Ảnh|Thuấn Di|Tuyệt Dục|Hư Không)/.test(t.name));
+    const isTrash = initTalent <= 5 && initEnlightenment <= 5;
+    
+    const scaleFactor = startStageConfigForInit.id;
+    let archetypeBonusHp = 0;
+    let archetypeBonusMp = 0;
+    let archetypeBonusStamina = 0;
+    
+    if (isTanker) { archetypeBonusHp += (50 * scaleFactor); archetypeBonusStamina += (20 * scaleFactor); }
+    if (isMage) { archetypeBonusMp += (30 * scaleFactor); archetypeBonusHp -= (10 * scaleFactor); }
+    if (isAssassin) { archetypeBonusStamina += (30 * scaleFactor); archetypeBonusHp -= (5 * scaleFactor); }
+    if (isTrash) { archetypeBonusHp -= (20 * scaleFactor); archetypeBonusStamina -= 20; }
+    
+    // Chốt chặn an toàn: Không để Máu/Mana bị âm dẫn đến đột tử
+    archetypeBonusHp = Math.max(-(baseHpCore - 10), archetypeBonusHp);
+    archetypeBonusMp = Math.max(-(baseMpCore - 5), archetypeBonusMp);
+    
+    let initialTrueMaxHp = baseHpCore + archetypeBonusHp;
+    let initialTrueMaxMp = baseMpCore + archetypeBonusMp;
+    
+    let initialMaxFood = 100;
+    let initialBonusStamina = archetypeBonusStamina;
+
+    let startingCurrentHp = initialTrueMaxHp;
+    let startingCurrentMp = initialTrueMaxMp;
+    let startingCurrentStamina = 100 + initialBonusStamina;
+    let startingCurrentFood = initialMaxFood;
+
+    if (selectedBgId === 'bg_long_toc') {
+        initialMaxFood = 500;
+        initialBonusStamina = 1900; // Total 2000
+        initialContainer = { id: 'default', name: 'Long Châu Không Gian', capacity: 99999, desc: 'Không gian chứa đồ bẩm sinh bên trong Long Châu. Có thể cất giấu vô số vàng bạc.', rarity: 'Đỏ', type: 'soul_spatial', isSoulBound: true };
+    } else if (selectedBgId === 'bg_con_bang') {
+        initialMaxFood = 10000; // Cơn đói vĩnh hằng cần bể chứa khổng lồ
+        initialBonusStamina = 9900; // Total 10000
+        initialContainer = { id: 'default', name: 'Bụng Côn Bằng', capacity: 9999999, desc: 'Không gian vô tận trong bụng Cự Thú, nuốt thiên phệ địa.', rarity: 'Đỏ', type: 'soul_spatial', isSoulBound: true };
+    } else if (selectedBgId === 'bg_yeu_thuan_long') {
+        initialMaxFood = 1000; initialBonusStamina = 2900;
+        initialContainer = { id: 'default', name: 'Long Sào Sơ Khai', capacity: 15, durability: 2000, maxDurability: 2000, desc: 'Tổ rồng ấu thơ đan từ cành linh mộc và vảy rồng rơi rụng.', rarity: 'Tím', type: 'soul_spatial', isSoulBound: true };
+    } else if (selectedBgId === 'bg_yeu_thuan_phuong') {
+        initialMaxFood = 500; initialBonusStamina = 1900;
+        initialContainer = { id: 'default', name: 'Niết Bàn Ổ', capacity: 12, durability: 2000, maxDurability: 2000, desc: 'Tổ phượng hoàng ấm áp nung nấu linh hỏa thuần khiết.', rarity: 'Tím', type: 'soul_spatial', isSoulBound: true };
+    } else if (selectedBgId === 'bg_yeu_thuan_mieu') {
+        initialMaxFood = 250; initialBonusStamina = 800;
+        initialContainer = { id: 'default', name: 'Linh Miêu Ổ', capacity: 10, durability: 1000, maxDurability: 1000, desc: 'Ổ rơm êm ái của linh miêu ẩn sâu trong hang đá.', rarity: 'Lam', type: 'soul_spatial', isSoulBound: true };
+    } else if (selectedBgId === 'bg_yeu_thuan_ho') {
+        initialMaxFood = 250; initialBonusStamina = 700;
+        initialContainer = { id: 'default', name: 'Thanh Khâu Nang', capacity: 10, durability: 1000, maxDurability: 1000, desc: 'Túi thơm thêu hoa cỏ rừng thanh khâu bảo bọc ấu hồ.', rarity: 'Lam', type: 'soul_spatial', isSoulBound: true };
+    } else if (selectedBgId === 'bg_yeu_thuan_dieu') {
+        initialMaxFood = 250; initialBonusStamina = 800;
+        initialContainer = { id: 'default', name: 'Cổ Điểu Sào', capacity: 10, durability: 1000, maxDurability: 1000, desc: 'Tổ chim đan bằng cành thông viễn cổ treo trên vách đá.', rarity: 'Lam', type: 'soul_spatial', isSoulBound: true };
+    } else if (selectedBgId === 'bg_yeu_thuan_di_toc') {
+        initialMaxFood = 300; initialBonusStamina = 900;
+        initialContainer = { id: 'default', name: 'Dị Thú Sào', capacity: 12, durability: 1200, maxDurability: 1200, desc: 'Hang trú ẩn nguyên sơ của dị thú hoang dã.', rarity: 'Lam', type: 'soul_spatial', isSoulBound: true };
+    } else if (selectedBgId === 'bg_yeu_thuan_ngu') {
+        initialMaxFood = 350; initialBonusStamina = 1200;
+        initialContainer = { id: 'default', name: 'Hải Uyên Loa Nang', capacity: 12, durability: 1500, maxDurability: 1500, desc: 'Vỏ ốc biển sâu chứa không gian thủy vực nguyên sơ.', rarity: 'Lam', type: 'soul_spatial', isSoulBound: true };
+    } else if (selectedBgId === 'bg_vien_co_cu_long') {
+        initialMaxFood = 2000;
+        initialBonusStamina = 4900; // Total 5000
+        initialContainer = { id: 'default', name: 'Long Sào Hỗn Mang', capacity: 999999, desc: 'Không gian sào huyệt viễn cổ của Cự Long, dung nạp kho báu vô tận.', rarity: 'Đỏ', type: 'soul_spatial', isSoulBound: true };
+    } else if (selectedBgId === 'bg_ho_toc') {
+        initialMaxFood = 150;
+        initialBonusStamina = 200; // Thể lực kém hơn bọn kia một chút
+        initialContainer = { id: 'default', name: 'Huyễn Mộng Giới', capacity: 50000, desc: 'Thế giới mộng ảo dùng để cất giữ đồ đạc, vật phẩm mang vào như bước vào giấc mơ.', rarity: 'Cam', type: 'soul_spatial', isSoulBound: true };
+    } else if (selectedBgId === 'bg_vu_toc') {
+        initialMaxFood = 5000;
+        initialBonusStamina = 9900; // Total 10000
+        initialContainer = { id: 'default', name: 'Bàn Cổ Thần Kho', capacity: 999999, desc: 'Không gian thần bí sinh ra từ thể chất Bàn Cổ, dung nạp vạn vật.', rarity: 'Đỏ', type: 'soul_spatial', isSoulBound: true };
+    }
+
+    if (initialTraits.some(t => t.name === 'Thuấn Di Bản Năng')) {
+        initialContainer = { id: 'default', name: 'Dị Không Gian (Bản Năng)', capacity: 100000000, desc: 'Không gian loạn lưu riêng biệt do Bản Năng Thuấn Di mở ra (Không đóng băng thời gian). Không thể nhân bản, không thể thăng cấp.', rarity: 'Đỏ', type: 'soul_spatial', isSoulBound: true };
+        startingInventory.push({ name: 'Dị Không Gian (Bản Năng)', quantity: 1, type: 'soul_spatial', capacity: 100000000, rarity: 'Đỏ', desc: 'Không gian loạn lưu riêng biệt do Bản Năng Thuấn Di mở ra. Không thể nhân bản, không thể nâng sức chứa.', containerId: 'default', savedId: 'default' });
+    }
+
+    const initState = {
+       ...gameState, 
+       timelineId: chosenTimeline.id,
+       worldName: chosenTimeline.worldName,
+       timelineTitle: chosenTimeline.timelineTitle,
+       mapSeed: Math.floor(Math.random() * 1000000) + 1, universe: selectedGame, customWorldDesc: finalCustomDesc, traits: initialTraits, backgroundId: (gameState.gameMode === 'mong_ao' && !(gameState.isPremadeWorld && gameState.premadeWorldId === 'dau_pha')) ? 'bg_0' : selectedBgId, cultivationPath: getCultivationPath(selectedBgId, initialTraits), maxAge: finalMaxAge, age: initialAge, soulAge: initialSoulAge, startAge: initialAgeNum, bonusMaxAge: startingBonusMaxAge,
+       soulMechanism: soulConfig,
+       realWorldAge: initialAge, currentLocation: randomStartLoc, currentLocationNodeId: targetNode.id, knownRealms: worldSeed.realms, knownDistances: {},
+       stamina: startingCurrentStamina, maxStamina: 100 + initialBonusStamina, bonusMaxStamina: initialBonusStamina, spiritStones: initStones, mortalCoins: initMortalCoins, systemPoints: 0, baiGiaPoints: 0, baiGiaSystemLevel: 1, maDaoPoints: 0, talent: initTalent, enlightenment: initEnlightenment,
+       minorLevel: 1, cultivationProgress: 0, corruption: 0, breakthroughPity: 0, spiritualRoot: generatedRoot, hasRealmKnowledge: true, karma: startingKarma, alignment: startingAlignment, reputation: startingReputation, // V8.39 FIX: Mặc định luôn bằng true
+       attack: Math.max(1, initAtk), defense: Math.max(1, initDef), speed: Math.max(1, initSpd), spiritPower: Math.max(1, initSp),
+       cultivationLevel: startingCultivationLevel, // V10.36 FIX: Gán cảnh giới Khởi điểm cho Hoàng Tộc
+       journal: { skills: [], items: [], npcs: startingNpcs }, encyclopedia: worldSeed.locs, activeEffects: [],
+       foodHistory: [{ time: 'Khi mới bắt đầu', reason: 'Hoàn cảnh khởi đầu', change: startingCurrentFood }],
+       hpHistory: [{ time: 'Khi mới bắt đầu', reason: 'Tình trạng thể chất ban đầu', change: startingCurrentHp }],
+       mpHistory: [{ time: 'Khi mới bắt đầu', reason: 'Tình trạng tinh thần ban đầu', change: startingCurrentMp }],
+       staminaHistory: [{ time: 'Khi mới bắt đầu', reason: 'Thể lực ban đầu', change: startingCurrentStamina }],
+       stonesHistory: [{ time: 'Khi mới bắt đầu', reason: 'Hành trang ban đầu', change: initStones }],
+       mortalCoinsHistory: [{ time: 'Khi mới bắt đầu', reason: 'Tiền thế tục', change: initMortalCoins }],
+       atkHistory: [{ time: 'Khi mới bắt đầu', reason: 'Khởi đầu', change: Math.max(1, initAtk) }],
+       defHistory: [{ time: 'Khi mới bắt đầu', reason: 'Khởi đầu', change: Math.max(1, initDef) }],
+       spdHistory: [{ time: 'Khi mới bắt đầu', reason: 'Khởi đầu', change: Math.max(1, initSpd) }],
+       sppHistory: [{ time: 'Khi mới bắt đầu', reason: 'Khởi đầu', change: Math.max(1, initSp) }],
+       alcHistory: [], smiHistory: [], arrHistory: [], talHistory: [], thuHistory: [], thucHistory: [], thuongHistory: [], miHistory: [],
+       levelHistory: [{ time: 'Khi mới bắt đầu', reason: 'Khởi đầu', change: `Phàm Nhân ➔ ${startingCultivationLevel}` }],
+       corruptionHistory: [{ time: 'Khi mới bắt đầu', reason: 'Đạo tâm nguyên sơ', change: 0 }],
+       karmaHistory: [{ time: 'Khi mới bắt đầu', reason: 'Định hình nhân quả tiền kiếp', change: startingKarma, breakdown: [{ action: 'Thừa hưởng nghiệp báo từ xuất thân và linh hồn tiền kiếp.', change: startingKarma, time: 'Khi mới bắt đầu' }] }],
+       reputationHistory: [{ time: 'Khi mới bắt đầu', reason: startingReputation < 0 ? 'Lầm Đường Lạc Lối - Ma Đạo Chí Tôn bị Chính Đạo căm ghét' : 'Vô danh tiểu tốt', change: startingReputation }],
+       foundation: selectedBgId === 'bg_chan_thien_menh' ? 'Cực Đạo' : (initialTraits.some(t => t.name === 'Thiên Mệnh Chi Tử') ? 'Thiên Đạo' : 'Phàm Đạo'), // V11.82: Đặc quyền Thiên Mệnh Chi Tử
+               foundationScore: selectedBgId === 'bg_chan_thien_menh' ? 100 : (initialTraits.some(t => t.name === 'Thiên Mệnh Chi Tử') ? 80 : 50),
+               alchemyExp: 0, smithingExp: 0, arrayExp: 0, talismanExp: 0, tamingExp: 0, cookingExp: 0, commerceExp: 0, charmExp: 0,
+               runeCount: 0, lastRuneAge: initialAge, runeEarlyWarning: 0, runesDetail: [], runeCheckAge: initialAge,
+               containers: [initialContainer], 
+               health: startingCurrentHp, maxHealth: initialTrueMaxHp, bonusMaxHp: 0,
+               spiritualEnergy: startingCurrentMp, maxSpiritualEnergy: initialTrueMaxMp, bonusMaxMp: 0,
+               food: startingCurrentFood, maxFood: initialMaxFood,
+               currentWeather: { type: 'Normal', name: '☀️ Trời Quang Mây Tạnh' },
+               daoComprehension: [], inventory: startingInventory, mount: null, demonSpirit: null, isTransformed: false, isHumanForm: false, travelRecords: {}, statRecords: {}, currentWorldEvent: startWorldEvent, 
+               sect: initialTraits.some(t => t.name === 'Lệnh Bài Chưởng Môn') ? { 
+                   name: "Vô Danh Tông", tier: "Chín Lưu (Tàn Tạ)", prestige: 0, members: 1, wealth: initStones, rules: "Tôn sư trọng đạo.", buildings: ["Chính Điện (Đổ nát)"], commissions: [], chronicles: [{ time: "Năm đầu tiên", event: "Khai tông lập phái, đặt nền móng vạn năm." }],
+                   infrastructure: [
+                       { id: 'dong_phu', name: 'Động Phủ', level: 1, durability: 100, maxDurability: 100, capacity: 50, efficiency: 100, maintenance: 10, desc: 'Khai mở Động Thiên Phúc Địa, sức chứa nhân sự bạo tăng cấp số nhân.' },
+                       { id: 'luyen_dan', name: 'Luyện Đan Các', level: 1, durability: 100, maxDurability: 100, capacity: 10, efficiency: 100, maintenance: 15, desc: 'Mở rộng Lò Không Gian, tăng vọt sản lượng đan dược.' },
+                       { id: 'tang_kinh', name: 'Tàng Kinh Các', level: 1, durability: 100, maxDurability: 100, capacity: 10, efficiency: 100, maintenance: 20, desc: 'Lưu trữ công pháp, tăng tốc độ ngộ đạo của môn đồ.' },
+                       { id: 'linh_dien', name: 'Linh Điền', level: 1, durability: 100, maxDurability: 100, capacity: 20, efficiency: 100, maintenance: 5, desc: 'Trồng trọt linh thảo, mở rộng ruộng không gian linh mạch.' }
+                   ],
+                   currentDrama: "Tông môn vừa bị diệt, bá nghiệp chờ phục hưng." 
+               } : null, 
+               companions: [], pillResistance: {}, tribulation: null, chaosTowerFloor: 1, activeTower: false, equipped: { weapon: null, armor: null, head: null, boots: null, artifact: null, accessory: null }, activeDLCs: initialActiveDLCs,
+               lastDlcChapter: 0, // V7.98: Lưu mốc chương kích hoạt DLC
+               hiddenChronicles: startChronicles, timeHistory: [], absorbedSouls: 1, daoHeart: gameState.daoHeart, activeDungeon: null, quests: [],
+               mcKnowledge: initialMcKnowledge,
+               worldItems: [], safeZones: [], rentedLocations: [],
+               v1082_ElfRace: chosenElfRace, // V10.82: Lưu chủng tộc Elf
+               cloneInventory: [], // V12.42
+               v1215_mirrorSacrificed: false,
+               coordinates: { x: targetNode.coordinates.x, y: targetNode.coordinates.y, z: targetNode.coordinates.z || 0 }, // V12.20 Tọa độ đồng bộ chính xác theo Nơi Sinh
+               canonTimeline: JSON.parse(JSON.stringify(chosenTimeline.canonEvents)),
+               worldHistoryLedger: [],
+               fogKnowledge: { [targetNode.id]: { level: 2 as FogLevel, discoveredYear: 1 } } as Record<string, { level: FogLevel; clue?: string; discoveredYear?: number }>,
+               visitedGridCells: { [`${targetNode.coordinates.x},${targetNode.coordinates.y},${targetNode.coordinates.z || 0}`]: true } as Record<string, boolean>,
+               v14_sanityChecked: false
+            };
+    
+    // V6.62: Tự động tạo Kho Tàng Tông Môn nếu là Chưởng môn
+    if (initState.sect) {
+        initState.containers.push({ id: 'sect_treasury', name: 'Kho Tàng Tông Môn', capacity: 999999, desc: 'Kho bạc chung của Tông môn. Đệ tử thu thập tài nguyên sẽ nạp vào đây.', rarity: 'Vàng', isSectTreasury: true });
+    }
+    
+    startingInventory.forEach(i => initState.encyclopedia.push({ type: 'item', name: i.name, desc: i.desc, rarity: i.rarity, tier: i.tier, perks: i.perks || [] }));
+    initState.encyclopedia.push({ type: 'location', name: randomStartLoc, desc: 'Nơi sinh ra trong kiếp này.' });
+
+    setGameState(initState); setGameStarted(true); 
+
+    const compressedState = LZString.compressToBase64(JSON.stringify(initState));
+    const initialProfile = { id: newId, universe: selectedGame, gameMode: gameState.gameMode || 'chan_thuc', name: String(gameState.name), cultivationLevel: 'Phàm Nhân', lastPlayed: Date.now(), createdAt: Date.now(), gameStateStr: compressedState, currentOptions: [] };
+    try { await setDoc(doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', newId), initialProfile); } catch (e) { console.error(e); }
+    
+        // V5.12 & V2.52 FIX: Khắc ấn tên và mật khẩu lên Server Phòng Liên Giới (Chống đè dữ liệu)
+        if (gameState.gameMode === 'coop' && currentCoopRoom) {
+            try {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+                const rSnap = await getDoc(roomRef);
+                if (rSnap.exists()) {
+                    const latestPlayers = rSnap.data().players || [];
+                    const newPlayers = latestPlayers.map(p => p.uid === user?.uid ? { ...p, characterName: trimmedName, password: (gameState.coopPassword || '').trim(), gameStateStr: compressedState, isOnline: true, lastActive: Date.now() } : p);
+                    if (!newPlayers.some(p => p.uid === user?.uid)) {
+                        newPlayers.push({
+                            uid: user?.uid,
+                            name: trimmedName,
+                            characterName: trimmedName,
+                            password: (gameState.coopPassword || '').trim(),
+                            gameStateStr: compressedState,
+                            isOnline: true,
+                            lastActive: Date.now()
+                        });
+                    }
+                    await setDoc(roomRef, { players: newPlayers }, { merge: true });
+                }
+            } catch(e) {}
+        }
+
+        isProcessingRef.current = false; // V1.74 FIX: Hạ cờ trước khi gọi API để Chương 0 chạy ngay
+        callGeminiAPI("Bắt đầu chuyển sinh", initState); 
+      } catch (err: any) {
+        console.error("Lỗi khởi tạo luân hồi:", err);
+        showAlert("Đã xảy ra sự cố khi bước vào luân hồi: " + (err?.message || err));
+      } finally {
+        isProcessingRef.current = false; 
+      }
+    };

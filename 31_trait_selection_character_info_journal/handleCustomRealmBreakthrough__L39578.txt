@@ -1,0 +1,75 @@
+  const handleCustomRealmBreakthrough = (targetStageId: number, customName: string, authority: string) => {
+      const finalStageId = 21;
+      const realmName = String(customName || '').trim() || `Khởi Nguyên Cảnh (Cấp 21)`;
+      const authDesc = String(authority || '').trim() || 'Chấp chưởng quy luật khởi nguyên, ý niệm sinh diệt chư thiên';
+      const nextStatMult = Math.min(Number.MAX_SAFE_INTEGER, Math.floor(3000 * 2.5));
+
+      registerCustomRealm({
+          id: finalStageId,
+          name: realmName,
+          authority: authDesc,
+          statMult: nextStatMult
+      });
+
+      const safeCap = Number.MAX_SAFE_INTEGER;
+      const physCount = countPhysicalTraitsWithCores(gameState.traits);
+      const majorPct = physCount * 0.10; // Đột phá đại cảnh giới tăng gấp 2 lần tiểu cảnh giới (10% mỗi khí vận)
+
+      setGameState((prev: any) => {
+          const curMaxHp = Math.max(100, (Number(prev.health) || 100) + (Number(prev.bonusMaxHp) || 0));
+          const curMaxMp = Math.max(50, (Number(prev.spiritualEnergy) || 50) + (Number(prev.bonusMaxMp) || 0));
+          const curMaxSta = Math.max(100, (Number(prev.stamina) || 100) + (Number(prev.bonusMaxStamina) || 0));
+
+          const gainHp = Math.min(safeCap, Math.floor(curMaxHp * majorPct));
+          const gainMp = Math.min(safeCap, Math.floor(curMaxMp * majorPct));
+          const gainSta = Math.min(safeCap, Math.floor(curMaxSta * majorPct));
+
+          const newAtk = Math.min(safeCap, Math.floor((Number(prev.attack) || 10) * 2.5));
+          const newDef = Math.min(safeCap, Math.floor((Number(prev.defense) || 10) * 2.5));
+          const newSpd = Math.min(safeCap, Math.floor((Number(prev.speed) || 10) * 2.5));
+          const newSpp = Math.min(safeCap, Math.floor((Number(prev.spiritPower) || 10) * 2.5));
+
+          const newBonusHp = Math.min(safeCap, (Number(prev.bonusMaxHp) || 0) + gainHp);
+          const newBonusMp = Math.min(safeCap, (Number(prev.bonusMaxMp) || 0) + gainMp);
+          const newBonusSta = Math.min(safeCap, (Number(prev.bonusMaxStamina) || 0) + gainSta);
+
+          const newCr = { id: targetStageId, name: realmName, authority: authDesc, statMult: nextStatMult };
+          const updatedCustomRealms = [...(prev.customRealms || []).filter((r: any) => r.id !== targetStageId), newCr];
+
+          const timeStr = getRealmTimeStr(prev.currentLocation, prev.knownRealms);
+
+          return {
+              ...prev,
+              cultivationLevel: realmName,
+              stageId: targetStageId,
+              minorLevel: 1,
+              cultivationProgress: 0,
+              breakthroughPity: 0,
+              attack: newAtk,
+              defense: newDef,
+              speed: newSpd,
+              spiritPower: newSpp,
+              health: Math.min(safeCap, (Number(prev.health) || 100) + gainHp),
+              spiritualEnergy: Math.min(safeCap, (Number(prev.spiritualEnergy) || 50) + gainMp),
+              stamina: Math.min(safeCap, (Number(prev.stamina) || 100) + gainSta),
+              bonusMaxHp: newBonusHp,
+              bonusMaxMp: newBonusMp,
+              bonusMaxStamina: newBonusSta,
+              customRealms: updatedCustomRealms,
+              levelHistory: [
+                  { time: timeStr, reason: `Siêu Thoát Cấp ${targetStageId}`, change: `${prev.cultivationLevel} ➔ ${realmName}` },
+                  ...(prev.levelHistory || [])
+              ].slice(0, 30),
+              logs: [
+                  ...(prev.logs || []),
+                  {
+                      type: 'system',
+                      text: `🌟 [SIÊU THOÁT ĐẠO TỔ - CẤP ${targetStageId}] Ngươi đã siêu thoát khỏi gông cùm vũ trụ, chứng đạo Đại Cảnh Giới [${realmName}]! Quyền năng: ${authDesc}. Lực chiến (Công, Thủ, Tốc, Thức) tăng vọt x2.5! Máu/Mana/Thể lực tăng +${(majorPct * 100).toFixed(1)}% (+${formatLargeNumber(gainHp)} HP, +${formatLargeNumber(gainMp)} MP) từ ${physCount} khí vận thể chất & phôi dung hợp!`,
+                      chapter: prev.chapterCount || 1
+                  }
+              ]
+          };
+      });
+
+      handleAction(`Ta đã siêu thoát gông cùm cốt truyện, thành công chứng đạo đại cảnh giới [${realmName}], chấp chưởng quyền năng [${authDesc}]!`);
+  };
