@@ -1,0 +1,21 @@
+  const copyQuickBackup = async () => {
+    if (checkSpam()) return;
+    const data = await generateFullBackupData();
+    if (!data) return;
+
+    try { 
+        const jsonStr = JSON.stringify(data);
+        const compressed = 'V2|' + LZString.compressToBase64(jsonStr);
+        setImportCode(compressed);
+        const copied = await copyToClipboardSafe(compressed);
+        if (copied) {
+            showAlert(`Đã copy toàn bộ mã lưu trữ lõi V2 vào khay nhớ tạm (Đã nén Lượng Tử giảm 80% dung lượng)!`);
+        } else {
+            downloadBackup();
+            showAlert(`Trình duyệt chặn khay nhớ tạm. Hệ thống đã tự động dán mã vào ô Khôi Phục và TẢI XUỐNG tệp (.txt) cho bạn!`);
+        }
+    } catch (err) { 
+        downloadBackup();
+        showAlert("Copy thất bại do trình duyệt chặn. Hệ thống đã tự động tải tệp sao lưu (.txt) cho bạn."); 
+    }
+  };

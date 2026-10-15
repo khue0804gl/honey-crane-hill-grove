@@ -1,0 +1,38 @@
+  const leaveCoopRoomPermanently = async () => {
+      if (!currentCoopRoom || !user) return;
+      if (currentCoopRoom.hostUid === user?.uid) {
+          showConfirm("Bạn là Chủ Phòng! Thoát vĩnh viễn sẽ HỦY DIỆT hoàn toàn thế giới này.\nNếu muốn giữ lại thế giới cho người khác chơi, hãy 'Chuyển Nhượng Chủ Phòng' cho họ trước.\n\nBạn có chắc chắn muốn Hủy Diệt thế giới?", async () => {
+              destroyCoopRoom(); 
+          });
+          return;
+      }
+
+      showConfirm("Hành động này sẽ XÓA VĨNH VIỄN nhân vật Liên Giới của bạn khỏi phòng này, đồng thời gỡ bỏ Lối Tắt ở Danh Sách.\n\nBạn không thể khôi phục lại nhân vật này. Xác nhận thoát?", async () => {
+          setDialog({ type: 'loading', message: 'Đang xóa bỏ nhân quả khỏi Đa Vũ Trụ...' });
+          try {
+              const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+              const snap = await getDoc(roomRef);
+              if (snap.exists()) {
+                  const rData = snap.data();
+                  const newPlayers = rData.players.filter(p => p.uid !== user?.uid);
+                  await setDoc(roomRef, { players: newPlayers }, { merge: true });
+              }
+              
+              // Tự động tìm và xóa thẻ Profile ở ngoài Danh Sách
+              const profileToDelete = profiles.find(p => p.coopRoomId === currentCoopRoom.id || p.gameState?.coopRoomHost === currentCoopRoom.id);
+              if (profileToDelete) {
+                  await deleteDoc(doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', profileToDelete.id));
+                  if (currentProfileId === profileToDelete.id) setCurrentProfileId(null);
+              }
+
+              removeMyRoom(currentCoopRoom.id);
+              setCoopTab('select');
+              setCurrentCoopRoom(null);
+              closeDialog();
+              showAlert("Đã cắt đứt nhân quả và rời khỏi thế giới vĩnh viễn!");
+          } catch(e) {
+              closeDialog();
+              showAlert("Lỗi khi thoát: " + e.message);
+          }
+      });
+  };

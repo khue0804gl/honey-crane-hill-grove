@@ -1,0 +1,23 @@
+  const handleHarvestFruit = (fruitId: string) => {
+    const tv = getTavern(gameState);
+    const fruit = (tv.fruits || []).find((f: any) => f.id === fruitId);
+    if (!fruit) return;
+
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      const updatedFruits = curTv.fruits.map((f: any) => {
+        if (f.id === fruitId) {
+          return { ...f, count: (f.count || 0) + (f.yieldPerHarvest || 5), harvestDaysLeft: 3 };
+        }
+        return f;
+      });
+      return {
+        ...prev,
+        tavern: {
+          ...curTv,
+          fruits: updatedFruits
+        }
+      };
+    });
+    showAlert(`[THU HOẠCH LINH QUẢ] Vườn quả đã thu hoạch thêm +${fruit.yieldPerHarvest || 5} quả [${fruit.name}] tươi mọng!`);
+  };

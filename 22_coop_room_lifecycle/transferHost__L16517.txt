@@ -1,0 +1,19 @@
+  const transferHost = (targetPlayer) => {
+      showConfirm(`Bạn muốn nhường quyền Chủ Phòng (Host) cho Đạo hữu [${targetPlayer.name || targetPlayer.characterName}]?\n\nSau khi chuyển, bạn sẽ trở thành Khách và mất quyền Hủy Diệt/Trục Xuất.`, async () => {
+          setDialog({ type: 'loading', message: 'Đang chuyển giao quyền lực Thiên Đạo...' });
+          try {
+              const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+              const newPlayers = (currentCoopRoom.players || []).map(p => {
+                  if (p.uid === targetPlayer.uid) return { ...p, isHost: true };
+                  if (p.uid === user?.uid) return { ...p, isHost: false };
+                  return p;
+              });
+              await setDoc(roomRef, { hostUid: targetPlayer.uid, players: newPlayers }, { merge: true });
+              closeDialog();
+              showAlert("Đã chuyển giao quyền Chủ Phòng thành công!");
+          } catch(e) {
+              closeDialog();
+              showAlert("Lỗi chuyển quyền: " + e.message);
+          }
+      });
+  };

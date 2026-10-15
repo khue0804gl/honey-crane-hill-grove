@@ -1,0 +1,12 @@
+  const getStorageData = () => {
+    let localBytes = 0; try { localBytes = new Blob([Object.values(localStorage).join('')]).size; } catch(e) {}
+    let cloudBytes = 0;
+    if (currentProfileId) {
+       const activeProfile = profiles.find(p => p.id === currentProfileId);
+       if (activeProfile) cloudBytes = new Blob([JSON.stringify(activeProfile)]).size;
+    } else if (profiles.length > 0) { cloudBytes = Math.max(...profiles.map(p => new Blob([JSON.stringify(p)]).size)); }
+    return {
+      localKB: (localBytes / 1024).toFixed(1), cloudKB: (cloudBytes / 1024).toFixed(1),
+      localPct: Math.min(100, (localBytes / (5 * 1024 * 1024)) * 100).toFixed(1), cloudPct: Math.min(100, (cloudBytes / (1024 * 1024)) * 100).toFixed(1) 
+    };
+  };

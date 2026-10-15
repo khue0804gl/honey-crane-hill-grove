@@ -1,0 +1,82 @@
+  const generateFullBackupData = async () => {
+    if (profiles.length === 0) {
+        showAlert("Chưa có nhân vật nào để lưu!");
+        return null;
+    }
+    
+    setDialog({ type: 'loading', message: "Đang thu thập toàn bộ ký ức từ Đám Mây Thiên Đạo...\nQuá trình này có thể mất chút thời gian nếu dữ liệu lớn." });
+    
+    const fullProfiles = JSON.parse(JSON.stringify(profiles)); 
+    // V2.82 FIX: Ép cập nhật dữ liệu mới nhất của nhân vật đang chơi vào fullProfiles trước khi xuất sao lưu
+    fullProfiles.forEach(p => {
+        if (p.id === currentProfileId && gameStarted) {
+            const currentSysSettings = getCurrentSystemSettings();
+            const securedState = { ...gameState, playerAiLogs: playerAiChatMessages, systemSettings: currentSysSettings };
+            p.gameStateStr = LZString.compressToBase64(JSON.stringify(securedState));
+            p.currentOptions = currentOptions;
+            p.cultivationLevel = String(gameState.cultivationLevel || 'Phàm Nhân');
+            p.name = String(gameState.name || 'Vô danh');
+            p.chapterCount = Number(gameState.chapterCount) || p.chapterCount || 1; // V2.87 FIX: Đồng bộ chapterCount sống vào backup
+        }
+    });
+    
+    if (user && !user.isAnonymous) {
+        for (const p of fullProfiles) {
+            p.storyLog = [];
+            try {
+                const logsRef = collection(db, 'artifacts', appId, 'users', user?.uid, 'profiles', p.id, 'logs');
+                const logsSnap = await getDocs(logsRef);
+                logsSnap.forEach(docSnap => {
+                    const data = docSnap.data();
+                    if (data && data.dataStr) {
+                        const decompressed = safeDecompressLogs(data.dataStr);
+                        p.storyLog = p.storyLog.concat(decompressed);
+                    }
+                });
+                p.storyLog.sort((a, b) => (a.chapter || 0) - (b.chapter || 0));
+            } catch (e) {
+                console.error(`Lỗi lấy logs cho profile ${p.id}:`, e);
+            }
+        }
+    }
+    
+        // V1.28.1: Tự động tối ưu dung lượng sao lưu — Khống chế tối đa 200 chương nhật ký gần nhất
+    fullProfiles.forEach(p => {
+        if (Array.isArray(p.storyLog) && p.storyLog.length > 0) {
+            const chapsInLog = Array.from(new Set(p.storyLog.map(l => Number(l.chapter) || 0))).sort((a, b) => a - b);
+            if (chapsInLog.length > 200) {
+                const keepChaps = new Set(chapsInLog.slice(-200));
+                p.storyLog = p.storyLog.filter(l => keepChaps.has(Number(l.chapter) || 0));
+            }
+        }
+    });
+
+    closeDialog();
+    // V5.18: Định dạng nén Lượng tử V3 (Gói cả danh sách Phòng)
+    // V1.95: Định dạng nén Lượng tử V3 (Gói cả danh sách Phòng & Toàn Bộ Cài Đặt Hệ Thống - Góp ý Etsuo)
+    const currentSettings = {
+        tuTienShowCrowd: localStorage.getItem('tuTienShowCrowd'),
+        tuTienNsfwMode: localStorage.getItem('tuTienNsfwMode'),
+        tuTienHumorCrowd: localStorage.getItem('tuTienHumorCrowd'),
+        tuTienHideOptions: localStorage.getItem('tuTienHideOptions'),
+        tuTienHideOptionTags: localStorage.getItem('tuTienHideOptionTags'),
+        tuTienEpicCombat: localStorage.getItem('tuTienEpicCombat'),
+        tuTienDeepReasoning: localStorage.getItem('tuTienDeepReasoning'),
+        tuTienNoPraise: localStorage.getItem('tuTienNoPraise'),
+        tuTienNoMuttering: localStorage.getItem('tuTienNoMuttering'),
+        tuTienOptionsCount: localStorage.getItem('tuTienOptionsCount'),
+        tuTienInvMode: localStorage.getItem('tuTienInvMode'),
+        tuTienAlias: localStorage.getItem('tuTienAlias'),
+        tuTienGenZAll: localStorage.getItem('tuTienGenZAll'),
+        tuTienGenZRomance: localStorage.getItem('tuTienGenZRomance'),
+        tuTienGenZCombat: localStorage.getItem('tuTienGenZCombat'),
+        tuTienGenZCultivate: localStorage.getItem('tuTienGenZCultivate'),
+        tuTienSubStats: localStorage.getItem('tuTienSubStats'),
+        tuTienLogAntiCheat: localStorage.getItem('tuTienLogAntiCheat'),
+        tuTienLogStats: localStorage.getItem('tuTienLogStats'),
+        tuTienLogItems: localStorage.getItem('tuTienLogItems'),
+        tuTienLogCultivation: localStorage.getItem('tuTienLogCultivation'),
+        tuTienLogSect: localStorage.getItem('tuTienLogSect')
+    };
+    return { format: 'v3', profiles: fullProfiles, myCoopRooms: JSON.parse(localStorage.getItem('tuTienMyRooms') || '[]'), systemSettings: currentSettings };
+  };

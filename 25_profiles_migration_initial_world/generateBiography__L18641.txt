@@ -1,0 +1,57 @@
+  const generateBiography = async (e, profile) => {
+      e.stopPropagation();
+      if (checkSpam()) return;
+
+      // Nếu đã có truyện rồi thì mở ra đọc luôn
+      if (profile.biography) {
+          setBiographyModal({ isOpen: true, title: `Bản Kỷ: ${profile.name}`, content: profile.biography });
+          return;
+      }
+
+      showConfirm(`Thiên Đạo sẽ thu thập toàn bộ tóm tắt hành trình và cái chết của [${profile.name}] để viết thành một bộ Truyện Ngắn / Hồi Ký lưu danh muôn thuở.\n\nLưu ý: Mỗi nhân vật chỉ được đúc kết 1 lần duy nhất. Bạn có muốn bắt đầu?`, async () => {
+          setDialog({ type: 'loading', message: `Đang ngưng tụ thời không, soạn thảo Bản Kỷ cho [${profile.name}]...` });
+          try {
+              let state = profile.gameState;
+              if (profile.gameStateStr) state = safeDecompress(profile.gameStateStr) || state;
+              if (typeof state === 'string') try { state = JSON.parse(state); } catch(err){}
+
+              const summaries = (state.summaries || []).slice().reverse().map(s => `- ${s.timeLabel || s.title}: ${s.content}`).join('\n');
+              const deathInfo = (state.deathHistory || []).map((h, i) => `Lần chết ${i+1} (${h.time}): ${h.reason} -> ${h.surviveReason}`).join('\n');
+              const finalDeath = state.deathReason || 'Thân tử đạo tiêu.';
+
+              const sysPrompt = `BẠN LÀ SỬ GIA TỐI CAO CỦA TU CHÂN GIỚI.
+NHIỆM VỤ: Dựa vào Tóm tắt hành trình dưới đây, hãy viết một bài HỒI KÝ / BẢN KỶ (Truyện ngắn) tóm tắt lại cuộc đời oanh liệt hoặc bi thảm của nhân vật [${profile.name}] (Cảnh giới cuối cùng: ${profile.cultivationLevel}).
+
+TÓM TẮT HÀNH TRÌNH LÚC SINH THỜI:
+${summaries || 'Kẻ này sống một đời mờ nhạt, chưa kịp lưu lại dấu ấn gì đã vội vã qua đời.'}
+
+LỊCH SỬ TỬ VONG:
+${deathInfo}
+CÁI CHẾT CUỐI CÙNG (CHẤM DỨT CUỘC ĐỜI): ${finalDeath}
+
+YÊU CẦU VĂN PHONG:
+1. Viết dưới dạng một áng văn chương tiên hiệp bi tráng, dạt dào cảm xúc (Khoảng 2-3 đoạn văn dài).
+2. Tôn vinh những cột mốc quan trọng, sự kiên cường hoặc sự xui xẻo của họ.
+3. Đoạn cuối cùng phải miêu tả khoảnh khắc họ gục ngã (Cái chết cuối cùng), để lại niềm tiếc thương hoặc sự hả hê cho vạn giới.
+    (CẤM DÙNG TIẾNG ANH. CẤM XUẤT JSON. BẠN CHỈ TRẢ VỀ ĐÚNG ĐOẠN VĂN BẢN TIỂU THUYẾT).`;
+
+                  const payload = { contents: [{ parts: [{ text: "Hãy viết Bản Kỷ cuộc đời." }] }], systemInstruction: { parts: [{ text: sysPrompt }] } };
+                  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                  const result = await response.json();
+                  let bioText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+              
+              if (bioText) {
+                  bioText = bioText.replace(/```/g, '').trim();
+                  // Lưu vĩnh viễn vào Đám Mây
+                  const profileRef = doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', profile.id);
+                  await setDoc(profileRef, { biography: bioText }, { merge: true });
+                  
+                  // Cập nhật State để hiện Icon sách ngay lập tức
+                  setProfiles(prev => prev.map(p => p.id === profile.id ? { ...p, biography: bioText } : p));
+                  
+                  closeDialog();
+                  setBiographyModal({ isOpen: true, title: `Bản Kỷ: ${profile.name}`, content: bioText });
+              } else { throw new Error("AI trả về rỗng."); }
+          } catch(e) { closeDialog(); showAlert("Lỗi viết truyện: " + e.message); }
+      });
+  };

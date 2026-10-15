@@ -1,0 +1,29 @@
+  const handleSlaughterBeast = (beastId: string) => {
+    const tv = getTavern(gameState);
+    const beast = (tv.beasts || []).find((b: any) => b.id === beastId);
+    if (!beast || (beast.count || 0) <= 0) {
+      return showAlert("Khu chuồng trại hiện không còn linh thú loại này!");
+    }
+
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      const updatedBeasts = curTv.beasts.map((b: any) => b.id === beastId ? { ...b, count: Math.max(0, b.count - 1) } : b);
+      const meatYield = beast.tier * 8 + 10;
+      const updatedIngredients = curTv.ingredients.map((ing: any) => {
+        if (ing.type === 'Thịt Yêu Thú') {
+          return { ...ing, quantity: (ing.quantity || 0) + meatYield };
+        }
+        return ing;
+      });
+
+      return {
+        ...prev,
+        tavern: {
+          ...curTv,
+          beasts: updatedBeasts,
+          ingredients: updatedIngredients
+        }
+      };
+    });
+    showAlert(`[CHẾ BIẾN LINH THÚ] Đã đưa 1 con [${beast.name}] vào phòng bếp! Thu được thêm ${beast.tier * 8 + 10} Cân Thịt Yêu Thú nhập kho.`);
+  };

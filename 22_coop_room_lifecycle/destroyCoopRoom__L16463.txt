@@ -1,0 +1,12 @@
+  const destroyCoopRoom = async () => {
+      if (!currentCoopRoom || currentCoopRoom.hostUid !== user?.uid) return;
+      showConfirm("CẢNH BÁO TỐI CAO!\nHành động này sẽ XÓA VĨNH VIỄN toàn bộ thế giới và nhân vật của tất cả mọi người trong phòng này. Bạn có chắc chắn muốn Hủy Diệt?", async () => {
+          try {
+              const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+              await deleteDoc(roomRef);
+              removeMyRoom(currentCoopRoom.id);
+              setCoopTab('select'); setCurrentCoopRoom(null);
+              showAlert("Thế giới đã bị hủy diệt thành cát bụi!");
+          } catch(e) {}
+      });
+  };

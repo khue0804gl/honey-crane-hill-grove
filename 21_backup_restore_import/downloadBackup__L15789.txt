@@ -1,0 +1,19 @@
+  const downloadBackup = async () => {
+    if (checkSpam()) return;
+    const data = await generateFullBackupData();
+    if (!data) return;
+
+    const jsonStr = JSON.stringify(data);
+    const blob = new Blob([jsonStr], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.href = url;
+    downloadAnchorNode.download = `TuTien_Backup_${GAME_VERSION}.txt`;
+    document.body.appendChild(downloadAnchorNode); 
+    downloadAnchorNode.click(); 
+    document.body.removeChild(downloadAnchorNode);
+    URL.revokeObjectURL(url);
+
+    showAlert(`Đã tải xuống thành công tệp lưu trữ Lõi trọn vẹn 100% dữ liệu!`);
+  };

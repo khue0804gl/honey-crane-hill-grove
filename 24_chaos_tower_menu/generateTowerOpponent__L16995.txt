@@ -1,0 +1,144 @@
+  const generateTowerOpponent = (floor) => {
+      const levels = ["Luyện Khí", "Trúc Cơ", "Kim Đan", "Nguyên Anh", "Hóa Thần", "Luyện Hư", "Hợp Thể", "Đại Thừa", "Độ Kiếp", "Chân Tiên", "Tiên Vương", "Tiên Đế", "Đạo Tổ"];
+      const extraLevels = ["Chí Tôn", "Cổ Thần", "Sáng Thế", "Hư Vô", "Bất Diệt", "Đại Đạo"];
+      
+      let levelName = "";
+      let effectiveId = 0;
+      let effectiveMult = 1;
+
+      const levelIdx = Math.floor((floor - 1) / 5);
+      
+      if (levelIdx < levels.length) {
+          levelName = `${levels[levelIdx]} Kỳ`;
+          const stConfig = getStageConfig(levelName);
+          effectiveId = stConfig.id;
+          effectiveMult = stConfig.statMult;
+      } else {
+          // Quá mốc Đạo Tổ, vươn ra khỏi hệ thống hiện có (Vô Hạn)
+          const overLevels = levelIdx - levels.length + 1;
+          const extraIdx = Math.min(extraLevels.length - 1, Math.floor(overLevels / 10));
+          const extraTier = (overLevels % 10) + 1;
+          levelName = `${extraLevels[extraIdx]} (Tầng ${extraTier})`;
+          
+          effectiveId = Math.min(50, 9 + overLevels); // V11.26 FIX: Khóa trần effectiveId để chống tràn số
+          effectiveMult = Math.min(1000000000, 20000 * Math.pow(1.5, Math.min(30, overLevels))); // V11.26 FIX: Khóa trần hệ số sát thương
+      }
+
+      // Tăng mạnh hệ số nhỏ giữa mỗi 5 tầng
+      const subFloor = ((floor - 1) % 5);
+      const subMult = 1 + (subFloor * 0.5);
+      
+      // HP/MP Scaling: Giới hạn số lũy thừa để không làm cháy trình duyệt (Mức 1000 là giới hạn vô cực của Toán học máy tính)
+      const safeId = Math.min(1000, effectiveId - 1);
+      const mHP = Math.floor(150 * effectiveMult * Math.pow(1.15, safeId) * subMult);
+      const mMP = Math.floor(100 * effectiveMult * Math.pow(1.15, safeId) * subMult);
+      
+      const statArchetype = Math.random();
+      let atkM = 1, defM = 1, spdM = 1, sppM = 1;
+      let archetypeDesc = "";
+      if (statArchetype < 0.25) { atkM = 1.6; defM = 0.6; archetypeDesc = "Thiên về tấn công bạo kích, phòng thủ kém."; }
+      else if (statArchetype < 0.5) { defM = 1.6; spdM = 0.6; archetypeDesc = "Nhục thân kim cang, phòng thủ tuyệt đối nhưng chậm chạp."; }
+      else if (statArchetype < 0.75) { spdM = 1.6; atkM = 0.8; archetypeDesc = "Thân pháp quỷ mị, tốc độ cực cao, sát thương cấu rỉa."; }
+      else { sppM = 1.6; defM = 0.8; archetypeDesc = "Thần thức cường đại, tinh thông huyễn thuật và trận pháp."; }
+
+      // V7.0 FIX: Cân bằng lại Căn cơ của tàn ảnh. Không buff quá đà khiến NVC Cực Cảnh vẫn bị thua.
+      const baseOppStat = 15 + (floor * 12) + (effectiveId * 5);
+      
+      const atk = Math.floor(baseOppStat * effectiveMult * atkM);
+      const def = Math.floor(baseOppStat * effectiveMult * defM);
+      const spd = Math.floor(baseOppStat * effectiveMult * spdM);
+      const spp = Math.floor(baseOppStat * effectiveMult * sppM);
+
+      const races = ["Nhân Tộc", "Yêu Tộc", "Ma Tộc", "Khôi Lỗi", "Thạch Linh", "Ác Điểu", "Cổ Long", "Hung Thú", "Thần Linh", "Tà Tu", "Bất Tử Linh"];
+      const race = races[Math.floor(Math.random() * races.length)];
+
+      const firstNames = ["Huyết", "Ma", "Cuồng", "Kiếm", "Độc", "Quỷ", "Thần", "Băng", "Hỏa", "Lôi", "Phong", "Ám", "Hư", "Bạo", "Tà", "Diệt", "Tinh", "Nguyệt", "Thánh", "Hỗn Độn", "Vô", "Đoạn", "Tuyệt", "Sát", "Phá", "Liệt", "Ngạo", "Thương", "Bá", "Lãnh", "Cô"];
+      const lastNames = ["Tôn", "Hoàng", "Đế", "Vương", "Sát", "Khách", "Đồ", "Nhân", "Ảnh", "Quân", "Tướng", "Tiên", "Thánh", "Ma", "Thú", "Long", "Cốt", "Hồn", "Kiếm", "Đao", "Nhãn", "Tâm", "Chủ", "Tổ"];
+      const titles = [
+          "Kẻ Độc Hành", "Tàn Hồn Bất Diệt", "Chúa Tể Vực Sâu", "Kẻ Cuồng Sát", "Bóng Ma Hư Không", 
+          "Kiếm Sĩ Mù", "Kẻ Nếm Máu", "Ác Mộng Đêm Đen", "Tu La Đoạt Mạng", "Hung Vật Viễn Cổ", 
+          "Thực Thần", "Kẻ Hủy Diệt", "Huyết Y Khách", "Toái Cốt Ma Tôn", "Lạc Nhật Kiếm Hoàng", 
+          "Vô Ảnh Đạo Nhân", "Độc Cô Kiếm Ma", "Thiên Cơ Tán Nhân", "Bát Tí Ma Tôn", "Huyết Thủ Nhân Đồ",
+          "Vô Thường Sứ Giả", "Đoạt Mệnh Thư Sinh", "Táng Hoa Tiên Tử", "Khô Cốt Lão Nhân"
+      ];
+      
+      const isUnique = Math.random() > 0.4;
+      const name = isUnique 
+          ? `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`
+          : `${titles[Math.floor(Math.random() * titles.length)]}`;
+
+      const finalName = `${name} (${race} - Tầng ${floor})`;
+
+      const skillTypes = ["Đao Pháp", "Kiếm Quyết", "Ma Công", "Trận Pháp", "Lôi Thuật", "Hỏa Phù", "Độc Kinh", "Quyền Pháp", "Tuyệt Kỹ", "Thần Thông"];
+      
+      const s1 = `Thiên Địa ${skillTypes[Math.floor(Math.random() * skillTypes.length)]}`;
+      const s2 = `Cấm Thuật: ${firstNames[Math.floor(Math.random() * firstNames.length)]} Sát`;
+      const s3 = `Bổn mạng thần thông: Chân Thân ${race}`;
+
+      let strat = "";
+      let isAdaptive = false;
+
+      // V11.59: ĐỘNG CƠ TÌNH BÁO QUAN CHIẾN (LIVESTREAM TẦNG THÁP)
+      if (floor >= 10 && gameState) {
+          // Tầng càng cao, tỷ lệ kẻ địch "xem livestream" và nghiên cứu người chơi càng lớn
+          const intelChance = Math.min(0.95, 0.2 + (floor * 0.02)); 
+          
+          if (Math.random() < intelChance) {
+              isAdaptive = true;
+              const myDaoHeart = gameState.daoHeart ? gameState.daoHeart.split('-')[0].trim() : 'Khó đoán';
+              const topSkills = [...(gameState.journal?.skills || [])].sort((a, b) => (b.proficiency || 0) - (a.proficiency || 0)).slice(0, 3).map(s => s.name).join(', ');
+              
+              // Phân tích phong cách đánh dựa trên chỉ số cao nhất
+              let playstyle = "Cân bằng";
+              const maxStat = Math.max(gameState.attack, gameState.defense, gameState.speed, gameState.spiritPower);
+              if (maxStat === gameState.attack) playstyle = "Bạo lực, dồn sát thương";
+              else if (maxStat === gameState.defense) playstyle = "Phòng ngự phản công, lấy thịt đè người";
+              else if (maxStat === gameState.speed) playstyle = "Cấu rỉa, tốc độ quỷ mị, hit and run";
+              else if (maxStat === gameState.spiritPower) playstyle = "Dùng mưu mẹo, huyễn thuật, trận pháp";
+
+              if (floor < 20) {
+                  strat = `[Đã xem tình báo]: Kẻ này đã xem qua ngọc giản lưu ảnh các trận đánh trước của ngươi. Hắn biết ngươi theo trường phái [${playstyle}] và hay dùng các chiêu [${topSkills}]. Hắn sẽ mở đầu bằng câu: "Ta đã nghe danh ngươi ở các tầng dưới, để xem thực lực có như lời đồn!" và chuẩn bị sẵn cách né tránh.`;
+              } else if (floor < 40) {
+                  strat = `[Nghiên cứu kỹ lưỡng]: Kẻ này đã quan chiến ngươi từ lâu. Hắn nhìn thấu Đạo Tâm của ngươi là [${myDaoHeart}]. Hắn cố tình mang theo pháp bảo khắc chế cứng phong cách [${playstyle}] của ngươi. Hắn sẽ mở đầu bằng việc bóc mẽ thói quen của ngươi để làm ngươi dao động tâm trí.`;
+              } else {
+                  strat = `[Thiên Địch Bắt Bài]: Lão quái vật này coi ngươi như con mồi trong lồng kính. Hắn đã phân tích nát bấy 3 tuyệt học [${topSkills}] của ngươi. Hắn sẽ giăng sẵn một cái bẫy trí mạng nhắm đúng vào nhược điểm trong Đạo Tâm [${myDaoHeart}] của ngươi. Hắn mở đầu bằng câu: "Mọi đường đi nước bước của ngươi đều nằm trong tính toán của ta, nạp mạng đi!"`;
+              }
+          }
+      }
+
+      // Nếu không có tình báo (Tầng thấp hoặc xui xẻo không có info)
+      if (!isAdaptive) {
+          const strats = [
+              "Lối đánh điên cuồng, dồn ép đối thủ bằng sát thương bạo kích, lấy công làm thủ, bỏ qua phòng ngự.",
+              "Cực kỳ cẩn trọng, liên tục dùng trận pháp và khiên chắn để tiêu hao thể lực đối thủ, chờ sơ hở mới tung đòn tất sát.",
+              "Quỷ mị khó lường, thích dùng độc và huyễn thuật để cấu rỉa máu, đánh lén từ góc khuất, không đối đầu trực diện.",
+              "Khí thế áp đảo, thích dùng uy áp đè người, ra đòn chậm nhưng uy lực kinh thiên động địa, trúng là chết.",
+              "Tâm cơ xảo quyệt, cố tình lộ ra sơ hở giả để dẫn dụ đối thủ lao vào tấn công rồi phản đòn chí mạng.",
+              "Dựa vào thể chất vượt trội của chủng tộc, trực tiếp dùng nhục thân nghiền ép mọi đòn tấn công."
+          ];
+          strat = strats[Math.floor(Math.random() * strats.length)];
+      }
+
+      const personalities = [
+          "Ngạo mạn, hay buông lời nhục mạ và khinh bỉ đối thủ trong lúc đánh.", 
+          "Lạnh lùng vô cảm, im lặng sát phạt, coi mạng người như cỏ rác.", 
+          "Điên loạn, vừa đánh vừa cười man rợ, càng chảy máu càng hưng phấn.", 
+          "Nghiêm túc, coi trọng võ đạo, ra chiêu có lề lối, hay khen ngợi đối thủ mạnh.", 
+          "Xảo trá, miệng nam mô bụng một bồ dao găm, hay nói lời ngon ngọt dụ dỗ đối phương bỏ cuộc.",
+          "Trượng nghĩa hào hiệp, trọng tình trọng nghĩa, kính trọng đối thủ và ghét kẻ ỷ mạnh hiếp yếu.",
+          "Thương nhân thực dụng trọng lợi, dĩ hòa vi quý, ra chiêu tính toán thiệt hơn sòng phẳng.",
+          "Ôn hòa điềm đạm, cầu đạo thuần túy, giao lưu võ học dĩ hòa vi quý không nuôi sát niệm.",
+          "Hài hước cợt nhả, lạc quan yêu đời, vừa đánh vừa trêu đùa giải tỏa không khí căng thẳng.",
+          "Thận trọng giữ mình, cẩn tắc vô áy náy, phòng thủ kín kẽ từng đường tơ kẽ tóc."
+      ];
+      const personality = personalities[Math.floor(Math.random() * personalities.length)];
+
+      return {
+          name: finalName,
+          level: levelName, maxHp: mHP, maxMp: mMP, maxSta: 9999, atk, def, spd, spp,
+          skills: [{name: s1, level: 'Đại Thành'}, {name: s2, level: 'Viên Mãn'}, {name: s3, level: 'Tuyệt đỉnh'}],
+          strategy: strat,
+          personality: personality,
+          desc: `Chủng tộc: ${race}. ${archetypeDesc} Tính cách: ${personality}`
+      };
+  };

@@ -1,0 +1,10 @@
+  const startCoopGame = async () => {
+      if (!currentCoopRoom || currentCoopRoom.hostUid !== user?.uid) return;
+      const allReady = (currentCoopRoom.players || []).every(p => p.isHost || p.isReady);
+      if (!allReady) return showAlert("Tất cả Đạo hữu khách mời phải [Chuẩn Bị] xong mới có thể mở cổng Luân Hồi!");
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+          await setDoc(roomRef, { status: 'playing' }, { merge: true });
+          showAlert("Cổng Đa Vũ Trụ đã mở! (Giai đoạn 3 sẽ điều hướng mọi người vào tạo nhân vật chung)");
+      } catch (e) {}
+  };

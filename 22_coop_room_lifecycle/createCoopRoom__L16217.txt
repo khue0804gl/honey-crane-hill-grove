@@ -1,0 +1,44 @@
+  const createCoopRoom = async () => {
+      if (checkSpam()) return;
+      let activeUser = user;
+      if (!activeUser) {
+          try {
+              const cred = await signInAnonymously(auth);
+              activeUser = cred.user;
+              setUser(activeUser);
+          } catch(e) {
+              return showAlert("Chưa thể kết nối Đám Mây Thiên Đạo. Vui lòng kiểm tra kết nối mạng!");
+          }
+      }
+      
+      let finalCode = (coopConfig.customCode || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (!finalCode) finalCode = Math.random().toString(36).substring(2, 8).toUpperCase(); 
+      
+      setDialog({ type: 'loading', message: `Đang mở cổng Liên Giới [${finalCode}]...` });
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', finalCode);
+          const snap = await getDoc(roomRef);
+          if (snap.exists()) {
+              closeDialog();
+              return showAlert(`Mã Liên Giới [${finalCode}] đã có người cai quản. Vui lòng chọn mã khác!`);
+          }
+          
+          const hostName = coopNickname.trim() || 'Đạo Hữu Vô Danh'; 
+          const roomData = {
+              id: finalCode, hostUid: user?.uid, maxPlayers: coopConfig.maxPlayers,
+              password: coopConfig.password.trim(), status: 'waiting', createdAt: Date.now(),
+              gameVersion: GAME_VERSION, worldLog: [], liveIntents: [], 
+              players: [{ uid: user?.uid, name: hostName, isReady: false, isHost: true }]
+          };
+          
+          await setDoc(roomRef, roomData);
+          addMyRoom(finalCode); // V5.18: Nhớ phòng vừa tạo
+          setCurrentCoopRoom(roomData);
+          
+          // V5.32: Gắn ấn ký Chủ Phòng vào nhân vật
+          setGameState(prev => ({ ...prev, coopRoomHost: finalCode }));
+          
+          setCoopTab('lobby');
+          closeDialog();
+      } catch (err) { closeDialog(); showAlert("Lỗi tạo phòng Liên Giới: " + err.message); }
+  };

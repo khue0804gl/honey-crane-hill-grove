@@ -1,0 +1,14 @@
+  const handleAdminFileUpload = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          const content = event.target.result.trim();
+          const inputEl = document.getElementById('adminImportInput');
+          if (inputEl) inputEl.value = content;
+          processRestoreCode(content, true);
+          setIsAdminModalOpen(false);
+      };
+      reader.readAsText(file);
+      e.target.value = ''; 
+  };

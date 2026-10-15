@@ -1,0 +1,41 @@
+  const handleDrinkWine = (wineId: string) => {
+    const tv = getTavern(gameState);
+    const wine = (tv.wines || []).find((w: any) => w.id === wineId);
+    if (!wine || (wine.stock || 0) <= 0) {
+      return showAlert("Loại rượu này trong hầm đã cạn bình! Hãy ủ thêm mẻ mới.");
+    }
+
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      const updatedWines = curTv.wines.map((w: any) => w.id === wineId ? { ...w, stock: Math.max(0, w.stock - 1) } : w);
+      let hpBuff = 0;
+      let mpBuff = 0;
+      let expBuff = 0;
+      let corruptionReduce = 0;
+
+      if (wine.name === 'Trúc Diệp Thanh') {
+        mpBuff = Math.floor((Number(prev.maxSpiritualEnergy) || 50) * 0.15);
+      } else if (wine.name === 'Bách Thảo Quỳnh Tương') {
+        hpBuff = Math.floor((Number(prev.maxHealth) || 100) * 0.25);
+        corruptionReduce = 5;
+      } else if (wine.name === 'Cửu Chuyển Tiên Tửu') {
+        expBuff = 100;
+      }
+
+      return {
+        ...prev,
+        health: Math.min(Number(prev.maxHealth) || 100, (Number(prev.health) || 0) + hpBuff),
+        spiritualEnergy: Math.min(Number(prev.maxSpiritualEnergy) || 50, (Number(prev.spiritualEnergy) || 0) + mpBuff),
+        cultivationProgress: (Number(prev.cultivationProgress) || 0) + expBuff,
+        corruption: Math.max(0, (Number(prev.corruption) || 0) - corruptionReduce),
+        tavern: {
+          ...curTv,
+          wines: updatedWines
+        }
+      };
+    });
+    showAlert(`[THƯỞNG TỬU GIANG HỒ]
+Bạn nhấp một ngụm [${wine.name}] (${wine.ageYears} năm ủ).
+• Hương vị: ${wine.potency}
+• Công hiệu: ${wine.effect}`);
+  };

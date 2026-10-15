@@ -1,0 +1,21 @@
+  const handleDepositTavernVault = (amount: number) => {
+    if ((Number(gameState.spiritStones) || 0) < amount) {
+      return showAlert(`Không đủ Linh Thạch! Túi đồ chỉ có ${Number(gameState.spiritStones || 0).toLocaleString()} Linh Thạch.`);
+    }
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      return {
+        ...prev,
+        spiritStones: Math.max(0, (Number(prev.spiritStones) || 0) - amount),
+        tavern: {
+          ...curTv,
+          vault: (Number(curTv.vault) || 0) + amount,
+          financeLogs: [
+            { time: `Năm ${prev.age || 18}`, type: 'Thu', amount, desc: `Chủ nhân nạp ${amount.toLocaleString()} Linh Thạch vào ngân quỹ tửu quán` },
+            ...(curTv.financeLogs || [])
+          ].slice(0, 30)
+        }
+      };
+    });
+    showAlert(`Đã nạp ${amount.toLocaleString()} Linh Thạch vào Ngân Quỹ Tửu Quán thành công!`);
+  };

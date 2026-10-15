@@ -1,0 +1,12 @@
+  const handleFileUpload = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          const content = event.target.result.trim();
+          setImportCode(content);
+          processRestoreCode(content);
+      };
+      reader.readAsText(file);
+      e.target.value = ''; 
+  };

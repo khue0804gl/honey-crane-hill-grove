@@ -1,0 +1,17 @@
+  const handleRejoinMyRoom = async (roomId) => {
+      if (checkSpam() || !user) return;
+      setDialog({ type: 'loading', message: `Đang dò tìm tọa độ không gian Liên Giới [${roomId}]...` });
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', roomId);
+          const snap = await getDoc(roomRef);
+          if (!snap.exists()) {
+              closeDialog();
+              removeMyRoom(roomId); // Xóa khỏi danh sách nếu phòng đã bị hủy
+              return showAlert(`Dị giới [${roomId}] đã sụp đổ hoặc bị Chủ Phòng hủy diệt. Đã xóa khỏi thẻ ghi nhớ của bạn.`);
+          }
+          const roomData = snap.data();
+          setCurrentCoopRoom({ id: roomId, ...roomData });
+          setCoopTab(roomData.status === 'playing' ? 'reconnect' : 'lobby');
+          closeDialog();
+      } catch (e) { closeDialog(); showAlert("Lỗi tái kết nối: " + e.message); }
+  };

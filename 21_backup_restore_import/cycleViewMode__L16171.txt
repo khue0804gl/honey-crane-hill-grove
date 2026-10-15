@@ -1,0 +1,1 @@
+  const cycleViewMode = () => setViewMode(['auto', 'mobile', 'pc'][((['auto', 'mobile', 'pc'].indexOf(viewMode) + 1) % 3)]);

@@ -1,0 +1,32 @@
+  const handleUpgradeTavern = () => {
+    const tv = getTavern(gameState);
+    if (tv.level >= 5) {
+      return showAlert("[TỬU LÂU CỰC ĐẠI] Tửu quán của bạn đã đạt Cấp 5: Vạn Giới Đệ Nhất Lâu, chấn nhiếp chư thiên!");
+    }
+    const nextCfg = TAVERN_TIERS[tv.level];
+    const cost = nextCfg.upgradeCost;
+    if ((Number(gameState.spiritStones) || 0) < cost) {
+      return showAlert(`Không đủ Linh Thạch! Cần ${cost.toLocaleString()} Linh Thạch trong túi để nâng cấp lên [${nextCfg.name}].`);
+    }
+
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      return {
+        ...prev,
+        spiritStones: Math.max(0, (Number(prev.spiritStones) || 0) - cost),
+        tavern: {
+          ...curTv,
+          level: curTv.level + 1,
+          tier: nextCfg.name,
+          tables: nextCfg.maxTables,
+          reputation: curTv.reputation + 100,
+          dailyRevenue: curTv.dailyRevenue + nextCfg.baseIncome,
+          financeLogs: [
+            { time: `Năm ${prev.age || 18}`, type: 'Chi', amount: cost, desc: `Nâng cấp tửu quán lên [${nextCfg.name}]` },
+            ...(curTv.financeLogs || [])
+          ].slice(0, 30)
+        }
+      };
+    });
+    showAlert(`[THĂNG CẤP TỬU LÂU] Chúc mừng! Tửu quán đã nâng cấp lên Cấp ${nextCfg.level}: [${nextCfg.name}]! Tăng lên ${nextCfg.maxTables} bàn khách và mở rộng quy mô.`);
+  };

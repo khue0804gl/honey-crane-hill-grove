@@ -1,0 +1,41 @@
+  const handleScoutNews = () => {
+    const tv = getTavern(gameState);
+    if ((Number(tv.vault) || 0) < 20) {
+      return showAlert("Ngân quỹ tửu quán không đủ 20 Linh Thạch để thưởng cho tiểu nhị đi dò la tin tức!");
+    }
+    const sampleRumors = [
+      { source: 'Khách Qua Đường', title: 'Thiên Hỏa Lạc Xuống Hoang Mạc', content: 'Có tu sĩ trông thấy thiên thạch bốc cháy rơi xuống biên giới phía tây, bên trong nghi có dị hỏa bản nguyên.', type: 'Kỳ Ngộ' },
+      { source: 'Thương Nhân Bắc Vực', title: 'Giá Linh Phù & Khôi Lỗi Biến Động', content: 'Do chiến sự ma đạo bùng nổ, các phường thị lớn đang khan hiếm Truyền Tống Phù và Đan Dược trị thương.', type: 'Thị Trường' },
+      { source: 'Tán Tu Bí Ẩn', title: 'Yêu Thú Thức Tỉnh Tại U Ám Cốc', content: 'Một đầu Xích Diễm Hổ Ngũ Giai vừa xuất hiện ở sâu trong sơn mạch, đả thương nhiều toán thợ săn.', type: 'Biến Cố' },
+      { source: 'Lão Già Say Rượu', title: 'Bí Mật Động Phủ Đạo Tổ', content: 'Nghe đồn ngọc giản ghi chép truyền thừa của Cửu Tiêu Kiếm Tôn đã thất lạc vào tay một gã phàm nhân may mắn.', type: 'Bảo Vật' }
+    ];
+    const picked = sampleRumors[Math.floor(Math.random() * sampleRumors.length)];
+    const newEntry = {
+      id: `nw_${Date.now()}`,
+      time: `Vừa xong`,
+      source: picked.source,
+      title: picked.title,
+      content: picked.content,
+      type: picked.type as any
+    };
+
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      return {
+        ...prev,
+        tavern: {
+          ...curTv,
+          vault: Math.max(0, (Number(curTv.vault) || 0) - 20),
+          news: [newEntry, ...(curTv.news || [])].slice(0, 20),
+          financeLogs: [
+            { time: `Năm ${prev.age || 18}`, type: 'Chi', amount: 20, desc: `Thưởng tiểu nhị nghe ngóng tin tức giang hồ` },
+            ...(curTv.financeLogs || [])
+          ].slice(0, 30)
+        }
+      };
+    });
+    showAlert(`[TIN TỨC MỚI THU THẬP]
+Tiểu nhị vừa dò la được tin:
+"${newEntry.title}"
+${newEntry.content}`);
+  };

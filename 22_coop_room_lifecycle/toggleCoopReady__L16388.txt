@@ -1,0 +1,11 @@
+  const toggleCoopReady = async () => {
+      if (!currentCoopRoom || !user) return;
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+          const rSnap = await getDoc(roomRef);
+          if (rSnap.exists()) {
+              const newPlayers = rSnap.data().players.map(p => p.uid === user?.uid ? { ...p, isReady: !p.isReady } : p);
+              await setDoc(roomRef, { players: newPlayers }, { merge: true });
+          }
+      } catch (e) {}
+  };

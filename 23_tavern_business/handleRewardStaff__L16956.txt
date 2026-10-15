@@ -1,0 +1,28 @@
+  const handleRewardStaff = (staffId: string) => {
+    const tv = getTavern(gameState);
+    if ((Number(tv.vault) || 0) < 30) {
+      return showAlert("Ngân quỹ tửu quán không đủ 30 Linh Thạch để ban thưởng nhân sự!");
+    }
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      const updatedStaff = curTv.staff.map((st: any) => {
+        if (st.id === staffId) {
+          return { ...st, loyalty: Math.min(100, (st.loyalty || 80) + 10) };
+        }
+        return st;
+      });
+      return {
+        ...prev,
+        tavern: {
+          ...curTv,
+          vault: Math.max(0, (Number(curTv.vault) || 0) - 30),
+          staff: updatedStaff,
+          financeLogs: [
+            { time: `Năm ${prev.age || 18}`, type: 'Chi', amount: 30, desc: `Ban thưởng nhân sự trong tửu quán` },
+            ...(curTv.financeLogs || [])
+          ].slice(0, 30)
+        }
+      };
+    });
+    showAlert("Đã ban thưởng 30 Linh Thạch! Lòng trung thành của nhân sự tăng thêm +10 điểm.");
+  };

@@ -1,0 +1,49 @@
+  const leaveCoopRoom = async () => {
+      if (!currentCoopRoom || !user) return;
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+          const snap = await getDoc(roomRef);
+          if (snap.exists()) {
+              const data = snap.data();
+              let updateData = {};
+
+              // Phạt thoát PVP
+              if (data.pvpMatch && data.pvpMatch.status === 'playing') {
+                  const match = data.pvpMatch;
+                  const isP1 = match.p1.uid === user?.uid;
+                  const isP2 = match.p2.uid === user?.uid;
+                  
+                  if (isP1 || isP2) {
+                      let newP1 = { ...match.p1 };
+                      let newP2 = { ...match.p2 };
+                      let escaperName = isP1 ? newP1.name : newP2.name;
+                      let winnerName = isP1 ? newP2.name : newP1.name;
+
+                      if (isP1) newP1.hp = 0; else newP2.hp = 0;
+                      
+                      const escapeLog = { type: 'system', text: `🏃 ĐẠO TÂM VỠ NÁT! [${escaperName}] đã sợ hãi bỏ chạy khỏi Liên Giới (Offline). Xử thua lập tức! 🏆 Chiến thắng thuộc về [${winnerName}]!` };
+                      
+                      updateData.pvpMatch = { 
+                          ...match, p1: newP1, p2: newP2, status: 'finished', 
+                          currentTurnUid: null, logs: [...match.logs, escapeLog] 
+                      };
+                  }
+              }
+
+              if (data.status === 'playing') {
+                  updateData.players = data.players.map(p => p.uid === user?.uid ? { ...p, isOnline: false } : p);
+                  await setDoc(roomRef, updateData, { merge: true });
+              } else {
+                  if (data.hostUid === user?.uid) {
+                      await deleteDoc(roomRef);
+                      removeMyRoom(currentCoopRoom.id);
+                  } else {
+                      updateData.players = data.players.filter(p => p.uid !== user?.uid);
+                      await setDoc(roomRef, updateData, { merge: true });
+                      removeMyRoom(currentCoopRoom.id);
+                  }
+              }
+          }
+      } catch (e) {}
+      setCoopTab('select'); setCurrentCoopRoom(null); setIsArenaOpen(false);
+  };

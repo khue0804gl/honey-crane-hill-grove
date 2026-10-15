@@ -1,0 +1,22 @@
+  const fetchCoopRooms = async (silent = false) => {
+      if (!silent) setIsLoadingRooms(true);
+      try {
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_4S')), 4000));
+          const snap = await Promise.race([
+              getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'coop_rooms')),
+              timeoutPromise
+          ]);
+          const rooms = [];
+          snap.forEach(doc => {
+              const d = doc.data();
+              if (d && typeof d === 'object') {
+                  if (!Array.isArray(d.players)) d.players = [];
+                  rooms.push(d);
+              }
+          });
+          // V2.90 FIX: Phòng thủ Array.isArray(r.players) chống TypeError văng trắng màn hình
+          const validRooms = rooms.filter(r => r && (r.status === 'waiting' || (Array.isArray(r.players) && r.players.some(p => p && p.uid === user?.uid)))).sort((a,b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+          setAvailableRooms(validRooms);
+      } catch(e) { console.error("Lỗi tải phòng Liên Giới:", e); }
+      if (!silent) setIsLoadingRooms(false);
+  };

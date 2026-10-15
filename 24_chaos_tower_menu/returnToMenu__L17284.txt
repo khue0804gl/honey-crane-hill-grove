@@ -1,0 +1,74 @@
+      const returnToMenu = async () => {
+        // V5.42 FIX: Gộp chung logic xử lý Offline và phạt PVP vào leaveCoopRoom để nhất quán
+        if (gameState.gameMode === 'coop' && currentCoopRoom && user) {
+            leaveCoopRoom();
+        }
+
+        // V3.20 FIX (Báo lỗi lucifinil47): ÉP ĐỒNG BỘ ĐÁM MÂY NGAY LẬP TỨC TRƯỚC KHI DỌN RAM VỀ MENU
+        if (gameStarted && currentProfileId && user) {
+            try {
+                const now = Date.now();
+                const currentSysSettings = getCurrentSystemSettings();
+                const securedState = { ...gameState, playerAiLogs: playerAiChatMessages, systemSettings: currentSysSettings };
+                const compressedState = LZString.compressToBase64(JSON.stringify(securedState));
+                const profileMeta: any = { 
+                    id: currentProfileId, 
+                    name: String(gameState.name || 'Vô danh'), 
+                    cultivationLevel: String(gameState.cultivationLevel || 'Phàm Nhân'), 
+                    lastPlayed: now, 
+                    gameStateStr: compressedState, 
+                    currentOptions,
+                    settingOptionsCount: settingOptionsCount,
+                    systemSettings: currentSysSettings,
+                    gameMode: gameState.gameMode || 'chan_thuc',
+                    coopRoomId: currentCoopRoom ? currentCoopRoom.id : (gameState.lastCoopRoomId || gameState.coopRoomHost || null)
+                };
+                const profileRef = doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', currentProfileId);
+                await setDoc(profileRef, profileMeta, { merge: true });
+            } catch (err) {
+                console.error("Lỗi đồng bộ Đám mây khi về Menu:", err);
+            }
+        }
+
+    setGameStarted(false); setCurrentProfileId(null);
+    setStoryLog([]); setHistoryLogs([]); // V4.92 FIX: Xóa sạch log tránh rò rỉ hiển thị
+    
+    // V9.61 FIX: Dọn sạch mọi mảng UI đang mở dở dang để chống truyền tống bảo vật
+    setSelectedInvItem(null); 
+    setSelectedCompInvItem(null); 
+    setViewingEquipSlot(null); 
+    setIsEquipmentModalOpen(false); 
+    setDiscardItemModal(null); 
+    setIsMultiSelectMode(false); 
+    setSelectedInvNames([]);
+
+    setGameState({
+              gameMode: 'chan_thuc', customWorldDesc: '', isPremadeWorld: false, premadeWorldId: '', mongAoWorldMode: 'sang_tao', coopPassword: '', narrativeStyle: 'default', customAppearance: '', customPersonality: '', wordAliasesText: '', customStartAge: '', startOriginMode: 'doat_xa',
+              timelineId: 'timeline_thanh_van', worldName: 'Cửu Châu Tiên Giới', timelineTitle: 'Thanh Vân Khí Vận Kỷ',
+              name: '', age: 18, soulAge: 18, startAge: 18, maxAge: 80, bonusMaxAge: 0,  
+              realWorldAge: 18, currentLocation: 'Thiên Nam Phường Thị', currentLocationNodeId: 'dong_thang_thien_nam_phuong_thi', knownRealms: { 'dong_thang_thien_nam_phuong_thi': { ratio: 1, accumulated: 0, aura: 1200, integrity: 5000, pollution: 0 } },
+              currentWeather: { type: 'Normal', name: '☀️ Trời Quang Mây Tạnh' },
+              health: 100, maxHealth: 100, bonusMaxHp: 0, stamina: 100, maxStamina: 100, 
+              food: 100, maxFood: 100, spiritualEnergy: 50, maxSpiritualEnergy: 50, bonusMaxMp: 0, spiritStones: 100, mortalCoins: 0, systemPoints: 0, baiGiaPoints: 0, baiGiaSystemLevel: 1, maDaoPoints: 0, 
+              cultivationLevel: 'Phàm Nhân', minorLevel: 1, cultivationProgress: 0, corruption: 0, foundationScore: 50, breakthroughPity: 0, spiritualRoot: null, hasRealmKnowledge: true, karma: 0, alignment: 'Trung Dung', reputation: 0, talent: 10, enlightenment: 10, attack: 10, defense: 10, speed: 10, spiritPower: 10,
+              mentalState: 'Bình Tĩnh', recentBehavior: 'Chưa có', daoComprehension: [], containers: [{ id: 'default', name: 'Túi vải thô', capacity: 30 }], inventory: [], npcs: [], skills: [], journal: { skills: [], items: [], npcs: [] }, encyclopedia: [], foodHistory: [], hpHistory: [], mpHistory: [], staminaHistory: [], stonesHistory: [], mortalCoinsHistory: [], atkHistory: [], defHistory: [], spdHistory: [], sppHistory: [], alcHistory: [], smiHistory: [], arrHistory: [], talHistory: [], thuHistory: [], thucHistory: [], thuongHistory: [], miHistory: [], progressHistory: [], pityHistory: [], sectWealthHistory: [], levelHistory: [], corruptionHistory: [], karmaHistory: [], reputationHistory: [], deathReason: '', traits: [], backgroundId: 'bg_0', activeEffects: [], chapterCount: 0, summaries: [], rebirthCount: 0, deathHistory: [], mount: null, demonSpirit: null, isTransformed: false, isHumanForm: false, travelRecords: {}, statRecords: {}, currentWorldEvent: null, sect: null, companions: [], pillResistance: {}, tribulation: null, ageBreakdown: {},
+                          alchemyExp: 0, smithingExp: 0, arrayExp: 0, talismanExp: 0, tamingExp: 0, cookingExp: 0, commerceExp: 0, charmExp: 0,
+              runeCount: 0, lastRuneAge: 18, runeEarlyWarning: 0, runesDetail: [], runeCheckAge: 18,
+              absorbedSouls: 1, // V5.56: Khởi tạo tải trọng khi ra menu
+              daoHeart: '', // V9.90: Ép trống để bắt buộc chọn Tính cách
+                          activeDungeon: null, quests: [], // V6.3
+                          chaosTowerFloor: 1, activeTower: false,
+                          equipped: { weapon: null, armor: null, head: null, boots: null, artifact: null, accessory: null },
+                          activeDLCs: [],
+              hiddenChronicles: [], timeHistory: [], gender: 'Nam', worldItems: [], safeZones: [], rentedLocations: [], mcKnowledge: '',
+                          activeDiseases: [], cloneInventory: [], // V12.42
+                          coordinates: { x: 0, y: 0, z: 0 }, // V12.20
+                          canonTimeline: JSON.parse(JSON.stringify(DEFAULT_CANON_TIMELINE)),
+                          worldHistoryLedger: [],
+                          currentIntent: null, // V1.22.2: Reset dự định
+                          v14_sanityChecked: false,
+               causalTracks: [] as Array<{ id: string; action: string; target: string; type: string; year: number }>
+            });
+                setCurrentOptions([]); setRolledTraits(getRandomTraits(6, selectedGame, '', 'chan_thuc')); setSelectedTraitIds([]); setSelectedBgId('bg_0');
+    setMenuTab(profiles.length > 0 ? 'list' : 'create');
+  };

@@ -1,0 +1,162 @@
+  const generateInitialWorldMap = (bgId, traits, activeDLCs, startLocId, startAgeOffset, timelineId = 'timeline_thanh_van') => {
+      let locs = [];
+      let realms = {};
+
+      const currentActiveTimeline = getActiveTimeline(timelineId);
+      const activeGraph = currentActiveTimeline.worldGraph || FIXED_WORLD_GRAPH;
+
+      // 1. NẠP TOÀN BỘ CÁC ĐIỂM NÚT CỐ ĐỊNH CỦA DÒNG THỜI GIAN ĐƯỢC CHỌN VÀO BẢN ĐỒ (CHỈ BASE GAME CỬU CHÂU)
+      Object.values(activeGraph).forEach(node => {
+          if (node.id.startsWith('dlc_') || node.requiredDLC) return; // V3.24: Tuyệt đối chặn rò rỉ node DLC vào base game
+          locs.push({
+              type: 'location',
+              name: node.name,
+              id: node.id,
+              region: node.region,
+              regionName: node.regionName,
+              desc: node.description,
+              rulingFaction: node.rulingFaction,
+              facilities: node.facilities,
+              auraDensity: node.auraDensity,
+              coordinates: node.coordinates
+          });
+
+          realms[node.name] = {
+              nodeId: node.id,
+              ratio: node.tier === 'HaViDien' ? 1 : node.tier === 'TrungViDien' ? 2 : 5,
+              accumulated: startAgeOffset,
+              aura: node.auraDensity,
+              integrity: 5000,
+              pollution: 0
+          };
+      });
+
+      // 2. MỞ RỘNG VI DIỆN DLC ĐỘC LẬP (CHỈ NẠP KHI NGƯỜI CHƠI BẬT DLC)
+      if (activeDLCs && activeDLCs.includes('dlc_hong_hoang')) {
+          const hhNode = {
+              type: 'location',
+              name: 'Thái Cổ Hồng Hoang (Vi Diện Cổ)',
+              id: 'dlc_hong_hoang_realm',
+              region: 'TrungCuc',
+              regionName: 'Thái Cổ Vi Diện',
+              desc: 'Vi diện cổ đại nguyên thủy, Bàn Cổ thần điện tọa trấn, Vu Tộc và Yêu Tộc viễn cổ cát cứ.',
+              rulingFaction: 'Thập Nhị Vu Tộc & Yêu Hoàng Cung',
+              facilities: ['BanCoDien', 'ToVuTrang', 'YeuHoangCung'],
+              auraDensity: 9000,
+              coordinates: { x: 5000, y: 5000, z: 2000 }
+          };
+          locs.push(hhNode);
+          realms[hhNode.name] = { nodeId: hhNode.id, ratio: 5, accumulated: startAgeOffset, aura: 9000, integrity: 10000, pollution: 0 };
+
+          ['dlc_hong_hoang_ban_co_dien', 'dlc_hong_hoang_yeu_hoang_cung'].forEach(hhId => {
+              const hfNode = DLC_WORLD_GRAPH[hhId] || ALL_WORLD_GRAPH[hhId];
+              if (hfNode && !locs.some(l => l.name === hfNode.name)) {
+                  locs.push({ type: 'location', name: hfNode.name, id: hfNode.id, region: hfNode.region, regionName: hfNode.regionName || hfNode.name, desc: hfNode.description, rulingFaction: hfNode.rulingFaction, facilities: hfNode.facilities, auraDensity: hfNode.auraDensity, coordinates: hfNode.coordinates });
+                  realms[hfNode.name] = { nodeId: hfNode.id, ratio: 5, accumulated: startAgeOffset, aura: hfNode.auraDensity, integrity: 5000, pollution: 0 };
+              }
+          });
+      }
+
+      if (activeDLCs && (activeDLCs.includes('dlc_dark_fantasy') || ['ma_phap', 'bg_titan', 'bg_elf', 'bg_high_elf', 'bg_dark_elf', 'bg_angel', 'bg_blood_angel', 'bg_succubus', 'bg_nightmare', 'bg_undead', 'bg_behemoth', 'bg_vien_co_cu_long'].includes(bgId))) {
+          const dfNode = {
+              type: 'location',
+              name: 'Thánh Chiến Quang Ám (Vi Diện Tây Phương)',
+              id: 'dlc_dark_fantasy_realm',
+              region: 'TrungCuc',
+              regionName: 'Quang Ám Vi Diện',
+              desc: 'Vi diện phương Tây tàn khốc, chiến hào lưu huỳnh và pháo đài rỉ sét của cuộc Thánh Chiến ngàn năm giữa Thiên Đường và Địa Ngục.',
+              rulingFaction: 'Quang Minh Thần Điện & Thất Mang Tinh',
+              facilities: ['ThanhDuong', 'DiaNgucVuc', 'MaPhapThap'],
+              auraDensity: 6000,
+              coordinates: { x: -5000, y: -5000, z: 1000 }
+          };
+          locs.push(dfNode);
+          realms[dfNode.name] = { nodeId: dfNode.id, ratio: 5, accumulated: startAgeOffset, aura: 6000, integrity: 8000, pollution: 50 };
+
+          // V3.7: ĐẶC QUYỀN CHỦ TOẠ THÀNH KHÔN - NẠP ĐẦY ĐỦ CÁC VÙNG AN TOÀN DLC VÀO WORLD SEED & REALMS
+          const dfFixedNodeIds = [
+              'dlc_violet_citadel_dalaran', 'dlc_valhalla_new_asgard', 'dlc_alfheim_lothlorien',
+              'dlc_commorragh_naggaroth', 'dlc_thien_duc_gioi_holy_palace', 'dlc_warp_khorne_huyet_vuc',
+              'dlc_warp_slaanesh_mi_vuc', 'dlc_warp_tzeentch_huyen_vuc', 'dlc_warp_orcus_tu_vuc',
+              'dlc_warp_nurgle_benh_vuc', 'dlc_dark_fantasy_farum_azula', 'dlc_dark_fantasy_chien_hao',
+              'dlc_dark_fantasy_neu_jerusalem', 'dlc_dark_fantasy_hac_am_than_dien', 'dlc_dark_fantasy_lothlorien',
+              'dlc_dark_fantasy_huyet_toc_co_lau'
+          ];
+          dfFixedNodeIds.forEach(fnId => {
+              const fNode = DLC_WORLD_GRAPH[fnId] || ALL_WORLD_GRAPH[fnId];
+              if (fNode) {
+                  if (!locs.some(l => l.id === fNode.id)) {
+                      locs.push({
+                          type: 'location',
+                          name: fNode.name,
+                          id: fNode.id,
+                          region: fNode.region || 'QuangAm',
+                          regionName: fNode.regionName || 'Quang Ám Vi Diện',
+                          desc: fNode.description,
+                          rulingFaction: fNode.rulingFaction,
+                          facilities: fNode.facilities,
+                          auraDensity: fNode.auraDensity || 6000,
+                          coordinates: fNode.coordinates
+                      });
+                  }
+                  if (!realms[fNode.name]) {
+                      realms[fNode.name] = { nodeId: fNode.id, ratio: 1, accumulated: startAgeOffset, aura: fNode.auraDensity || 6000, integrity: 5000, pollution: 0 };
+                  }
+              }
+          });
+      }
+
+      if (activeDLCs && (activeDLCs.includes('dlc_cyberpunk') || bgId === 'bg_do_thi_tu_tien')) {
+          const cbNode = {
+              type: 'location',
+              name: 'Cơ Khí Giáng Lâm (Tàn Tích Phi Thuyền)',
+              id: 'dlc_cyberpunk_realm',
+              region: 'TrungCuc',
+              regionName: 'Tàn Tích Phi Thuyền',
+              desc: 'Tàn tích trạm không gian Phương Chu và các cỗ máy chiến tranh lượng tử của Khoa Kỹ Đế Quốc rơi rớt.',
+              rulingFaction: 'Hiệp Nghị Túc Chính',
+              facilities: ['LoNangLuong', 'XuongNano', 'TramKhongGian'],
+              auraDensity: 4000,
+              coordinates: { x: 8000, y: -8000, z: 3000 }
+          };
+          locs.push(cbNode);
+          realms[cbNode.name] = { nodeId: cbNode.id, ratio: 5, accumulated: startAgeOffset, aura: 4000, integrity: 6000, pollution: 100 };
+
+          const scifiNode = DLC_WORLD_GRAPH['dlc_khoa_ky_cong_quoc'] || ALL_WORLD_GRAPH['dlc_khoa_ky_cong_quoc'];
+          const phuongChuNode = DLC_WORLD_GRAPH['dlc_cyberpunk_phuong_chu'] || ALL_WORLD_GRAPH['dlc_cyberpunk_phuong_chu'];
+          if (phuongChuNode && !locs.some(l => l.name === phuongChuNode.name)) {
+              locs.push({ type: 'location', name: phuongChuNode.name, id: phuongChuNode.id, region: phuongChuNode.region, regionName: phuongChuNode.regionName || phuongChuNode.name, desc: phuongChuNode.description, rulingFaction: phuongChuNode.rulingFaction, facilities: phuongChuNode.facilities, auraDensity: phuongChuNode.auraDensity, coordinates: phuongChuNode.coordinates });
+              realms[phuongChuNode.name] = { nodeId: phuongChuNode.id, ratio: 1, accumulated: startAgeOffset, aura: phuongChuNode.auraDensity, integrity: 5000, pollution: 0 };
+          }
+          if (scifiNode) {
+              if (!locs.some(l => l.id === scifiNode.id)) {
+                  locs.push({
+                      type: 'location',
+                      name: scifiNode.name,
+                      id: scifiNode.id,
+                      region: scifiNode.region || 'KhoaKy',
+                      regionName: scifiNode.regionName || 'Khoa Kỹ Công Quốc',
+                      desc: scifiNode.description,
+                      rulingFaction: scifiNode.rulingFaction,
+                      facilities: scifiNode.facilities,
+                      auraDensity: scifiNode.auraDensity || 4000,
+                      coordinates: scifiNode.coordinates
+                  });
+              }
+              if (!realms[scifiNode.name]) {
+                  realms[scifiNode.name] = { nodeId: scifiNode.id, ratio: 1, accumulated: startAgeOffset, aura: scifiNode.auraDensity || 4000, integrity: 5000, pollution: 0 };
+              }
+          }
+      }
+
+      const worldFactions = currentActiveTimeline.worldFactions || [
+        "Thanh Vân Kiếm Tông",
+        "Hoàng Triều Đại Càn",
+        "Hạo Nhiên Nho Tông",
+        "Kim Thiền Phật Tông",
+        "U Minh Thi Âm Tông",
+        "Vạn Bảo Thương Hội"
+      ];
+
+      return { locs, realms, factions: worldFactions };
+  };

@@ -1,0 +1,276 @@
+  const processRestoreCode = async (code, isAdminBypass = false) => {
+    try {
+      if (!code || !code.trim()) return showAlert("Vui lòng dán mã lưu trữ vào ô hoặc chọn file!");
+      
+      let decodedStr = code.trim();
+      if (decodedStr.startsWith('V2|')) {
+          decodedStr = LZString.decompressFromBase64(decodedStr.substring(3));
+      }
+      
+      const parsedData = JSON.parse(decodedStr);
+      let importedProfiles = [];
+      let importedRooms = [];
+      
+      // V5.18: Xử lý định dạng V2 (Mảng) và V3 (Object)
+      if (Array.isArray(parsedData)) {
+          importedProfiles = parsedData;
+      } else if (parsedData.format === 'v3' || parsedData.profiles) {
+          importedProfiles = parsedData.profiles || [];
+          importedRooms = parsedData.myCoopRooms || [];
+      }
+      
+      // V8.48 FIX: Lưới lọc thanh trừng "Bóng Ma Nhân Vật" (Ghost Profiles) chống sập File Save
+      importedProfiles = importedProfiles.filter(p => {
+          if (!p || typeof p !== 'object') return false;
+          // Phải có dữ liệu game cốt lõi mới giữ lại
+          if (!p.gameState && !p.gameStateStr) return false;
+          return true;
+      }).map(p => {
+          // Bơm ID tạm nếu bị mất ID để hệ thống không bị sập khi lưu
+          if (!p.id) p.id = `recovered_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+          return p;
+      });
+
+            // V2.87 FIX (BÁO LỖI DARK): Tự động đồng bộ chapterCount chuẩn xác và tinh lọc rác nhật ký
+      importedProfiles.forEach(p => {
+          let rawState = p.gameState;
+          if (!rawState && p.gameStateStr) rawState = safeDecompress(p.gameStateStr);
+          if (typeof rawState === 'string') try { rawState = JSON.parse(rawState); } catch(e){}
+          if (rawState) {
+              const rawCc = Number(rawState.chapterCount) || 0;
+              const logCc = (Array.isArray(p.storyLog) && p.storyLog.length > 0) ? Math.max(0, ...p.storyLog.map((l: any) => Number(l.chapter) || 0)) : 0;
+              const trueMaxCc = Math.max(Number(p.chapterCount) || 0, rawCc, logCc);
+              if (trueMaxCc > 0) {
+                  p.chapterCount = trueMaxCc;
+                  rawState.chapterCount = trueMaxCc;
+                  p.gameStateStr = LZString.compressToBase64(JSON.stringify(rawState));
+              }
+          }
+          if (Array.isArray(p.storyLog) && p.storyLog.length > 0) {
+              const curCc = p.chapterCount || 1;
+              p.storyLog = p.storyLog.filter((l: any) => {
+                  if (l && l.type === 'system') {
+                      return (Number(l.chapter) || 0) >= curCc - 1;
+                  }
+                  return true;
+              });
+              const chapsInLog = Array.from(new Set(p.storyLog.map((l: any) => Number(l.chapter) || 0))).sort((a: any, b: any) => a - b);
+              if (chapsInLog.length > 200) {
+                  const keepChaps = new Set(chapsInLog.slice(-200));
+                  p.storyLog = p.storyLog.filter((l: any) => keepChaps.has(Number(l.chapter) || 0));
+              }
+          }
+      });
+
+      if (importedProfiles.length === 0) throw new Error("Dữ liệu không hợp lệ");
+      
+      // V5.18: Khôi phục danh sách phòng Liên Giới
+      if (importedRooms.length > 0) {
+          const currentRooms = JSON.parse(localStorage.getItem('tuTienMyRooms') || '[]');
+          const mergedRooms = [...new Set([...currentRooms, ...importedRooms])];
+          localStorage.setItem('tuTienMyRooms', JSON.stringify(mergedRooms));
+          setMyCoopRooms(mergedRooms);
+      }
+      
+      // V1.95: Tự động khôi phục toàn bộ Cài Đặt Hệ Thống từ file save V3 (Góp ý Etsuo)
+      if (parsedData.systemSettings && typeof parsedData.systemSettings === 'object') {
+          const s = parsedData.systemSettings;
+          if (s.tuTienShowCrowd !== null && s.tuTienShowCrowd !== undefined) {
+              localStorage.setItem('tuTienShowCrowd', s.tuTienShowCrowd);
+              setSettingShowCrowd(s.tuTienShowCrowd !== 'false');
+          }
+          if (s.tuTienNsfwMode !== null && s.tuTienNsfwMode !== undefined) {
+              localStorage.setItem('tuTienNsfwMode', s.tuTienNsfwMode);
+              setSettingNsfwMode(s.tuTienNsfwMode === 'true');
+          }
+          if (s.tuTienHumorCrowd !== null && s.tuTienHumorCrowd !== undefined) {
+              localStorage.setItem('tuTienHumorCrowd', s.tuTienHumorCrowd);
+              setSettingHumorousCrowd(s.tuTienHumorCrowd === 'true');
+          }
+          if (s.tuTienHideOptions !== null && s.tuTienHideOptions !== undefined) {
+              localStorage.setItem('tuTienHideOptions', s.tuTienHideOptions);
+              setSettingHideOptions(s.tuTienHideOptions === 'true');
+          }
+          if (s.tuTienHideOptionTags !== null && s.tuTienHideOptionTags !== undefined) {
+              localStorage.setItem('tuTienHideOptionTags', s.tuTienHideOptionTags);
+              setSettingHideOptionTags(s.tuTienHideOptionTags === 'true');
+          }
+          if (s.tuTienEpicCombat !== null && s.tuTienEpicCombat !== undefined) {
+              localStorage.setItem('tuTienEpicCombat', s.tuTienEpicCombat);
+              setSettingEpicCombat(s.tuTienEpicCombat === 'true');
+          }
+          if (s.tuTienDeepReasoning !== null && s.tuTienDeepReasoning !== undefined) {
+              localStorage.setItem('tuTienDeepReasoning', s.tuTienDeepReasoning);
+              setSettingDeepReasoning(s.tuTienDeepReasoning === 'true');
+          }
+          if (s.tuTienNoPraise !== null && s.tuTienNoPraise !== undefined) {
+              localStorage.setItem('tuTienNoPraise', s.tuTienNoPraise);
+              setSettingNoPraise(s.tuTienNoPraise !== 'false');
+          }
+          if (s.tuTienNoMuttering !== null && s.tuTienNoMuttering !== undefined) {
+              localStorage.setItem('tuTienNoMuttering', s.tuTienNoMuttering);
+              setSettingNoMuttering(s.tuTienNoMuttering === 'true');
+          }
+          if (s.tuTienOptionsCount !== null && s.tuTienOptionsCount !== undefined) {
+              localStorage.setItem('tuTienOptionsCount', s.tuTienOptionsCount);
+              setSettingOptionsCount(Number(s.tuTienOptionsCount) || 4);
+          }
+          if (s.tuTienInvMode !== null && s.tuTienInvMode !== undefined) {
+              localStorage.setItem('tuTienInvMode', s.tuTienInvMode);
+              setInvSearchMode(s.tuTienInvMode);
+          }
+          if (s.tuTienAlias !== null && s.tuTienAlias !== undefined) {
+              localStorage.setItem('tuTienAlias', s.tuTienAlias);
+              setIsAliasEnabled(s.tuTienAlias !== 'false');
+          }
+          if (s.tuTienGenZAll !== null && s.tuTienGenZAll !== undefined) {
+              localStorage.setItem('tuTienGenZAll', s.tuTienGenZAll);
+              setSettingGenZAll(s.tuTienGenZAll === 'true');
+          }
+          if (s.tuTienGenZRomance !== null && s.tuTienGenZRomance !== undefined) {
+              localStorage.setItem('tuTienGenZRomance', s.tuTienGenZRomance);
+              setSettingGenZRomance(s.tuTienGenZRomance === 'true');
+          }
+          if (s.tuTienGenZCombat !== null && s.tuTienGenZCombat !== undefined) {
+              localStorage.setItem('tuTienGenZCombat', s.tuTienGenZCombat);
+              setSettingGenZCombat(s.tuTienGenZCombat === 'true');
+          }
+          if (s.tuTienGenZCultivate !== null && s.tuTienGenZCultivate !== undefined) {
+              localStorage.setItem('tuTienGenZCultivate', s.tuTienGenZCultivate);
+              setSettingGenZCultivate(s.tuTienGenZCultivate === 'true');
+          }
+          if (s.tuTienSubStats !== null && s.tuTienSubStats !== undefined) {
+              localStorage.setItem('tuTienSubStats', s.tuTienSubStats);
+              try { setVisibleSubStats(JSON.parse(s.tuTienSubStats)); } catch(e){}
+          }
+          if (s.tuTienLogAntiCheat !== null && s.tuTienLogAntiCheat !== undefined) {
+              localStorage.setItem('tuTienLogAntiCheat', s.tuTienLogAntiCheat);
+              setLogFilterAntiCheat(s.tuTienLogAntiCheat !== 'false');
+          }
+          if (s.tuTienLogStats !== null && s.tuTienLogStats !== undefined) {
+              localStorage.setItem('tuTienLogStats', s.tuTienLogStats);
+              setLogFilterStats(s.tuTienLogStats !== 'false');
+          }
+          if (s.tuTienLogItems !== null && s.tuTienLogItems !== undefined) {
+              localStorage.setItem('tuTienLogItems', s.tuTienLogItems);
+              setLogFilterItems(s.tuTienLogItems !== 'false');
+          }
+          if (s.tuTienLogCultivation !== null && s.tuTienLogCultivation !== undefined) {
+              localStorage.setItem('tuTienLogCultivation', s.tuTienLogCultivation);
+              setLogFilterCultivation(s.tuTienLogCultivation !== 'false');
+          }
+          if (s.tuTienLogSect !== null && s.tuTienLogSect !== undefined) {
+              localStorage.setItem('tuTienLogSect', s.tuTienLogSect);
+              setLogFilterSect(s.tuTienLogSect !== 'false');
+          }
+      }
+      
+      if (user) { 
+          setDialog({ type: 'loading', message: "Đang xử lý, phân mảnh và đồng bộ dữ liệu lên Đám Mây Thiên Đạo...\n\nQuá trình này có thể mất một chút thời gian, xin vui lòng chờ." });
+           for (const p of importedProfiles) { 
+              // V5.14: Bỏ ép buộc chuyển về Chân Thực để giữ nguyên Liên Giới
+              let rawState = p.gameState;
+              if (!rawState && p.gameStateStr) rawState = safeDecompress(p.gameStateStr);
+              if (typeof rawState === 'string') try { rawState = JSON.parse(rawState); } catch(e){}
+              if (rawState) {
+                  // V1.24.1: Tự động sửa lỗi Hài Cốt / Xác Chết chiếm đoạt danh phận Đạo Lữ của Althea hoặc NPC khác
+                  if (!rawState.customHeight) {
+                      rawState.customHeight = rawState.gender === 'Nữ' ? '1m65' : '1m78';
+                  }
+                  if (rawState.journal && Array.isArray(rawState.journal.npcs)) {
+                      sanitizeNpcRelationships(rawState.journal.npcs, rawState.gender);
+                  }
+                  if (isAdminBypass) {
+                      rawState.adminVerified = true;
+                      
+                      // V11.10 FIX: KHÔI PHỤC TỐI CAO TỪ FILE SAVE CŨ (ĐẶC XÁ ADMIN VÀ FIX LỖI CRASH)
+                      if (rawState.traits && rawState.traits.some(t => t.name === 'Kẻ Phản Đạo (Cheat)')) {
+                          // 1. Tẩy rửa Khí Vận
+                          rawState.traits = rawState.traits.filter(t => t.name !== 'Kẻ Phản Đạo (Cheat)');
+                          
+                          // 2. Tìm lại Cảnh giới đỉnh cao từ Lịch sử
+                          let highestLevel = 'Phàm Nhân';
+                          let highestStageId = 1;
+                          if (rawState.levelHistory && Array.isArray(rawState.levelHistory)) {
+                              rawState.levelHistory.forEach(h => {
+                                   const match = h.change.match(/➔\s*(.*)/);
+                                   if (match && match[1]) {
+                                       const lvl = match[1].trim();
+                                       const stId = getStageConfig(lvl).id;
+                                       if (stId > highestStageId) {
+                                           highestStageId = stId;
+                                           highestLevel = lvl;
+                                       }
+                                   }
+                              });
+                          }
+                          
+                          // 3. Khôi phục Căn cơ dựa trên Cảnh giới vừa tìm được
+                          rawState.cultivationLevel = highestLevel;
+                          const restoredStage = getStageConfig(highestLevel);
+                          const restoredMaxHp = Math.floor(100 * restoredStage.statMult * Math.pow(1.15, restoredStage.id - 1));
+                          const restoredMaxMp = Math.floor(50 * restoredStage.statMult * Math.pow(1.15, restoredStage.id - 1));
+                          
+                          rawState.health = restoredMaxHp;
+                          rawState.maxHealth = restoredMaxHp;
+                          rawState.spiritualEnergy = restoredMaxMp;
+                          rawState.maxSpiritualEnergy = restoredMaxMp;
+                          rawState.attack = 10 * restoredStage.statMult;
+                          rawState.defense = 10 * restoredStage.statMult;
+                          rawState.speed = 10 * restoredStage.statMult;
+                          rawState.spiritPower = 10 * restoredStage.statMult;
+                          
+                          // 4. Bơm Gói Đền Bù (Vì túi đồ cũ và tuyệt học đã bị hệ thống xóa đè)
+                          rawState.spiritStones = (Number(rawState.spiritStones) || 0) + 1000000; // Đền 1 triệu linh thạch
+                          if (!rawState.inventory) rawState.inventory = [];
+                          rawState.inventory.push({
+                              name: 'Gói Cứu Trợ Tối Cao (Admin)',
+                              quantity: 1,
+                              type: 'misc',
+                              tier: 'Thần Vật',
+                              rarity: 'Đỏ',
+                              desc: 'Món quà đền bù từ Sáng Thế Thần dành cho kẻ bị hệ thống cũ phạt oan. Hãy Mở túi đồ và nhắn: "Ta mở Gói Cứu Trợ Tối Cao" để Thiên Đạo phân phát lại Pháp bảo và Tuyệt học Chí Cao bù đắp cho những gì đã mất.',
+                              containerId: rawState.containers ? rawState.containers[0].id : 'default'
+                          });
+                          
+                          if (!rawState.levelHistory) rawState.levelHistory = [];
+                          rawState.levelHistory.unshift({
+                              time: 'Thời Không Đảo Ngược',
+                              reason: 'Được Admin Đặc Xá Khôi Phục File',
+                              change: `Phàm Nhân ➔ ${highestLevel}`
+                          });
+                      }
+                  }
+                  p.gameStateStr = LZString.compressToBase64(JSON.stringify(rawState));
+                  delete p.gameState; 
+              }
+              if (Array.isArray(p.storyLog) && p.storyLog.length > 0) {
+                  const logsByChapter = {};
+                  p.storyLog.forEach(l => {
+                      const chap = l.chapter || 0;
+                      if (!logsByChapter[chap]) logsByChapter[chap] = [];
+                      logsByChapter[chap].push(l);
+                  });
+                  for (const chap in logsByChapter) {
+                      const compressedLogs = LZString.compressToBase64(JSON.stringify(logsByChapter[chap]));
+                      await setDoc(doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', p.id, 'logs', String(chap)), { chapter: Number(chap), dataStr: compressedLogs });
+                  }
+                  delete p.storyLog; 
+              }
+              await setDoc(doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', p.id), p); 
+          } 
+          
+          // V6.37 FIX: Quét và thu hồi toàn bộ pháp bảo đang treo trên Chợ Đen để chống Gian lận nhân bản (Duplication Exploit)
+          try {
+              const marketSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'black_market'));
+              marketSnap.forEach(d => {
+                  if (d.data().sellerUid === user?.uid) {
+                      deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'black_market', d.id));
+                  }
+              });
+          } catch(e) {}
+      }
+      showAlert(`Đã khôi phục thành công ${importedProfiles.length} sinh mệnh${parsedData.systemSettings ? ' và đồng bộ Cài Đặt Hệ Thống' : ''}!`);
+      setImportCode(''); setMenuTab('list');
+    } catch (err) { showAlert("Mã lưu trữ bị lỗi hoặc sai định dạng!"); }
+  };

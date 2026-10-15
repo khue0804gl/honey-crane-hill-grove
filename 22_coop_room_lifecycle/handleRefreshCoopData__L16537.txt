@@ -1,0 +1,11 @@
+  const handleRefreshCoopData = async (e) => {
+          if (e) e.stopPropagation(); 
+          if (!currentCoopRoom || isRefreshingCoop) return;
+          setIsRefreshingCoop(true);
+          try {
+              const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+              const snap = await getDoc(roomRef);
+              if (snap.exists()) setCurrentCoopRoom({ id: snap.id, ...snap.data() });
+          } catch (error) { console.error("Lỗi làm mới:", error); }
+          setTimeout(() => setIsRefreshingCoop(false), 800); 
+  };

@@ -1,0 +1,15 @@
+  const deleteProfile = async (e, id) => {
+    e.stopPropagation();
+    if (checkSpam()) return; 
+    showConfirm("Chắc chắn muốn xóa nhân vật này khỏi Cloud?", async () => {
+      try { 
+        await deleteDoc(doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', id));
+        if (currentProfileId === id) { setGameStarted(false); setCurrentProfileId(null); }
+        if(profiles.length <= 1) setMenuTab('create');
+        
+        // V11.92: Dọn dẹp rác trong ổ cứng khi xóa nhân vật
+        localStorage.removeItem(`tuTienSnapshot_${id}`);
+        setTimeMachineBuffer(prev => { const next = {...prev}; delete next[id]; return next; });
+      } catch (error) { showAlert("Lỗi xóa: " + error.message); }
+    });
+  };

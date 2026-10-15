@@ -1,0 +1,62 @@
+  const loadProfile = (profile) => {
+    if (checkSpam()) return;
+    let rawGameState = profile.gameState;
+    if (profile.gameStateStr) rawGameState = safeDecompress(profile.gameStateStr) || rawGameState;
+    if (typeof rawGameState === 'string') try { rawGameState = JSON.parse(rawGameState); } catch(e){}
+    if (!rawGameState) return showAlert("Dữ liệu nhân vật bị lỗi, không thể giải mã!");
+
+    // V3.14 (CHỦ TOẠ THÀNH KHÔN): Tự động đồng bộ các địa danh trong Bách Khoa và Bản Đồ vào fogKnowledge
+    if (rawGameState.encyclopedia && Array.isArray(rawGameState.encyclopedia)) {
+        if (!rawGameState.fogKnowledge) rawGameState.fogKnowledge = {};
+        rawGameState.encyclopedia.forEach((e: any) => {
+            if (e && e.type === 'location' && e.name) {
+                const nodeKey = e.id || `story_loc_${e.name}`;
+                if (!rawGameState.fogKnowledge[nodeKey]) {
+                    rawGameState.fogKnowledge[nodeKey] = { level: 1, clue: e.desc || `Manh mối ghi nhận trong Bách Khoa Toàn Thư.` };
+                }
+            }
+        });
+    }
+
+    // V10.09 FIX: Bắt các File Save cũ chưa chọn Tính Cách Cốt Lõi MỘT CÁCH CHUẨN XÁC
+    // Kiểm tra xem daoHeart hiện tại có KHỚP với bất kỳ Tính Cách Cốt Lõi nào trong hệ thống không.
+    // Nếu không khớp (nghĩa là nó là đoạn văn AI phân tích rác từ bản cũ, hoặc chưa định hình), thì mới bắt chọn lại!
+    const currentPersonalityPool = PERSONALITIES_POOL;
+    const isLegacyDaoHeart = (!rawGameState.daoHeart || 
+                             rawGameState.daoHeart === 'Chưa định hình' || 
+                             rawGameState.daoHeart === 'Chưa định hình (Sẽ phát triển tự nhiên theo thời gian)' ||
+                             (!currentPersonalityPool.some(p => String(rawGameState.daoHeart).toLowerCase().includes(p.name.toLowerCase())) && !String(rawGameState.daoHeart).toLowerCase().includes('hướng thiện') && String(rawGameState.daoHeart).length > 60));
+
+    if (isLegacyDaoHeart) {
+        setSelectedLegacyPersonality('');
+        setLegacyPersonalityModal({ profile, rawGameState });
+        return; 
+    }
+
+    const savedTraits = rawGameState.traits || [];
+    let validTraits = [], missingTraits = [], costDifference = 0;
+    savedTraits.forEach(st => {
+       if (!st) return;
+       // Tẩy sạch tên nếu file save cũ bị dính hậu tố rác của AI
+       let cleanStName = String(st.name).replace(/\s*\((sơ khai|thăng hoa|tiến hóa)\)/gi, '').trim();
+       const currentTrait = TRAITS_POOL.find(t => t.id === st.id || t.name === cleanStName || cleanStName.includes(t.name));
+       if (currentTrait) { validTraits.push(currentTrait); costDifference += ((currentTrait.cost || 0) - (st.cost || 0)); } 
+       else { missingTraits.push(st); }
+    });
+
+    let newSpiritStones = Number(rawGameState.spiritStones) || 0;
+    let bonusLog = null;
+    if (costDifference !== 0) {
+       const stoneAdjust = -(costDifference * 50); 
+       newSpiritStones = Math.max(0, newSpiritStones + stoneAdjust);
+       // V8.70 FIX: Ẩn thông báo đổi khí vận bằng linh thạch để đỡ rác màn hình
+    }
+    if (missingTraits.length > 0) {
+       const refundedPoints = missingTraits.reduce((sum, t) => sum + (Number(t.cost) || 0), 0);
+       const refundStones = refundedPoints * 50;
+       const compensatedStones = newSpiritStones + refundStones;
+       setReconstructionData({ profile: { ...profile, gameState: { ...rawGameState, spiritStones: compensatedStones, traits: validTraits } }, missingTraits, refundedPoints, validTraits, bonusLog });
+       setIsReconstructionModalOpen(true); return; 
+    }
+    executeLoadProfile({ ...profile, gameState: { ...rawGameState, spiritStones: newSpiritStones, traits: validTraits } }, bonusLog);
+  };

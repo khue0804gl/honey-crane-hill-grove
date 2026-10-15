@@ -1,0 +1,28 @@
+  const handleBrewWine = (wineName: string) => {
+    const tv = getTavern(gameState);
+    if ((Number(tv.vault) || 0) < 50) {
+      return showAlert("Ngân quỹ tửu quán không đủ 50 Linh Thạch để mua men rượu và dược dẫn ủ mới!");
+    }
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      const updatedWines = curTv.wines.map((w: any) => {
+        if (w.name === wineName) {
+          return { ...w, stock: (w.stock || 0) + 5, ageYears: (w.ageYears || 1) + 2 };
+        }
+        return w;
+      });
+      return {
+        ...prev,
+        tavern: {
+          ...curTv,
+          vault: Math.max(0, (Number(curTv.vault) || 0) - 50),
+          wines: updatedWines,
+          financeLogs: [
+            { time: `Năm ${prev.age || 18}`, type: 'Chi', amount: 50, desc: `Ủ thêm 5 vò [${wineName}] vào hầm rượu` },
+            ...(curTv.financeLogs || [])
+          ].slice(0, 30)
+        }
+      };
+    });
+    showAlert(`[Ủ RƯỢU THÀNH CÔNG] Đã ủ thành công thêm 5 vò [${wineName}] lưu vào Hầm Rượu của tửu quán!`);
+  };

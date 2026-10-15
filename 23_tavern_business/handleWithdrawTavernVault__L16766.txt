@@ -1,0 +1,22 @@
+  const handleWithdrawTavernVault = (amount: number) => {
+    const tv = getTavern(gameState);
+    if ((Number(tv.vault) || 0) < amount) {
+      return showAlert(`Ngân quỹ tửu quán không đủ! Hiện chỉ có ${Number(tv.vault || 0).toLocaleString()} Linh Thạch.`);
+    }
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      return {
+        ...prev,
+        spiritStones: (Number(prev.spiritStones) || 0) + amount,
+        tavern: {
+          ...curTv,
+          vault: Math.max(0, (Number(curTv.vault) || 0) - amount),
+          financeLogs: [
+            { time: `Năm ${prev.age || 18}`, type: 'Chi', amount, desc: `Chủ nhân rút ${amount.toLocaleString()} Linh Thạch từ ngân quỹ tửu quán` },
+            ...(curTv.financeLogs || [])
+          ].slice(0, 30)
+        }
+      };
+    });
+    showAlert(`Đã rút ${amount.toLocaleString()} Linh Thạch từ Ngân Quỹ Tửu Quán về túi đồ thành công!`);
+  };
