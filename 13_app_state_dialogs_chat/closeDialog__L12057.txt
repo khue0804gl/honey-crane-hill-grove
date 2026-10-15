@@ -1,0 +1,1 @@
+  const closeDialog = () => setDialog(null);

@@ -1,0 +1,14 @@
+  const centerMapOnPlayer = () => {
+      const activeGraph = getActiveWorldGraph(gameState.timelineId);
+      const curLocNodeId = (gameState.currentLocationNodeId && activeGraph[gameState.currentLocationNodeId])
+          ? gameState.currentLocationNodeId
+          : (Object.keys(activeGraph).find(k => activeGraph[k].name === gameState.currentLocation) || Object.keys(activeGraph)[0]);
+      setSelectedNodeId(curLocNodeId);
+
+      const curX = gameState.coordinates?.x ?? 0;
+      const curY = gameState.coordinates?.y ?? 0;
+      const curZ = gameState.coordinates?.z ?? currentPlaneZ;
+      const cacheKey = `${curX},${curY},${curZ}`;
+      const targetCell = gridCache[cacheKey] || generateWorldGridCell(curX, curY, curZ, gameState.activeDLCs || [], gameState.mapSeed || 0);
+      setSelectedGridCell(targetCell);
+  };

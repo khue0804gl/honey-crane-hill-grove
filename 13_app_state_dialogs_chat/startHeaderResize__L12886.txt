@@ -1,0 +1,26 @@
+  const startHeaderResize = (e) => {
+      // e.preventDefault(); // Không dùng preventDefault ở đây để tránh lỗi cuộn trang trên mobile
+      const startY = e.clientY || (e.touches && e.touches[0].clientY);
+      const startPadding = hitboxConfig.headerPadding || 14;
+
+      const onMouseMove = (moveEvent) => {
+          const currentY = moveEvent.clientY || (moveEvent.touches && moveEvent.touches[0].clientY);
+          if (!currentY) return;
+          const deltaY = currentY - startY;
+          // Chia 2 vì padding được áp dụng cho cả top và bottom (Tăng max lên 100px)
+          const newPadding = Math.max(4, Math.min(100, startPadding + Math.floor(deltaY / 2)));
+          setHitboxConfig(prev => ({...prev, headerPadding: newPadding}));
+      };
+
+      const onMouseUp = () => {
+          window.removeEventListener('mousemove', onMouseMove);
+          window.removeEventListener('mouseup', onMouseUp);
+          window.removeEventListener('touchmove', onMouseMove);
+          window.removeEventListener('touchend', onMouseUp);
+      };
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+      window.addEventListener('touchmove', onMouseMove, { passive: false });
+      window.addEventListener('touchend', onMouseUp);
+  };

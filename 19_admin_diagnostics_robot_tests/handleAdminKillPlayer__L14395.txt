@@ -1,0 +1,19 @@
+  const handleAdminKillPlayer = async (playerName) => {
+      showConfirm(`XÁC NHẬN THIÊN PHẠT TỐI CAO?\n\nHành động này sẽ đưa tên [${playerName}] vào Danh Sách Đen (Blacklist) của toàn Server. Bất kỳ ai tải file save có tên này, hoặc đang chơi nhân vật tên này sẽ LẬP TỨC BỊ GIẾT CHẾT và phế tu vi!\n\nBạn có chắc chắn?`, async () => {
+          setDialog({ type: 'loading', message: `Đang khắc ấn [${playerName}] lên Bia Đá Tử Thần...` });
+          try {
+              const blRef = doc(db, 'artifacts', appId, 'public', 'data', 'admin_config', 'blacklist');
+              const snap = await getDoc(blRef);
+              let currentNames = snap.exists() ? (snap.data().names || []) : [];
+              if (!currentNames.includes(playerName)) {
+                  currentNames.push(playerName);
+                  await setDoc(blRef, { names: currentNames }, { merge: true });
+              }
+              closeDialog();
+              showAlert(`Đã giáng Thiên Phạt! Cái tên [${playerName}] đã bị nguyền rủa vĩnh viễn trên toàn Đa Vũ Trụ.`);
+          } catch(e) { 
+              closeDialog();
+              showAlert("Lỗi ban án tử: " + e.message); 
+          }
+      });
+  };

@@ -1,0 +1,29 @@
+const StaticPanel = ({ title, icon: Icon, children, titleRightNode, collapsible = false, fullHeight = true, defaultCollapsed = false }) => {
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  useEffect(() => {
+    if (defaultCollapsed !== undefined) setIsCollapsed(defaultCollapsed);
+  }, [defaultCollapsed]);
+  return (
+    <div className={`flex flex-col bg-[var(--bg-panel)] rounded-lg shadow-xl border border-[var(--border-main)] ${isCollapsed ? 'h-auto' : (fullHeight ? 'h-full' : 'h-auto')}`}>
+      <div className={`h-12 shrink-0 bg-[var(--bg-surface)] ${isCollapsed ? '' : 'border-b'} border-[var(--border-main)] flex items-center px-4 justify-between sticky top-0 z-10 ${isCollapsed ? 'rounded-lg' : 'rounded-t-lg'}`}>
+        <div className={`flex items-center gap-2 overflow-hidden ${collapsible ? 'cursor-pointer select-none' : ''}`} onClick={() => collapsible && setIsCollapsed(!isCollapsed)}>
+          <Icon size={16} className="text-teal-500" />
+          <span className="text-sm font-bold uppercase truncate text-[var(--text-bold)]" style={{ letterSpacing: '0.02em', lineHeight: 1.5 }}>{title}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {titleRightNode}
+          {collapsible && (
+            <button onClick={() => setIsCollapsed(!isCollapsed)} className="text-[var(--text-muted)] hover:text-teal-500 transition-colors p-1 rounded hover:bg-[var(--bg-hover)]" title={isCollapsed ? "Mở rộng" : "Thu gọn"}>
+              <ChevronDown size={18} className={`transition-transform duration-300 ${isCollapsed ? '' : 'rotate-180'}`} />
+            </button>
+          )}
+        </div>
+      </div>
+      {!isCollapsed && (
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};

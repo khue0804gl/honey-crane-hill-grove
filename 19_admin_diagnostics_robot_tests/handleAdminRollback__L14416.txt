@@ -1,0 +1,80 @@
+  const handleAdminRollback = async (playerMeta, currentState) => {
+      showPrompt(`Nhập số chương muốn đưa [${currentState.name}] lùi về quá khứ (Ví dụ: 5):\n\nLưu ý: Hành động này sẽ Hồi Sinh nhân vật (nếu đã chết), bơm đầy máu, xóa án tử, tẩy sạch các Khí Vận rác sinh ra sau khi chết (Tàn hồn, Quỷ Tu, Âm sai...) và lùi lại mốc chương.`, async (val) => {
+          const chapToRollback = parseInt(val);
+          if (isNaN(chapToRollback) || chapToRollback <= 0) return showAlert("Số chương không hợp lệ!");
+
+          setDialog({ type: 'loading', message: `Đang thi triển Đại Đạo Nghịch Chuyển, đưa [${currentState.name}] quay về quá khứ...` });
+
+          try {
+              let newState = { ...currentState };
+
+              // 1. Lùi chương
+              newState.chapterCount = Math.max(0, (newState.chapterCount || 0) - chapToRollback);
+
+              // 2. Hồi sinh & Bơm máu (Lấy đúng giới hạn Cảnh giới)
+              const vStage = getStageConfig(newState.cultivationLevel);
+              const vMaxHp = Math.floor(100 * vStage.statMult * Math.pow(1.15, vStage.id - 1)) + (Number(newState.bonusMaxHp) || 0);
+              newState.health = vMaxHp;
+              newState.deathReason = '';
+              
+              // 3. Tẩy sạch di chứng tử vong
+              newState.traits = (newState.traits || []).filter(t => !['Âm Sai Công Đức', 'Chịu Hình Phạt', 'Nguyên Thần Xuất Khiếu', 'Tàn Hồn Lão Gia Gia', 'Quỷ Đạo Truyền Nhân', 'Linh Hồn Chắp Vá'].includes(t.name));
+
+              // 4. Lôi ra khỏi Âm Ti
+              if (['Minh Giới / Âm Ti', 'Mười Tám Tầng Địa Ngục', 'Bên trong Pháp Bảo'].includes(newState.currentLocation)) {
+                  newState.currentLocation = 'Thế giới hiện tại';
+              }
+              
+              // 4.5. Tẩy sạch ký ức tương lai (Chống rò rỉ thời không)
+              newState.hiddenChronicles = [];
+              newState.encyclopedia = (newState.encyclopedia || []).filter(e => (e.discoveredAt || 0) <= newState.chapterCount);
+
+              // 5. Cấp dấu ấn bảo vệ (Đã gỡ bỏ hệ thống Anti-Cheat ở V11.08)
+              newState.adminVerified = true; 
+
+              const compressedState = LZString.compressToBase64(JSON.stringify(newState));
+
+              // 6. Cập nhật lại Gương Phản Chiếu Admin (Vùng Public - Không bị lỗi Permission)
+              const mirrorRef = doc(db, 'artifacts', appId, 'public', 'data', 'admin_mirrors', playerMeta.profileId);
+              await setDoc(mirrorRef, { gameStateStr: compressedState, lastUpdated: Date.now() }, { merge: true });
+
+              // 7. TẠO MÃ KHÔI PHỤC (THAY VÌ LƯU ĐÈ TRỰC TIẾP LÊN TÀI KHOẢN NGƯỜI KHÁC)
+              const backupPackage = {
+                  format: 'v3',
+                  profiles: [{
+                      id: playerMeta.profileId,
+                      name: newState.name,
+                      gameMode: newState.gameMode || 'chan_thuc',
+                      cultivationLevel: newState.cultivationLevel,
+                      lastPlayed: Date.now(),
+                      createdAt: playerMeta.createdAt || Date.now(),
+                      gameStateStr: compressedState,
+                      currentOptions: []
+                  }],
+                  myCoopRooms: []
+              };
+              const restoreCode = 'V2|' + LZString.compressToBase64(JSON.stringify(backupPackage));
+
+              sendAdminLog('action', `Đảo ngược thời không, lùi ${chapToRollback} chương và Hồi sinh mạng sống.`, newState.name, playerMeta.uid, newState.cultivationLevel);
+
+              closeDialog();
+              
+              // 8. Tự động Copy mã và báo cho Admin
+              const copyToClipboardAdmin = (text) => {
+                  const textArea = document.createElement("textarea");
+                  textArea.value = text;
+                  textArea.style.position = "fixed"; textArea.style.opacity = "0";
+                  document.body.appendChild(textArea); textArea.focus(); textArea.select();
+                  try { document.execCommand('copy'); } catch (err) {}
+                  document.body.removeChild(textArea);
+              };
+              copyToClipboardAdmin(restoreCode);
+
+              showAlert(`Đại Đạo Nghịch Chuyển thành công! [${newState.name}] đã sống lại ở Chương ${newState.chapterCount}.\n\nDo rào cản bảo mật Đám Mây, hệ thống không thể tự lưu đè lên file của người này.\nHệ thống đã TỰ ĐỘNG COPY MÃ TRỌNG SINH. Đạo hữu chỉ cần Gửi (Paste) mã này cho người đó nhập vào phần "Khôi Phục Dữ Liệu" là xong!`);
+              setIsAdminModalOpen(false); // Đóng để làm mới data
+          } catch (e) {
+              closeDialog();
+              showAlert("Lỗi nghịch chuyển thời không: " + e.message);
+          }
+      }, "Nhập số chương muốn lùi...", false);
+  };

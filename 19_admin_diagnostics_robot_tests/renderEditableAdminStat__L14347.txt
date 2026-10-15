@@ -1,0 +1,32 @@
+  const renderEditableAdminStat = (statKey, value, displayValue) => {
+      if (!adminQuickEditMode) return displayValue;
+      if (editingStat?.key === statKey) {
+          return (
+              <input 
+                  type="number" 
+                  value={editingStat.value} 
+                  onChange={e => setEditingStat({ ...editingStat, value: e.target.value })}
+                  onBlur={() => setEditingStat(null)}
+                  onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                          handleAdminUpdateStat(statKey, editingStat.value);
+                          setEditingStat(null);
+                      } else if (e.key === 'Escape') {
+                          setEditingStat(null);
+                      }
+                  }}
+                  className="w-full max-w-[80px] bg-[var(--bg-body)] border border-teal-500 rounded px-1 text-center text-white focus:outline-none text-base mx-1"
+                  autoFocus
+              />
+          );
+      }
+      return (
+          <span 
+              onClick={(e) => { e.stopPropagation(); setEditingStat({ key: statKey, value: value }); }}
+              className="cursor-pointer hover:text-teal-400 border-b border-dashed border-teal-500 pb-0.5 mx-1"
+              title="Nhấn để sửa nhanh"
+          >
+              {displayValue}
+          </span>
+      );
+  };

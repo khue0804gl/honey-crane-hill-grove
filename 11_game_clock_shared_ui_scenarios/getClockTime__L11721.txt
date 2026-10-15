@@ -1,0 +1,10 @@
+const getClockTime = (age, startAge = 18) => {
+  const safeAge = Number(age) || 18;
+  const safeStart = Number(startAge) || 18;
+  const yearsPassed = Math.max(0, safeAge - safeStart);
+  const totalAbsoluteMinutes = Math.round(yearsPassed * 360 * 24 * 60);
+  const remainingMinutesAfterDay = totalAbsoluteMinutes % (24 * 60);
+  const hour = Math.floor(remainingMinutesAfterDay / 60);
+  const minute = remainingMinutesAfterDay % 60;
+  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+};

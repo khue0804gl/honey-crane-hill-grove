@@ -1,0 +1,27 @@
+const pruneKnowledgeIntelligent = (knowledgeStr, currentAge = 18, maxChars = 50000) => {
+    if (!knowledgeStr || knowledgeStr.length <= maxChars) return knowledgeStr;
+
+    let lines = knowledgeStr.split('\n').filter(l => l.trim().length > 0);
+    
+    // Ưu tiên 1: Tỉa bỏ các dòng mẩu tin dạng "Tin Đồn" hoặc "Nguy Cơ Lỗi Thời" cũ nhất từ trên xuống
+    let prunedLines = [];
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const ageMatch = line.match(/Tuổi\s*(\d+)/i);
+        const lAge = ageMatch ? parseInt(ageMatch[1], 10) : 0;
+        const isOutdatedOrRumor = line.includes('Tin Đồn') || line.includes('Nguy Cơ Lỗi Thời') || (currentAge - lAge >= 30 && !line.includes('Đã Đính Chính'));
+
+        if (isOutdatedOrRumor && knowledgeStr.length > maxChars) {
+            knowledgeStr = lines.slice(i + 1).join('\n');
+            continue;
+        }
+        prunedLines.push(line);
+    }
+
+    // Ưu tiên 2: Nếu vẫn đầy quá 50.000 ký tự, bỏ các dòng mẩu tin cũ nhất ở đầu, luôn giữ nguyên vẹn 100% từng dòng
+    while (prunedLines.join('\n').length > maxChars && prunedLines.length > 1) {
+        prunedLines.shift();
+    }
+
+    return prunedLines.join('\n');
+};

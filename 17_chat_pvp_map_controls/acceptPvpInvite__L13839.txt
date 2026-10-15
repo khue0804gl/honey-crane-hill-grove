@@ -1,0 +1,25 @@
+  const acceptPvpInvite = async (req) => {
+      setDialog({ type: 'loading', message: `Đang dựng Võ Đài Giả Tưởng...` });
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+          const inviterMeta = (currentCoopRoom.players || []).find(p => p.uid === req.fromUid);
+          const myMeta = (currentCoopRoom.players || []).find(p => p.uid === user?.uid);
+          
+          if (!inviterMeta || !inviterMeta.gameStateStr) throw new Error("Kẻ thách đấu không còn tồn tại hoặc chưa đồng bộ.");
+          const inviterState = safeDecompress(inviterMeta.gameStateStr);
+          
+          const p1Stats = extractPvpStats(inviterState, inviterMeta);
+          const p2Stats = extractPvpStats(gameState, myMeta);
+          const firstTurnUid = Math.random() > 0.5 ? p1Stats.uid : p2Stats.uid;
+
+          const newMatch = {
+              p1: p1Stats, p2: p2Stats, currentTurnUid: firstTurnUid,
+              lastTurnTime: Date.now(), status: 'playing',
+              logs: [{ type: 'system', text: `⚔️ VÕ ĐÀI GIẢ TƯỞNG ĐÃ MỞ: ${p1Stats.name} VS ${p2Stats.name} ⚔️\nMọi chỉ số, túi đồ và công pháp đều được sao chép chân thực. Hết máu sẽ bị loại khỏi võ đài. Quyền đi trước thuộc về: ${firstTurnUid === p1Stats.uid ? p1Stats.name : p2Stats.name}!` }]
+          };
+
+          const cleanReqs = (currentCoopRoom.pvpRequests || []).filter(r => r.toUid !== user?.uid && r.fromUid !== user?.uid);
+          await setDoc(roomRef, { pvpMatch: newMatch, pvpRequests: cleanReqs }, { merge: true });
+          closeDialog(); setIsPvpListOpen(false);
+      } catch (e) { closeDialog(); showAlert("Lỗi dựng võ đài: " + e.message); }
+  };

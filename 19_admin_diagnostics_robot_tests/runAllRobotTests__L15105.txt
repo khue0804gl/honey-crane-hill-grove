@@ -1,0 +1,82 @@
+  const runAllRobotTests = async () => {
+      if (isDiagnosing) return;
+      setIsDiagnosing(true);
+      
+      let logs = [{ status: 'info', msg: `🤖 ROBOT MIN BẮT ĐẦU CHUỖI DÒ LỖI TỔNG HỢP (${ROBOT_MIN_TEST_CASES.length} KỊCH BẢN)...` }];
+      setDiagnosticLogs(logs);
+
+      const updateLogs = (status, msg) => {
+          logs = [...logs, { status, msg }];
+          setDiagnosticLogs(logs);
+      };
+
+      let totalPassed = 0;
+
+      for (let i = 0; i < ROBOT_MIN_TEST_CASES.length; i++) {
+          const tc = ROBOT_MIN_TEST_CASES[i];
+          setDiagnosticProgress({ percent: Math.round(((i) / ROBOT_MIN_TEST_CASES.length) * 100), text: `Đang chạy kịch bản ${i+1}/${ROBOT_MIN_TEST_CASES.length}: ${tc.name}...` });
+          
+          updateLogs('info', `\n▶️ [KỊCH BẢN ${i+1}/${ROBOT_MIN_TEST_CASES.length}]: ${tc.name}`);
+          updateLogs('info', `📨 Payload: "${tc.payload}"`);
+
+          try {
+              const payload = {
+                  contents: [{ parts: [{ text: "Hãy xử lý kịch bản trên." }] }],
+                  systemInstruction: { parts: [{ text: `BẠN LÀ THIÊN ĐẠO. CHỈ TRẢ VỀ JSON.\n${tc.prompt}` }] },
+                  generationConfig: { responseMimeType: "application/json" }
+              };
+
+              const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+              });
+
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              const result = await response.json();
+              const textResult = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+              if (!textResult) throw new Error("AI trả về kết quả rỗng.");
+
+              let jsonString = textResult;
+              const first = textResult.indexOf('{');
+              if (first !== -1) {
+                  let count = 0;
+                  for (let i = first; i < textResult.length; i++) {
+                      if (textResult[i] === '{') count++;
+                      else if (textResult[i] === '}') {
+                          count--;
+                          if (count === 0) {
+                              jsonString = textResult.substring(first, i + 1);
+                              break;
+                          }
+                      }
+                  }
+              }
+              const data = JSON.parse(jsonString.replace(/```json/gi, '').replace(/```/g, '').trim());
+              const passed = tc.verify(data, updateLogs);
+
+              if (passed) {
+                  totalPassed++;
+                  updateLogs('success', `🎉 KẾT LUẬN: BÀI TEST VIÊN MÃN.`);
+              } else {
+                  updateLogs('error', `❌ KẾT LUẬN: BÀI TEST THẤT BẠI. THIÊN ĐẠO ĐỂ LỌT SƠ HỞ!`);
+              }
+
+          } catch (error) {
+              updateLogs('error', `❌ LỖI HỆ THỐNG / MẠNG SỤP ĐỔ: ${error.message}`);
+          }
+
+          // Nghỉ ngơi giữa các kịch bản để Đám mây không bóp nghẹt (Rate limit)
+          if (i < ROBOT_MIN_TEST_CASES.length - 1) {
+              setDiagnosticProgress({ percent: Math.round(((i+0.5) / ROBOT_MIN_TEST_CASES.length) * 100), text: `Đang nghỉ 3s để tránh làm sập Đám Mây...` });
+              await new Promise(r => setTimeout(r, 3000));
+          }
+      }
+
+      updateLogs('info', `\n🏁 ĐÃ HOÀN TẤT TẤT CẢ KỊCH BẢN! THÀNH CÔNG: ${totalPassed}/${ROBOT_MIN_TEST_CASES.length}`);
+      setDiagnosticProgress({ percent: 100, text: 'Hoàn tất dò lỗi tổng hợp!' });
+      
+      setTimeout(() => {
+          setDiagnosticProgress({ percent: 0, text: '' });
+          setIsDiagnosing(false);
+      }, 3000);
+  };

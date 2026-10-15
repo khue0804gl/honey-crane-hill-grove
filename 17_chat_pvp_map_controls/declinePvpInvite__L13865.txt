@@ -1,0 +1,7 @@
+  const declinePvpInvite = async (req) => {
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+          const cleanReqs = (currentCoopRoom.pvpRequests || []).filter(r => r.timestamp !== req.timestamp);
+          await setDoc(roomRef, { pvpRequests: cleanReqs }, { merge: true });
+      } catch(e){}
+  };

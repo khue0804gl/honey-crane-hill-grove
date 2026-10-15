@@ -1,0 +1,322 @@
+const getBaiGiaShopCatalog = (sysLevel: number): BaiGiaShopItem[] => {
+  const lvl = Math.max(1, sysLevel || 1);
+  const items: BaiGiaShopItem[] = [];
+
+  // 1. TRANG BỊ
+  items.push({
+    id: 'bg_equip_trang_1',
+    name: 'Kiếm Gỗ Phàm Trần Của Thần Hào',
+    type: 'equipment',
+    rarity: 'Trắng',
+    cost: 500,
+    reqLevel: 1,
+    desc: 'Kiếm gỗ bình thường nhưng dát vàng lá, toát lên mùi tiền tài.',
+    stats: { attack: 15, speed: 5 },
+    perks: ['Sang Trọng']
+  });
+  items.push({
+    id: 'bg_equip_trang_2',
+    name: 'Gấm Lụa Sa Xa Bào',
+    type: 'equipment',
+    rarity: 'Trắng',
+    cost: 500,
+    reqLevel: 1,
+    desc: 'Y phục may từ tơ tằm thượng hạng, cực kỳ dễ rách nhưng mặc rất sang.',
+    stats: { defense: 10, maxHealth: 50 },
+    perks: ['Sang Trọng']
+  });
+
+  if (lvl >= 3) {
+    items.push({
+      id: 'bg_equip_xanh_1',
+      name: 'Thanh Phong Bại Gia Kiếm',
+      type: 'equipment',
+      rarity: 'Xanh',
+      cost: 3000,
+      reqLevel: 3,
+      desc: 'Bảo kiếm sắc bén gắn ngọc bích, xuất chiêu phát ra âm thanh vàng bạc va chạm.',
+      stats: { attack: 50, speed: 30 },
+      perks: ['Phá Giáp']
+    });
+    items.push({
+      id: 'bg_equip_xanh_2',
+      name: 'Hắc Kim Hộ Tâm Kính',
+      type: 'equipment',
+      rarity: 'Xanh',
+      cost: 3000,
+      reqLevel: 3,
+      desc: 'Hộ tâm kính đúc bằng hắc kim đắt tiền, chắn tên đỡ kiếm rất tốt.',
+      stats: { defense: 45, maxHealth: 200 },
+      perks: ['Hộ Thể']
+    });
+  }
+
+  if (lvl >= 5) {
+    items.push({
+      id: 'bg_equip_lam_1',
+      name: 'Bích Hải Tán Kim Đao',
+      type: 'equipment',
+      rarity: 'Lam',
+      cost: 15000,
+      reqLevel: 5,
+      desc: 'Đao đúc bằng hàn thiết biển sâu dát bảo ngọc, trảm ra sóng đao lấp lánh.',
+      stats: { attack: 180, speed: 80, spiritPower: 100 },
+      perks: ['Xuyên Thấu', 'Bạo Kích']
+    });
+    items.push({
+      id: 'bg_equip_lam_2',
+      name: 'Lưu Ly Thần Hào Thuẫn',
+      type: 'equipment',
+      rarity: 'Lam',
+      cost: 15000,
+      reqLevel: 5,
+      desc: 'Tấm khiên lưu ly bóng loáng, phản chiếu ánh sáng khiến kẻ địch chói mắt.',
+      stats: { defense: 160, maxHealth: 800 },
+      perks: ['Phản Chấn', 'Kiên Bích']
+    });
+  }
+
+  if (lvl >= 7) {
+    items.push({
+      id: 'bg_equip_tim_1',
+      name: 'Tử Tiêu Phú Quý Thần Kiếm',
+      type: 'equipment',
+      rarity: 'Tím',
+      cost: 60000,
+      reqLevel: 7,
+      desc: 'Thanh kiếm lôi quang màu tím, mỗi lần chém tiêu hao chút tiền tài để tăng 30% uy lực.',
+      stats: { attack: 450, speed: 250, spiritPower: 300 },
+      perks: ['Bạo Kích', 'Trảm Hồn', 'Cuồng Nộ']
+    });
+    items.push({
+      id: 'bg_equip_tim_2',
+      name: 'Cửu Thiên Tán Tài Y',
+      type: 'equipment',
+      rarity: 'Tím',
+      cost: 60000,
+      reqLevel: 7,
+      desc: 'Pháp y thêu chín tầng mây tím, tự động hấp thụ chấn động và bảo vệ tâm mạch.',
+      stats: { defense: 400, maxHealth: 2500, maxSpiritualEnergy: 1000 },
+      perks: ['Hộ Thể', 'Chắn Phản Phệ']
+    });
+  }
+
+  if (lvl >= 9) {
+    items.push({
+      id: 'bg_equip_vang_1',
+      name: 'Kim Long Vạn Lượng Thương',
+      type: 'equipment',
+      rarity: 'Vàng',
+      cost: 250000,
+      reqLevel: 9,
+      desc: 'Thần thương uốn lượn như hoàng long, đâm xuyên hư không bằng sức mạnh tài phú vô biên.',
+      stats: { attack: 1100, speed: 600, spiritPower: 800 },
+      perks: ['Phá Giáp', 'Cuồng Bạo', 'Hấp Huyết']
+    });
+    items.push({
+      id: 'bg_equip_vang_2',
+      name: 'Hoàng Kim Bất Hoại Khải',
+      type: 'equipment',
+      rarity: 'Vàng',
+      cost: 250000,
+      reqLevel: 9,
+      desc: 'Chiến giáp đúc từ vàng ròng hỗn độn, đao thương bất nhập, thủy hỏa bất xâm.',
+      stats: { defense: 1000, maxHealth: 8000, maxSpiritualEnergy: 3000 },
+      perks: ['Kiên Bích', 'Phản Chấn', 'Băng Tâm Tịch Diệt']
+    });
+  }
+
+  if (lvl >= 11) {
+    items.push({
+      id: 'bg_equip_cam_1',
+      name: 'Thần Hào Lạc Phượng Cung',
+      type: 'equipment',
+      rarity: 'Cam',
+      cost: 800000,
+      reqLevel: 11,
+      desc: 'Cung thần nạm linh thạch cửu phẩm, bắn ra mưa tên tiền tài bắn rụng phượng hoàng.',
+      stats: { attack: 2200, speed: 1400, spiritPower: 1600 },
+      perks: ['Xuyên Thấu', 'Đoạt Mệnh', 'Tuyệt Đối Khuy Thiên']
+    });
+  }
+
+  if (lvl >= 12) {
+    items.push({
+      id: 'bg_equip_do_tier1_1',
+      name: 'Thái Sơ Bại Gia Thần Kiếm (Bậc 1)',
+      type: 'equipment',
+      rarity: 'Đỏ',
+      cost: 1500000,
+      reqLevel: 12,
+      desc: 'Bảo vật cấp Đỏ sơ cấp của Hệ Thống Bại Gia (Etsuo đề xuất). Rèn bằng tinh hoa thái sơ dát vàng, uy chấn bát hoang.',
+      stats: { attack: 1600, speed: 1200, spiritPower: 1400 },
+      perks: ['Phá Giáp', 'Bạo Kích', 'Hấp Huyết', 'Trảm Hồn']
+    });
+    items.push({
+      id: 'bg_equip_do_tier1_2',
+      name: 'Thái Cổ Tán Tài Khải (Bậc 1)',
+      type: 'equipment',
+      rarity: 'Đỏ',
+      cost: 1500000,
+      reqLevel: 12,
+      desc: 'Chiến giáp cấp Đỏ sơ cấp (Etsuo đề xuất). Mỗi lần bị trúng đòn tiêu hao 100 ĐBG để miễn trừ 40% sát thương.',
+      stats: { defense: 1800, maxHealth: 15000, maxSpiritualEnergy: 5000 },
+      perks: ['Hộ Thể', 'Kiên Bích', 'Miễn Ác Hỏa', 'Tái Tạo Bất Tử']
+    });
+  }
+
+  if (lvl >= 14) {
+    items.push({
+      id: 'bg_equip_do_tier2_1',
+      name: 'Bại Gia Tru Tiên Thần Kiếm (Chí Tôn Cực Phẩm)',
+      type: 'equipment',
+      rarity: 'Đỏ',
+      cost: 6000000,
+      reqLevel: 14,
+      desc: 'Tuyệt thế Thần Kiếm Đỏ cực phẩm bậc 2 của Thần Hào Bại Gia (Etsuo đề xuất). Kiếm khí chém rách đại đạo, tán tài đồ tiên diệt phật!',
+      stats: { attack: 4800, speed: 3800, spiritPower: 4200 },
+      perks: ['Phá Giáp', 'Xuyên Thấu', 'Bạo Kích', 'Trảm Hồn', 'Đoạt Mệnh', 'Tuyệt Đối Khuy Thiên']
+    });
+    items.push({
+      id: 'bg_equip_do_tier2_2',
+      name: 'Hỗn Độn Thần Hào Thánh Khải (Chí Tôn Cực Phẩm)',
+      type: 'equipment',
+      rarity: 'Đỏ',
+      cost: 6000000,
+      reqLevel: 14,
+      desc: 'Tuyệt thế Thánh Khải Đỏ cực phẩm bậc 2 (Etsuo đề xuất). Nhục thân bất hoại, vạn pháp bất xâm, hồi sinh niết bàn khi lâm nguy.',
+      stats: { defense: 5000, maxHealth: 50000, maxSpiritualEnergy: 20000 },
+      perks: ['Hộ Thể', 'Kiên Bích', 'Phản Chấn', 'Băng Tâm Tịch Diệt', 'Tái Tạo Bất Tử', 'Niết Bàn']
+    });
+  }
+
+  // 2. ĐAN DƯỢC
+  items.push({
+    id: 'bg_pill_1',
+    name: 'Thần Hào Hồi Huyết Đan',
+    type: 'pill',
+    rarity: lvl >= 7 ? 'Tím' : 'Xanh',
+    cost: lvl >= 7 ? 20000 : 2000,
+    reqLevel: 1,
+    desc: 'Đan dược thơm nức mùi linh thảo thượng phẩm, hồi đầy 100% sinh lực và tăng thêm 500 HP tối đa.',
+    stats: { healHp: 999999, maxHealthBonus: 500 }
+  });
+  items.push({
+    id: 'bg_pill_2',
+    name: 'Bại Gia Tẩy Tủy Thông Thiên Đan',
+    type: 'pill',
+    rarity: lvl >= 9 ? 'Vàng' : 'Tím',
+    cost: lvl >= 9 ? 100000 : 30000,
+    reqLevel: 3,
+    desc: 'Luyện chế từ vạn viên linh thạch, tẩy trừ 100% tạp chất kinh mạch, tăng vĩnh viễn +50 Ngộ Tính và +50 Căn Cơ.',
+    stats: { enlightenment: 50, talent: 50 }
+  });
+  items.push({
+    id: 'bg_pill_3',
+    name: 'Vạn Thọ Vô Cương Tiên Đan',
+    type: 'pill',
+    rarity: 'Cam',
+    cost: 500000,
+    reqLevel: 7,
+    desc: 'Đan dược nghịch thiên kéo dài thọ mệnh, tăng vĩnh viễn +500 năm thọ nguyên tối đa và kháng sạch đan độc.',
+    stats: { maxLifespanBonus: 500 }
+  });
+
+  // 3. BẢN ĐỒ & BÍ CẢNH
+  items.push({
+    id: 'bg_map_1',
+    name: 'Tàn Đồ Bí Cảnh Thượng Cổ',
+    type: 'map',
+    rarity: 'Lam',
+    cost: 50000,
+    reqLevel: 2,
+    desc: 'Bản đồ da dê cổ xưa đánh dấu lối vào bí cảnh thượng cổ đầy ắp kỳ hoa dị thảo và cơ duyên.',
+    actionEffect: 'unlock_ancient_realm'
+  });
+  items.push({
+    id: 'bg_map_2',
+    name: 'Tọa Độ Động Phủ Chân Tiên',
+    type: 'map',
+    rarity: 'Tím',
+    cost: 200000,
+    reqLevel: 5,
+    desc: 'Tọa độ bí mật ghi lại vị trí động phủ của một vị Chân Tiên phi thăng lưu lại di sản.',
+    actionEffect: 'unlock_immortal_cave'
+  });
+  items.push({
+    id: 'bg_map_3',
+    name: 'Tinh Đồ Ngoại Vực Hư Không',
+    type: 'map',
+    rarity: 'Vàng',
+    cost: 1000000,
+    reqLevel: 9,
+    desc: 'Bản đồ tinh không ngoài vũ trụ, chỉ dẫn đến các mảnh vỡ thế giới và mỏ quặng thần kim viễn cổ.',
+    actionEffect: 'unlock_void_stars'
+  });
+
+  // 4. TÌNH BÁO & TIN ĐỒN
+  items.push({
+    id: 'bg_intel_1',
+    name: 'Mật Tịch Nhược Điểm Yêu Vương',
+    type: 'intel',
+    rarity: 'Lam',
+    cost: 30000,
+    reqLevel: 2,
+    desc: 'Tình báo tuyệt mật bóc tách tử huyệt và sơ hở công kích của các đầu mục yêu thú đại ngàn.',
+    actionEffect: 'intel_beast_weakness'
+  });
+  items.push({
+    id: 'bg_intel_2',
+    name: 'Tin Đồn Thiên Tài Địa Bảo Hạ Phàm',
+    type: 'intel',
+    rarity: 'Tím',
+    cost: 150000,
+    reqLevel: 6,
+    desc: 'Tin đồn độc quyền về thiên thạch mang theo chí bảo thần bí rơi xuống phàm trần.',
+    actionEffect: 'intel_meteor_treasure'
+  });
+  items.push({
+    id: 'bg_intel_3',
+    name: 'Cơ Mật Trận Pháp Cổ Tông',
+    type: 'intel',
+    rarity: 'Cam',
+    cost: 600000,
+    reqLevel: 8,
+    desc: 'Giải mã chi tiết kết giới hộ sơn và trận đồ cấm kỵ của cổ tông môn, tăng mạnh ngộ tính thôi diễn.',
+    actionEffect: 'intel_sect_secrets'
+  });
+
+  // 5. THỂ CHẤT ĐẮT ĐỎ (Etsuo đề xuất)
+  items.push({
+    id: 'bg_physique_1',
+    name: 'Bại Gia Tiên Thể',
+    type: 'physique',
+    rarity: 'Đỏ',
+    cost: 5000000,
+    reqLevel: 6,
+    desc: 'Thể chất độc quyền của Thần Hào Bại Gia (Etsuo đề xuất). Tiêu xài linh thạch tăng 50% hiệu quả quy đổi Điểm Bại Gia, tăng 30% toàn diện HP/MP/Công/Thủ/Tốc, giảm 50% lượng điểm bị trừ phạt khi tiết kiệm.',
+    actionEffect: 'trait_7020'
+  });
+  items.push({
+    id: 'bg_physique_2',
+    name: 'Thần Hào Kim Thân',
+    type: 'physique',
+    rarity: 'Đỏ',
+    cost: 50000000,
+    reqLevel: 10,
+    desc: 'Nhục thân kim cương bất hoại đúc kết từ tiền tài vô tận (Etsuo đề xuất). Tăng vĩnh viễn 2.000 Công Kích, 2.500 Phòng Ngự, giảm 40% sát thương ngũ hành gánh chịu, mỗi hiệp hồi phục 5% sinh lực tối đa.',
+    actionEffect: 'trait_7021'
+  });
+  items.push({
+    id: 'bg_physique_3',
+    name: 'Vô Tận Tiêu Dao Thể',
+    type: 'physique',
+    rarity: 'Đỏ',
+    cost: 500000000,
+    reqLevel: 14,
+    desc: 'Cảnh giới tối cao của Đạo Bại Gia Tán Tài (Etsuo đề xuất). Tăng vĩnh viễn 5.000 Công Kích, 5.000 Phòng Ngự, 5.000 Thần Thức, miễn nhiễm 100% mọi loại Tâm Ma, Đan Độc và Tẩu Hỏa Nhập Ma.',
+    actionEffect: 'trait_7022'
+  });
+
+  return items;
+};

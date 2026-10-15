@@ -1,0 +1,4 @@
+const getRealmTimeStr = (realmName, knownRealms) => {
+    const realm = knownRealms[realmName] || { accumulated: 0 };
+    return getInGameDate(__GlobalStartAge + realm.accumulated, __GlobalStartAge);
+};

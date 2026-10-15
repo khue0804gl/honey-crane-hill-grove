@@ -1,0 +1,6 @@
+  const checkSpam = () => {
+    const now = Date.now();
+    if (now - globalClickLockRef.current < 500) return true; 
+    globalClickLockRef.current = now;
+    return false;
+  };

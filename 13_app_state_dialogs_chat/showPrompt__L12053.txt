@@ -1,0 +1,4 @@
+  const showPrompt = (message, onSubmit, placeholder = '', isPassword = false) => {
+      setDialogInputValue('');
+      setDialog({ type: 'prompt', message, onSubmit, placeholder, isPassword });
+  };

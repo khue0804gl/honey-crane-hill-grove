@@ -1,0 +1,49 @@
+ const extractPvpStats = (rawState, playerMeta) => {
+          const stConfig = getStageConfigByPath(rawState.cultivationLevel, rawState.cultivationPath);
+          const energy = getEnergyDetails(rawState.backgroundId, rawState.traits || [], rawState.cultivationLevel);
+
+      const baseAtk = Number(rawState.attack) || 10; const baseDef = Number(rawState.defense) || 10;
+      const baseSpd = Number(rawState.speed) || 10; const baseSpP = Number(rawState.spiritPower) || 10;
+      const dsAtk = (rawState.isTransformed && rawState.demonSpirit) ? Number(rawState.demonSpirit.attackBonus || 0) : 0;
+      const dsDef = (rawState.isTransformed && rawState.demonSpirit) ? Number(rawState.demonSpirit.defenseBonus || 0) : 0;
+      const dsSpd = (rawState.isTransformed && rawState.demonSpirit) ? Number(rawState.demonSpirit.speedBonus || 0) : 0;
+      const dsSpP = (rawState.isTransformed && rawState.demonSpirit) ? Number(rawState.demonSpirit.spiritPowerBonus || 0) : 0;
+      const dsHp = (rawState.isTransformed && rawState.demonSpirit) ? Number(rawState.demonSpirit.hpBonus || rawState.demonSpirit.maxHp || 0) : 0;
+      const dsMp = (rawState.isTransformed && rawState.demonSpirit) ? Number(rawState.demonSpirit.mpBonus || rawState.demonSpirit.maxMp || 0) : 0;
+
+      const maxHp = Math.floor(100 * stConfig.statMult * Math.pow(1.15, stConfig.id - 1)) + (Number(rawState.bonusMaxHp) || 0) + dsHp;
+      const maxMp = Math.floor(50 * stConfig.statMult * Math.pow(1.15, stConfig.id - 1)) + (Number(rawState.bonusMaxMp) || 0) + dsMp;
+      const mountSpd = rawState.mount ? Number(rawState.mount.speedBonus || 0) : 0;
+
+      const effAtk = (rawState.activeEffects || []).reduce((sum, e) => sum + (e?.statMods?.attack || 0), 0);
+      const effDef = (rawState.activeEffects || []).reduce((sum, e) => sum + (e?.statMods?.defense || 0), 0);
+      const effSpd = (rawState.activeEffects || []).reduce((sum, e) => sum + (e?.statMods?.speed || 0), 0);
+      const effSpP = (rawState.activeEffects || []).reduce((sum, e) => sum + (e?.statMods?.spiritPower || 0), 0);
+
+      const eqAtk = Object.values(rawState.equipped || {}).reduce((sum, item) => sum + getEffectiveEquipStat(item, 'attackBonus', stConfig.id), 0);
+      const eqDef = Object.values(rawState.equipped || {}).reduce((sum, item) => sum + getEffectiveEquipStat(item, 'defenseBonus', stConfig.id), 0);
+      const eqSpd = Object.values(rawState.equipped || {}).reduce((sum, item) => sum + getEffectiveEquipStat(item, 'speedBonus', stConfig.id), 0);
+      const eqSpP = Object.values(rawState.equipped || {}).reduce((sum, item) => sum + getEffectiveEquipStat(item, 'spiritPowerBonus', stConfig.id), 0);
+
+      const passives = getPassiveStats(rawState.traits, rawState.spiritualRoot, rawState.soulAge, rawState.age, rawState.equippedCoreMethod, rawState.journal?.skills, stConfig.id, rawState.runeCount);
+      
+      // V9.78: Áp dụng Hệ số Tiểu Cảnh Giới cho Bản sao AI trên Võ Đài
+      const minorMult = 1 + (Math.max(0, (Number(rawState.minorLevel) || 1) - 1) * 0.15);
+      const finalPvpMult = stConfig.statMult * minorMult;
+      const isYeuPvp = isPureYeuTocBg(rawState.backgroundId) || rawState.backgroundId === 'bg_vien_co_cu_long';
+      const pvpYeuMult = (isYeuPvp && rawState.isHumanForm) ? 0.5 : 1.0;
+
+      return {
+              uid: playerMeta.uid, name: playerMeta.characterName, level: rawState.cultivationLevel,
+              hp: maxHp, maxHp, mp: maxMp, maxMp, energyName: energy.name, isPhysical: energy.isPhysical,
+              stats: {
+                  atk: Math.floor(Math.max(1, baseAtk + dsAtk + effAtk + eqAtk + passives.atk) * finalPvpMult * (passives.mult || 1) * pvpYeuMult),
+                  def: Math.floor(Math.max(1, baseDef + dsDef + effDef + eqDef + passives.def) * finalPvpMult * (passives.mult || 1) * pvpYeuMult),
+                  spd: Math.floor(Math.max(1, baseSpd + mountSpd + dsSpd + effSpd + eqSpd + passives.spd) * finalPvpMult * (passives.mult || 1) * pvpYeuMult),
+                  spp: Math.floor(Math.max(1, baseSpP + dsSpP + effSpP + eqSpP + passives.spp) * finalPvpMult * (passives.mult || 1) * pvpYeuMult),
+              },
+          skills: (rawState.journal?.skills || []).filter(s => s).map(s => `${s.name}(${s.level})`).join(', ') || 'Không có',
+          items: (rawState.inventory || []).filter(i => i && (i.type === 'equip' || i.type === 'food')).map(i => `${i.name}[${i.rarity}]`).join(', ') || 'Trống',
+          traits: (rawState.traits || []).filter(t => t).map(t => t.name).join(', ') || 'Phàm nhân'
+      };
+  };

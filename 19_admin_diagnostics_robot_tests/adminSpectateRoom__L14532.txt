@@ -1,0 +1,14 @@
+  const adminSpectateRoom = async (roomData) => {
+      setDialog({ type: 'loading', message: `Đang kết nối thần thức vào Liên Giới [${roomData.id}]...` });
+      try {
+          const chatSnap = await getDocs(query(collection(db, 'artifacts', appId, 'public', 'data', `chat_${roomData.id}`), orderBy('timestamp', 'asc'), limit(100)));
+          let msgs = [];
+          chatSnap.forEach(d => msgs.push({ id: d.id, ...d.data() }));
+          
+          setAdminRoomChat(msgs);
+          setAdminViewingRoom(roomData);
+          closeDialog();
+      } catch (e) {
+          closeDialog(); showAlert("Lỗi soi phòng: " + e.message);
+      }
+  }; 

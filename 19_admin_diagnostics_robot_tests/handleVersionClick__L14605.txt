@@ -1,0 +1,10 @@
+  const handleVersionClick = () => {
+      setDevClickCount(prev => {
+          const newCount = prev + 1;
+          if (newCount >= 3) {
+              setShowAdminBot(true);
+              return 0;
+          }
+          return newCount;
+      });
+  };

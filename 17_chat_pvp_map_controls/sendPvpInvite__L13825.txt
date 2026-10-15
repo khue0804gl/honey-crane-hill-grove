@@ -1,0 +1,13 @@
+  const sendPvpInvite = async (targetPlayer) => {
+      if (!currentCoopRoom || !user || currentCoopRoom.pvpMatch?.status === 'playing') return showAlert("Đang có trận tỉ thí diễn ra, không thể gửi lời mời!");
+      setDialog({ type: 'loading', message: `Đang gửi chiến thư đến ${targetPlayer.characterName}...` });
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+          const newReqs = [...(currentCoopRoom.pvpRequests || []).filter(r => Date.now() - r.timestamp < 180000), {
+              fromUid: user?.uid, fromName: gameState.name, toUid: targetPlayer.uid, timestamp: Date.now()
+          }];
+          await setDoc(roomRef, { pvpRequests: newReqs }, { merge: true });
+          closeDialog(); showAlert(`Chiến thư đã gửi! Bọn họ có 3 phút để hồi đáp.`);
+          setIsPvpListOpen(false);
+      } catch (e) { closeDialog(); showAlert("Lỗi gửi chiến thư: " + e.message); }
+  };

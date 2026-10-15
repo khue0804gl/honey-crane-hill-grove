@@ -1,0 +1,37 @@
+const getInGameDate = (age, startAge = 18) => {
+  const safeAge = Number(age) || 18;
+  const safeStart = Number(startAge) || 18;
+  const yearsPassed = Math.max(0, safeAge - safeStart);
+  
+  const totalAbsoluteMinutes = Math.round(yearsPassed * 360 * 24 * 60);
+  
+  let year = Math.floor(totalAbsoluteMinutes / (360 * 24 * 60)) + 1;
+  
+  const remainingMinutesAfterYear = totalAbsoluteMinutes % (360 * 24 * 60);
+  
+  const totalDays = Math.floor(remainingMinutesAfterYear / (24 * 60));
+  const remainingMinutesAfterDay = remainingMinutesAfterYear % (24 * 60);
+  
+  const month = Math.floor(totalDays / 30) + 1;
+  const day = (totalDays % 30) + 1;
+  
+  const hour = Math.floor(remainingMinutesAfterDay / 60);
+  const minute = remainingMinutesAfterDay % 60;
+  
+  const formattedHour = hour.toString().padStart(2, '0');
+  const formattedMinute = minute.toString().padStart(2, '0');
+  
+  let timeDesc = "";
+  if (hour >= 3 && hour < 5) timeDesc = "Rạng sáng";
+  else if (hour >= 5 && hour < 8) timeDesc = "Sáng sớm";
+  else if (hour >= 8 && hour < 11) timeDesc = "Buổi sáng";
+  else if (hour >= 11 && hour < 13) timeDesc = "Giữa trưa";
+  else if (hour >= 13 && hour < 15) timeDesc = "Đầu chiều";
+  else if (hour >= 15 && hour < 18) timeDesc = "Chiều muộn";
+  else if (hour >= 18 && hour < 19) timeDesc = "Chập tối";
+  else if (hour >= 19 && hour < 22) timeDesc = "Tối";
+  else if (hour >= 22 && hour < 24) timeDesc = "Khuya";
+  else timeDesc = "Nửa đêm"; // Từ 00:00 đến 02:59
+  
+  return `${timeDesc} (${formattedHour}:${formattedMinute}) - Ngày ${day} Tháng ${month} Năm ${year}`;
+};

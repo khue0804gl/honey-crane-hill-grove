@@ -1,0 +1,4 @@
+const getBaiGiaUpgradeCost = (currentLevel: number) => {
+  const lvl = Math.max(1, currentLevel || 1);
+  return Math.floor(10000 * lvl * Math.pow(1.5, lvl - 1));
+};

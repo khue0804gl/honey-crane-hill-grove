@@ -1,0 +1,35 @@
+const StatBar = ({ icon: Icon, label, value, max, colorClass, showPercent = false, isImmersion = false, tooltip, onClick }) => {
+  const safeVal = Number(value) || 0;
+  const safeMax = Number(max) || 1;
+  const percent = Math.min(100, (safeVal / safeMax) * 100);
+  
+  // V5.47 FIX: Nhận diện thọ nguyên vô cực (Biên độ trên 1 triệu năm)
+  const isInfinite = safeMax >= 999999 && label === 'Tuổi Tác Sinh Học';
+  
+  let displayValue = formatLargeNumber(safeVal);
+  if (max) {
+      if (isInfinite) {
+          displayValue += ' / ∞';
+      } else {
+          displayValue += '/' + formatLargeNumber(safeMax);
+      }
+  }
+  if (showPercent && max && !isInfinite) displayValue += ' (' + Math.floor(percent) + '%)';
+  
+  return (
+  <div className={"mb-4 " + (onClick ? "cursor-pointer group" : "")} onClick={onClick} title={tooltip}>
+    <div className="flex justify-between text-sm mb-1.5 text-[var(--text-muted)] font-bold tracking-wider">
+      <span className={"flex items-center gap-1 uppercase " + (onClick ? "group-hover:text-teal-400 transition-colors" : "")}>
+        <Icon size={14} /> {label}
+      </span>
+      <span className={isImmersion ? "" : "border-b border-dashed border-[var(--text-muted)] hover:text-[var(--text-bold)] transition-colors"}>
+        {isImmersion ? '???' : displayValue}
+      </span>
+    </div>
+    {!isImmersion && (
+      <div className="h-2.5 w-full bg-[var(--border-main)] rounded-full overflow-hidden">
+         <div className={"h-full transition-all duration-500 " + colorClass} style={{ width: percent + '%' }} />
+      </div>
+    )}
+  </div>
+)};

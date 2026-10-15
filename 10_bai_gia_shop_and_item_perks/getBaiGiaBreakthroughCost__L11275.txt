@@ -1,0 +1,10 @@
+const getBaiGiaBreakthroughCost = (stageId: number, minorLevel: number, isMajor: boolean) => {
+  if (stageId <= 1) return 5000;
+  const baseCosts: Record<number, number> = {
+    2: 5000, 3: 20000, 4: 100000, 5: 500000, 6: 2000000,
+    7: 10000000, 8: 50000000, 9: 200000000, 10: 1000000000,
+    11: 3000000000, 12: 10000000000, 13: 30000000000, 14: 100000000000, 15: 300000000000
+  };
+  const base = baseCosts[stageId] || (stageId >= 15 ? 500000000000 : 5000);
+  return isMajor ? base * 5 : Math.floor(base * (1 + (minorLevel - 1) * 0.25));
+};

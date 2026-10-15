@@ -1,0 +1,11 @@
+  const fetchAdminLogs = async () => {
+      setIsAdminFetching(true);
+      try {
+          const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'admin_global_logs'));
+          let logs = [];
+          snap.forEach(doc => logs.push({ id: doc.id, ...doc.data() }));
+          logs.sort((a, b) => b.timestamp - a.timestamp);
+          setAdminGlobalLogs(logs.slice(0, 100));
+      } catch(e) { showAlert("Lỗi tải dữ liệu Admin: " + e.message); }
+      setIsAdminFetching(false);
+  };

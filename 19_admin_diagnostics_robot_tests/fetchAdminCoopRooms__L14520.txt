@@ -1,0 +1,11 @@
+  const fetchAdminCoopRooms = async () => {
+      setIsAdminFetching(true);
+      try {
+          const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'coop_rooms'));
+          let list = [];
+          snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+          list.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+          setAdminCoopRooms(list);
+      } catch(e) { showAlert("Lỗi tải danh sách Liên Giới: " + e.message); }
+      setIsAdminFetching(false);
+  };

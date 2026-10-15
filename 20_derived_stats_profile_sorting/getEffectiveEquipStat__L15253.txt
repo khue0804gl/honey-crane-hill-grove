@@ -1,0 +1,38 @@
+  const getEffectiveEquipStat = (item, statKey, userStageId = 1) => {
+      if (!item || !item[statKey]) return 0;
+      let baseStat = item[statKey];
+      
+      const itemSubLevel = Number(item.subLevel) || 1;
+      const safeUserStageId = Number(userStageId) || 1;
+      
+      if (itemSubLevel > safeUserStageId) {
+          const levelGap = itemSubLevel - safeUserStageId;
+          
+          // 1. Áp chế gốc (Base Suppression)
+          let suppressRatio = Math.pow(safeUserStageId / itemSubLevel, 2);
+          
+          // 2. Tính toán Trần Thấu Hiểu (Mastery Cap) dựa trên độ chênh lệch
+          let masteryCap = 0;
+          if (levelGap === 1) masteryCap = 0.80;       // Chênh 1 cấp: Trần 80%
+          else if (levelGap === 2) masteryCap = 0.50;  // Chênh 2 cấp: Trần 50%
+          else if (levelGap === 3) masteryCap = 0.30;  // Chênh 3 cấp: Trần 30%
+          else if (levelGap === 4) masteryCap = 0.15;  // Chênh 4 cấp: Trần 15%
+          else masteryCap = 0.15 / (levelGap - 3);     // Chênh từ 5 cấp trở lên: Giảm cực mạnh
+
+          // 3. Lấy độ thuần thục hiện tại của trang bị (Mặc định 0 nếu mới nhặt)
+          const itemProficiency = Number(item.proficiency) || 0;
+          
+          // 4. Chỉ số Độ Quen Thuộc được cộng thêm
+          const masteryBonus = (itemProficiency / 100) * masteryCap;
+          
+          // 5. Tính Hệ số tổng (Không bao giờ vượt quá 1.0 tức 100% sức mạnh gốc)
+          const finalRatio = Math.min(1.0, suppressRatio + masteryBonus);
+          
+          baseStat = Math.floor(baseStat * finalRatio);
+      }
+
+      // Xử lý giảm chỉ số nếu rớt Độ bền (Như cũ)
+      if (item.durability === undefined || !item.maxDurability) return baseStat;
+      const ratio = Math.max(0, item.durability / item.maxDurability);
+      return Math.floor(baseStat * ratio);
+  };

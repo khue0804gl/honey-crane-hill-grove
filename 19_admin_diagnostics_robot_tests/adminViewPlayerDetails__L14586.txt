@@ -1,0 +1,18 @@
+  const adminViewPlayerDetails = async (playerMeta) => {
+      setDialog({ type: 'loading', message: `Đang dùng Thiên Nhãn soi xét dữ liệu của [${playerMeta.name}]...` });
+      try {
+          // Đọc từ Vùng Công Cộng (Admin Mirrors) thay vì chọc vào Vùng Tư Nhân
+          const mirrorRef = doc(db, 'artifacts', appId, 'public', 'data', 'admin_mirrors', playerMeta.profileId);
+          const snap = await getDoc(mirrorRef);
+          if (snap.exists()) {
+              const profileData = snap.data();
+              let decodedState = safeDecompress(profileData.gameStateStr) || profileData.gameState;
+              if (typeof decodedState === 'string') try { decodedState = JSON.parse(decodedState); } catch(e){}
+              setAdminViewingPlayer({ meta: playerMeta, state: decodedState });
+              setAdminPlayerTab('stats');
+          } else {
+              showAlert(`Hồ sơ của [${playerMeta.name}] chưa được đồng bộ lên Gương Phản Chiếu hoặc đã bị xóa.`);
+          }
+          closeDialog();
+      } catch(e) { closeDialog(); showAlert("Lỗi soi người chơi: " + e.message); }
+  };

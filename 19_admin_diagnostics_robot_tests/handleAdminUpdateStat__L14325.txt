@@ -1,0 +1,21 @@
+  const handleAdminUpdateStat = async (statKey, val) => {
+      if (!adminViewingPlayer) return;
+      const numVal = Number(val);
+      if (isNaN(numVal)) return showAlert("Giá trị không hợp lệ!");
+      
+      setDialog({ type: 'loading', message: `Đang cập nhật thông số...` });
+      try {
+          const newState = { ...adminViewingPlayer.state, [statKey]: numVal };
+          const compressedState = LZString.compressToBase64(JSON.stringify(newState));
+          
+          const mirrorRef = doc(db, 'artifacts', appId, 'public', 'data', 'admin_mirrors', adminViewingPlayer.meta.profileId);
+          await setDoc(mirrorRef, { gameStateStr: compressedState, lastUpdated: Date.now() }, { merge: true });
+          
+          setAdminViewingPlayer(prev => ({ ...prev, state: newState }));
+          closeDialog();
+          showAlert(`Đã lưu thông số thành công! (Lưu ý: Phải dùng mã khôi phục ném cho người chơi, hoặc người chơi đang online phải tải lại game để nhận thay đổi).`);
+      } catch (e) {
+          closeDialog();
+          showAlert("Lỗi cập nhật: " + e.message);
+      }
+  };

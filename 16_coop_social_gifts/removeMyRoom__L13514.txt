@@ -1,0 +1,7 @@
+  const removeMyRoom = (id) => {
+      setMyCoopRooms(prev => {
+          const next = prev.filter(x => x !== id);
+          localStorage.setItem('tuTienMyRooms', JSON.stringify(next));
+          return next;
+      });
+  };

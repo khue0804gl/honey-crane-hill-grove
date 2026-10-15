@@ -1,0 +1,7 @@
+  const endPvpMatch = async () => {
+      if (!currentCoopRoom) return;
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+          await setDoc(roomRef, { pvpMatch: null }, { merge: true });
+      } catch(e) { console.error("Lỗi đóng võ đài:", e); }
+  };

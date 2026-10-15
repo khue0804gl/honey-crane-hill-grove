@@ -1,0 +1,8 @@
+  const sendAdminLog = async (type, detail, pName, pUid, pLevel) => {
+      if (!pUid) return;
+      try {
+          await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'admin_global_logs'), {
+              type, detail, name: pName || 'Vô danh', uid: pUid, level: pLevel || 'Phàm nhân', timestamp: Date.now()
+          });
+      } catch(e) {}
+  };

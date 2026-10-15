@@ -1,0 +1,27 @@
+  const surrenderArena = async () => {
+      if (!currentCoopRoom?.pvpMatch) return;
+      showConfirm("Bạn có chắc chắn muốn bỏ cuộc? Đạo tâm của bạn sẽ vỡ nát và bị xử thua lập tức!", async () => {
+          setDialog({ type: 'loading', message: `Đang kết thúc trận đấu...` });
+          try {
+              const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+              const match = currentCoopRoom.pvpMatch;
+              let newP1 = { ...match.p1 };
+              let newP2 = { ...match.p2 };
+              let escaperName = match.p1.uid === user?.uid ? newP1.name : newP2.name;
+              let winnerName = match.p1.uid === user?.uid ? newP2.name : newP1.name;
+
+              if (match.p1.uid === user?.uid) newP1.hp = 0; else newP2.hp = 0;
+              
+              const escapeLog = { type: 'system', text: `🏃 ĐẠO TÂM VỠ NÁT! [${escaperName}] đã sợ hãi đầu hàng, trực tiếp bỏ cuộc! 🏆 Chiến thắng thuộc về [${winnerName}]!` };
+              
+              await setDoc(roomRef, { pvpMatch: { 
+                  ...match, p1: newP1, p2: newP2, status: 'finished', 
+                  currentTurnUid: null, logs: [...match.logs, escapeLog] 
+              }}, { merge: true });
+              closeDialog();
+          } catch(e) {
+              closeDialog();
+              showAlert("Lỗi bỏ cuộc: " + e.message);
+          }
+      });
+  };

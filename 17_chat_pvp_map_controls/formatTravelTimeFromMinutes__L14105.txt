@@ -1,0 +1,10 @@
+  const formatTravelTimeFromMinutes = (minutes) => {
+      if (!minutes || minutes <= 0) return "Thuấn di";
+      const hours = minutes / 60;
+      if (hours < 1) return `${Math.ceil(minutes)} phút`;
+      if (hours < 24) return `${Math.floor(hours)} giờ ${Math.ceil(minutes % 60)} phút`;
+      const days = Math.floor(hours / 24);
+      const remHours = Math.floor(hours % 24);
+      if (days > 365) return `${Math.floor(days/365)} năm ${days%365} ngày`;
+      return `${days} ngày ${remHours > 0 ? remHours + ' giờ' : ''}`;
+  };

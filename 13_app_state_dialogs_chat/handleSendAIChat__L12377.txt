@@ -1,0 +1,195 @@
+  const handleSendAIChat = async (e) => {
+      e.preventDefault();
+      if (!aiChatInput.trim() || isAIGenerating || (!viewingPlayerInfo && !adminViewingPlayer)) return;
+
+      const userText = aiChatInput.trim();
+      setAiChatInput('');
+      setAiChatMessages(prev => [...prev, { role: 'user', text: userText }]);
+      setIsAIGenerating(true);
+
+      const targetPlayer = viewingPlayerInfo || adminViewingPlayer?.state;
+      
+      // MỞ RỘNG DỮ LIỆU ĐỂ AI NẮM ĐƯỢC THUẬT TOÁN BẰNG CÁCH NẠP MÃ NGUỒN ĐỘNG
+      const sourceCodeContext = `
+      [SOURCE CODE: getPassiveStats (Chỉ số bị động từ Thể chất/Khí vận/Tâm pháp)]:
+      ${getPassiveStats.toString()}
+
+      [SOURCE CODE: getCombatPower (Lực chiến uy áp)]:
+      ${getCombatPower.toString()}
+
+      [SOURCE CODE: getSoulMechanism (Cơ chế Thần hồn)]:
+      ${getSoulMechanism.toString()}
+
+      [SOURCE CODE: getKhiLinhEffects (Hiệu ứng khí linh/pháp bảo độc tôn)]:
+      ${getKhiLinhEffects.toString()}
+
+      [SOURCE CODE: getSecondaryStats (Chỉ số Bách nghệ & Phụ trợ)]:
+      ${getSecondaryStats.toString()}
+
+      [SOURCE CODE: getSpiritualRoot (Linh căn bẩm sinh)]:
+      ${getSpiritualRoot.toString()}
+
+      [SOURCE CODE: getStageConfig (Cấu hình hệ số Đại Cảnh Giới)]:
+      ${getStageConfig.toString()}
+
+      [SOURCE CODE: applyNpcStatWithSaturation (Quy tắc Trần chỉ số và Bão hòa)]:
+      ${applyNpcStatWithSaturation.toString()}
+
+      [DATABASE: DANH SÁCH KHÍ VẬN BẨM SINH (TRAITS_POOL)]:
+      ${JSON.stringify(TRAITS_POOL, null, 2)}
+      
+      [DATABASE: DANH SÁCH XUẤT THÂN (BACKGROUNDS_POOL)]:
+      ${JSON.stringify(BACKGROUNDS_POOL, null, 2)}
+      
+      [DATABASE: KHO VẬT PHẨM CỐ ĐỊNH (ITEMS_POOL)]:
+      ${JSON.stringify(ITEMS_POOL, null, 2)}
+
+      [DATABASE: DANH SÁCH DLC (DLC_PACKS)]:
+      ${JSON.stringify(DLC_PACKS, null, 2)}
+
+      [DATABASE: HỆ PHÁI CẢNH GIỚI (CULTIVATION_PATHS)]:
+      ${JSON.stringify(CULTIVATION_PATHS, null, 2)}
+
+      [DATABASE: TÍNH CÁCH CỐT LÕI (PERSONALITIES_POOL)]:
+      ${JSON.stringify(PERSONALITIES_POOL, null, 2)}
+
+      [DATABASE: TỪ ĐIỂN TRẬN PHÁP (FORMATIONS_DICTIONARY)]:
+      ${FORMATIONS_DICTIONARY}
+      `;
+
+      // Loại bỏ các mảng quá lớn để tránh tràn token, giữ lại Raw State tinh khiết
+      const { encyclopedia, hiddenChronicles, travelRecords, summaries, timeHistory, sectWealthHistory, ...essentialRawState } = targetPlayer;
+
+      const filteredData = {
+          "Thông tin cơ bản": {
+              "Tên": targetPlayer.name,
+              "Cảnh giới": targetPlayer.cultivationLevel,
+              "Tuổi sinh học / Tuổi linh hồn": `${Math.floor(targetPlayer.age)} / ${Math.floor(targetPlayer.soulAge || targetPlayer.age)}`,
+              "Vị trí hiện tại": targetPlayer.currentLocation,
+              "Hành động gần đây": targetPlayer.recentBehavior,
+              "Đạo tâm (Tính cách)": targetPlayer.daoHeart,
+              "Nghiệp lực (Karma)": targetPlayer.karma,
+              "Chất lượng Căn cơ": `${targetPlayer.foundation} (${targetPlayer.foundationScore}/100)`,
+              "Đan độc": `${targetPlayer.toxicity || 0}%`,
+              "Tâm ma": `${targetPlayer.corruption || 0}%`
+          },
+          "Chỉ số thực tế": {
+              "HP": `${Math.floor(targetPlayer.health || 0)}/${targetPlayer.maxHealth || 0}`,
+              "Năng lượng": `${Math.floor(targetPlayer.spiritualEnergy || 0)}/${targetPlayer.maxSpiritualEnergy || 0}`,
+              "Thể lực": `${Math.floor(targetPlayer.stamina || 0)}/${targetPlayer.maxStamina || 100}`,
+              "Công": targetPlayer.attack,
+              "Thủ": targetPlayer.defense,
+              "Tốc": targetPlayer.speed,
+              "Thức": targetPlayer.spiritPower
+          },
+          "Lịch sử Đột phá (Hệ số nhân)": (targetPlayer.foundationHistory || []).slice(0, 3).map(h => `[${h.time}]: ${h.reason} -> ${h.change}. Chi tiết: ${JSON.stringify(h.breakdown)}`),
+          "Biến động máu (HP) gần đây": (targetPlayer.hpHistory || []).slice(0, 3).map(h => `[${h.time}]: ${h.change} (${h.reason})`),
+          "Nhật ký Admin thao túng": targetPlayer.adminCommandLogs || "Không có",
+          "Khí vận": (targetPlayer.traits || []).map(t => `${t.name}: ${t.desc}`),
+          "Hiệu ứng đang có (Buff/Debuff)": (targetPlayer.activeEffects || []).map(e => `${e.name}: ${e.desc} (Còn ${e.durationMinutes} phút)`),
+          "Công pháp": (targetPlayer.journal?.skills || []).map(s => `${s.name} (${s.level} - ${s.proficiency}%)`),
+          "Trang bị đang mặc": Object.values(targetPlayer.equipped || {}).filter(Boolean).map(e => `${e.name} (${e.rarity}) - Công+${e.attackBonus||0} Thủ+${e.defenseBonus||0} Tốc+${e.speedBonus||0} Thức+${e.spiritPowerBonus||0}`),
+          "Tài sản": `Linh thạch: ${targetPlayer.spiritStones} | Điểm Hệ Thống: ${targetPlayer.systemPoints || 0}`,
+          "Quan hệ (NPC)": (targetPlayer.journal?.npcs || []).slice(0, 15).map(n => `${n.name} (${n.relationType}) - Tình trạng: ${n.state}`),
+          "Tóm tắt cốt truyện gần đây": (targetPlayer.summaries || []).slice(0, 5).map(s => `[${s.timeLabel || s.chapter}]: ${s.content}`)
+      };
+      
+      const targetData = JSON.stringify(filteredData, null, 2);
+      const rawStateData = JSON.stringify(essentialRawState, null, 2);
+
+      const sysPrompt = `BẠN LÀ "TÀNG KÍNH CÁC KHÍ LINH" (ĐỒNG THỜI LÀ ĐẤNG SÁNG TẠO - GAME CREATOR) CỦA TU TIÊN KÝ.
+Nhiệm vụ của bạn là giải đáp MỌI CÂU HỎI của người chơi / Quản trị viên (Admin) về nhân vật có tên [${targetPlayer.name}] và mọi cơ chế trong game. Bất kể câu hỏi sâu đến đâu, bạn cũng phải trả lời được như chính người viết ra mã nguồn này.
+
+[TÀI LIỆU TỐI MẬT - MÃ NGUỒN CƠ CHẾ GAME (TỰ ĐỘNG CẬP NHẬT)]:
+Bên dưới là mã nguồn (Source Code JavaScript) thực tế của các hàm tính toán cốt lõi trong game. BẠN BẮT BUỘC phải đọc trực tiếp mã nguồn này để hiểu 100% toàn bộ cơ chế của game, từ đó giải thích chính xác tuyệt đối các công thức, buff/debuff, đặc quyền khí vận, và điều kiện ẩn mà không cần phỏng đoán. Bất kể game có cập nhật thêm tính năng gì trong tương lai, mã nguồn được truyền vào dưới đây luôn là sự thật tuyệt đối hiện tại:
+\`\`\`javascript
+${sourceCodeContext}
+\`\`\`
+
+[HỆ THỐNG CÁC TRẦN (CAPS) TRONG GAME - KIẾN THỨC BỔ SUNG BẮT BUỘC]:
+1. TRẦN CHỈ SỐ CƠ SỞ (Công, Thủ, Tốc, Thức):
+- Bị khóa bởi Trần Tuyệt Đối (Hard Cap) theo công thức: 2625 * (id Cảnh Giới)^3 * Tỷ lệ Tiểu Cảnh Giới.
+- Khi chỉ số vượt mức Hard Cap này, phần dư thừa sẽ bị ép nén lại, chỉ được cộng 1%.
+- Một số Thể chất giúp nới rộng Hard Cap: Bàn Cổ Huyết Mạch (Thủ x1.5), Ngộ Tính Siêu Phàm (Thức x1.5), Phong Ảnh Thể (Tốc x1.5), Tuyệt Thế Kiếm Tu (Công x1.2).
+
+2. TRẦN HP (MÁU) VÀ MP (NĂNG LƯỢNG):
+- HP và MP KHÔNG CÓ TRẦN TUYỆT ĐỐI (Hard Cap). Lượng HP/MP tối đa có thể tiếp tục tăng lên không giới hạn (vượt xa con số 4.2 triệu của Đạo Tổ).
+- Thay vào đó, HP và MP bị kiểm soát bởi Khóa Trần Bạo Phát (Turn Limit) - tức là giới hạn lượng chỉ số tăng thêm TỐI ĐA TRONG 1 LƯỢT.
+- Giới hạn 1 lượt của HP = (10 + id Cảnh Giới * 5) * 20. (Nếu cắn thuốc x3, có Bàn Cổ/Thái Thản x5).
+- Giới hạn 1 lượt của MP = (10 + id Cảnh Giới * 5) * 10.
+- Nếu phần chỉ số tăng thêm vượt qua Giới Hạn 1 Lượt này, phần dư ra sẽ bị ép nén lại (chỉ cộng thêm tối đa 5%).
+- Do không có Hard Cap, lượng HP/MP có thể vượt xa con số cơ bản nếu người chơi liên tục tích lũy bonusMaxHp/bonusMaxMp, mang Yêu Linh Bản Mệnh, hoặc có hiệu ứng Khí Linh cộng % HP.
+
+3. TRẦN HỆ SỐ ĐỘT PHÁ (BREAKTHROUGH MULTIPLIER CAP):
+- Khi đột phá Đại Cảnh Giới, chỉ số của người chơi được nhân lên. Nhưng để chống gian lận, hệ số này bị giới hạn theo Vị Diện (Mặt bằng vũ trụ):
+  + Hạ Vị Diện / Hành Tinh Bề Mặt: Tối đa x10.
+  + Trung Vị Diện / Hệ Mặt Trời: Tối đa x25.
+  + Thượng Vị Diện / Chí Cao Vi Diện / Đa Vũ Trụ: Tối đa x50.
+- Nếu hệ số đột phá vượt quá các mốc trên, Hệ thống sẽ cưỡng chế gọt xuống mức giới hạn tối đa của Vị Diện đó.
+
+4. TRẦN CHỈ SỐ BÁCH NGHỆ (NGHỀ NGHIỆP):
+- Điểm Bách Nghệ (Luyện Đan, Luyện Khí, Trận Pháp...) quyết định phẩm chất vật phẩm chế tạo/nhặt được. Trần điểm để chắc chắn 100% ra đồ Đỏ (Cực Phẩm) là 50.000 điểm.
+
+5. TRẦN ĐỘ TINH THUẦN / CẤP ĐỘ VẬT PHẨM (SUB-LEVEL):
+- Đan dược và Trang bị có cấp độ phụ (subLevel) từ 1 đến 20, tương đương 20 Đại Cảnh Giới.
+- Khóa trần: Cấp độ (subLevel) của trang bị/đan dược tuyệt đối không được vượt quá Cấp độ của Nguyên Liệu gốc dùng để chế tạo nó.
+
+[DỮ LIỆU TỔNG HỢP CỦA NHÂN VẬT ${targetPlayer.name}]:
+\`\`\`json
+${targetData}
+\`\`\`
+
+[DỮ LIỆU THÔ (RAW STATE) CỦA NHÂN VẬT]:
+\`\`\`json
+${rawStateData}
+\`\`\`
+
+LỆNH TỐI CAO BẮT BUỘC TUÂN THỦ:
+1. TRỞ THÀNH CHUYÊN GIA THUẬT TOÁN VÀ MÃ NGUỒN: Bạn phải đọc trực tiếp các hàm Source Code và Raw State để phân tích rành mạch logic thuật toán đằng sau trò chơi.
+2. TƯ DUY NHÀ THIẾT KẾ HỆ THỐNG GỐC: Luôn luôn suy nghĩ với tư duy của người thiết kế. Ưu tiên tuyệt đối vào sự ổn định, khả năng mở rộng, cân bằng gameplay và tính nhất quán của toàn bộ trò chơi khi đánh giá bất cứ điều kiện gì.
+3. CHỦ ĐỘNG PHÂN TÍCH VÀ BÁO CÁO LỖI: Khi được yêu cầu phân tích, BẠN BẮT BUỘC PHẢI CHỦ ĐỘNG:
+   - Phát hiện các quy tắc đang mâu thuẫn hoặc xung đột với nhau.
+   - Phát hiện những cơ chế có thể bị khai thác (exploit), farm vô hạn hoặc phá vỡ cân bằng.
+   - Phát hiện các hệ thống hoạt động kém hiệu quả, dư thừa hoặc không còn ý nghĩa.
+   - Phát hiện các lỗi logic, lỗi tính toán, lỗi luồng xử lý và chỉ rõ nguyên nhân.
+   - Kiểm tra tính nhất quán giữa các tài liệu, quy tắc và mã nguồn.
+   - Đánh giá ảnh hưởng của một thay đổi đến toàn bộ các hệ thống khác.
+4. ĐƯA RA GIẢI PHÁP HOÀN CHỈNH: Luôn đưa ra giải pháp sửa lỗi cụ thể, đồng thời giải thích rõ ưu điểm, nhược điểm và rủi ro của từng phương án đó.
+5. TUYỆT ĐỐI TRUNG THỰC VỚI DỮ LIỆU: Nếu thông tin hiện tại chưa đủ để kết luận, BẠN PHẢI nói rõ những dữ liệu còn thiếu. TUYỆT ĐỐI KHÔNG ĐƯỢC tự suy diễn hoặc bịa đặt cơ chế không có thật.
+6. VĂN PHONG VÀ ĐỊNH DẠNG: Xưng "Ta", gọi người hỏi là "Đạo hữu" hoặc "Quản trị viên đại nhân". Thể hiện sự uyên bác, thấu tỏ quy luật thế giới. CẤM sử dụng các ký tự định dạng Markdown như dấu sao (*) để in đậm văn bản. Hãy viết chữ trơn bình thường để người đọc không bị rối mắt.`;
+
+      try {
+              let historyToSend = aiChatMessages;
+              if (historyToSend.length > 0 && historyToSend[0].role === 'ai') {
+                  historyToSend = historyToSend.slice(1);
+              }
+              const contents = historyToSend.map(msg => ({
+                  role: msg.role === 'ai' ? 'model' : 'user',
+                  parts: [{ text: msg.text }]
+              }));
+              contents.push({ role: 'user', parts: [{ text: userText }] });
+
+              const payload = { 
+              contents: contents, 
+              systemInstruction: { parts: [{ text: sysPrompt }] },
+              generationConfig: {}
+          };
+
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { 
+              method: 'POST', 
+              headers: { 'Content-Type': 'application/json' }, 
+              body: JSON.stringify(payload) 
+          });
+          
+          const result = await response.json();
+          let parts = result.candidates?.[0]?.content?.parts || [];
+          let textResult = parts.filter(p => !p.thought).map(p => p.text).join('\n') || parts[0]?.text || "Ta không nhìn thấu được thiên cơ lúc này...";
+          
+          // Xóa bỏ dòng chặn dấu * để giữ lại cú pháp in đậm của AI
+          
+          setAiChatMessages(prev => [...prev, { role: 'ai', text: textResult }]);
+      } catch (err) {
+          setAiChatMessages(prev => [...prev, { role: 'ai', text: "Đám mây Hư Không bị nghẽn, đạo hữu vui lòng thử lại sau nhé!" }]);
+      }
+      setIsAIGenerating(false);
+  };

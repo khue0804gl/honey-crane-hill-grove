@@ -1,0 +1,8 @@
+  const handleSendChatMessage = async (e) => {
+      e.preventDefault();
+      if (!chatInput.trim() || !currentCoopRoom || !user) return;
+      const newMsg = { uid: user?.uid, name: gameState.name, text: chatInput.trim(), timestamp: Date.now(), targetUid: activeChatTab };
+      setChatInput('');
+      try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', `chat_${currentCoopRoom.id}`), newMsg); } 
+      catch(err) { console.error("Lỗi gửi tin nhắn", err); }
+  };
