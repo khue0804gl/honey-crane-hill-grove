@@ -1,0 +1,376 @@
+      {isAIAssistantOpen && (viewingPlayerInfo || adminViewingPlayer) && (
+          <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[var(--bg-overlay)] p-2 md:p-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="bg-[var(--bg-panel)] w-full max-w-4xl h-[85vh] rounded-2xl flex flex-col border border-purple-500/50 shadow-2xl relative overflow-hidden">
+                  <div className="p-4 border-b border-purple-900/50 flex justify-between items-center bg-[var(--bg-surface)] shrink-0">
+                      <div className="flex items-center gap-3">
+                          <div className="bg-purple-900/30 p-2 rounded-full border border-purple-500/50"><Brain className="text-purple-500 animate-pulse" size={24} /></div>
+                          <div>
+                              <h3 className="text-lg md:text-xl font-bold text-purple-400 uppercase tracking-widest">AI Giải Đáp: {(viewingPlayerInfo || adminViewingPlayer?.state).name}</h3>
+                              <p className="text-[10px] md:text-xs text-purple-300/60 mt-0.5">Phân tích toàn diện dữ liệu nhân vật bằng Trí Tuệ Tối Cao</p>
+                          </div>
+                      </div>
+                      <button onClick={() => setIsAIAssistantOpen(false)} className="p-2 hover:bg-purple-900/30 rounded text-[var(--text-muted)] hover:text-purple-400 transition-colors"><X size={20}/></button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[var(--bg-body)] space-y-4" ref={aiChatScrollRef}>
+                      {aiChatMessages.map((msg, idx) => (
+                          <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2`}>
+                              {msg.role === 'ai' && <span className="text-[10px] font-bold text-purple-500/80 mb-1 ml-1 flex items-center gap-1"><Bot size={12}/> Tàng Kính Các Khí Linh</span>}
+                              <div className={`max-w-[90%] md:max-w-[80%] p-4 text-[14px] leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'bg-purple-600 text-white rounded-2xl rounded-tr-sm shadow-md' : 'bg-[var(--bg-surface)] border border-purple-900/50 text-[var(--text-main)] rounded-2xl rounded-tl-sm shadow-sm'}`}>
+                                  {msg.text.split(/(\*\*.*?\*\*)/g).map((part, i) => {
+                                      if (part.startsWith('**') && part.endsWith('**')) {
+                                          return <span key={i} className={`underline underline-offset-4 ${msg.role === 'user' ? 'decoration-purple-300' : 'decoration-purple-500'}`}>{part.slice(2, -2)}</span>;
+                                      }
+                                      return part;
+                                  })}
+                              </div>
+                          </div>
+                      ))}
+                      {isAIGenerating && (
+                          <div className="flex flex-col items-start animate-in fade-in">
+                              <span className="text-[10px] font-bold text-purple-500/80 mb-1 ml-1 flex items-center gap-1"><Bot size={12}/> Tàng Kính Các Khí Linh</span>
+                              <div className="max-w-[80%] p-4 bg-[var(--bg-surface)] border border-purple-900/50 text-purple-400 rounded-2xl rounded-tl-sm shadow-sm flex items-center gap-3 font-bold text-sm">
+                                  <Activity size={16} className="animate-spin" /> Đang vận dụng Thần Thức quét dữ liệu và suy luận...
+                              </div>
+                          </div>
+                      )}
+                  </div>
+                  
+                  <form onSubmit={handleSendAIChat} className="p-4 bg-[var(--bg-surface)] border-t border-purple-900/50 flex gap-3 shrink-0">
+                      <textarea 
+                          value={aiChatInput} 
+                          onChange={e => {
+                              setAiChatInput(e.target.value);
+                              e.target.style.height = 'auto';
+                              e.target.style.height = (e.target.scrollHeight) + 'px';
+                          }} 
+                          onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  if (aiChatInput.trim() && !isAIGenerating) {
+                                      handleSendAIChat(e);
+                                      e.target.style.height = 'auto';
+                                  }
+                              }
+                          }}
+                          rows={1}
+                          disabled={isAIGenerating}
+                          placeholder={`Hỏi AI về thông tin của ${(viewingPlayerInfo || adminViewingPlayer?.state).name}...`} 
+                          className="flex-1 bg-[var(--bg-body)] border border-[var(--border-main)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] focus:outline-none focus:border-purple-500 shadow-inner disabled:opacity-50 resize-none overflow-hidden" 
+                          style={{ minHeight: '46px', maxHeight: '150px' }}
+                      />
+                      <button type="submit" disabled={!aiChatInput.trim() || isAIGenerating} className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white px-6 rounded-xl transition-colors shadow-md flex items-center justify-center">
+                          <Send size={18}/>
+                      </button>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* GIAO DIỆN AI MIN DÀNH CHO NGƯỜI CHƠI */}
+      {isPlayerAIAssistantOpen && (
+          <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[var(--bg-overlay)] p-2 md:p-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className={`bg-[var(--bg-panel)] w-full flex flex-col border border-pink-500/50 shadow-2xl relative overflow-hidden transition-all duration-300 ${isPlayerAiMaximized ? 'h-full max-w-full rounded-none' : 'max-w-4xl h-[85vh] rounded-2xl'}`}>
+                  <div className="p-4 border-b border-pink-900/50 flex justify-between items-center bg-[var(--bg-surface)] shrink-0">
+                      <div className="flex items-center gap-3">
+                          <div className="bg-pink-900/30 p-2 rounded-full border border-pink-500/50"><Bot className="text-pink-500 animate-pulse" size={24} /></div>
+                          <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                  <h3 className="text-lg md:text-xl font-bold text-pink-400 uppercase tracking-widest">AI Min - Trợ Lý Đồng Hành</h3>
+                                  <span className="text-[10px] bg-pink-900/40 text-pink-300 border border-pink-500/50 px-2 py-0.5 rounded font-bold uppercase tracking-widest flex items-center gap-1">
+                                      <Wrench size={12} className="text-pink-400"/> Trợ Lý Toàn Năng & Sửa Lỗi
+                                  </span>
+                              </div>
+                              <p className="text-[10px] md:text-xs text-pink-300/60 mt-0.5">
+                                  Đồng hành giải đáp thắc mắc, phân tích thực hư và hỗ trợ can thiệp sửa lỗi dữ liệu khi gặp sự cố
+                              </p>
+                          </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <button onClick={() => {
+                              setPlayerAiChatMessages([{ role: 'ai', text: 'Chào đạo hữu! Ta là AI Min, người đồng hành cùng ngài trên con đường tu đạo. Đạo hữu có thắc mắc gì về thế giới này, cần hướng dẫn hay chỉ đơn giản là muốn tâm sự, cứ nói với ta nhé!' }]);
+                          }} className="p-2 hover:bg-red-900/30 rounded text-pink-400/60 hover:text-red-400 transition-colors" title="Xóa lịch sử trò chuyện"><Trash2 size={20}/></button>
+                          <div className="flex gap-1 bg-[var(--bg-body)] rounded-lg border border-pink-900/50 p-1 mr-1">
+                              <button onClick={() => setPlayerAiFontSize(Math.max(12, playerAiFontSize - 2))} className="px-3 py-1 text-sm font-bold text-pink-400/50 hover:text-pink-400 rounded transition-colors" title="Thu nhỏ chữ">A-</button>
+                              <button onClick={() => setPlayerAiFontSize(Math.min(28, playerAiFontSize + 2))} className="px-3 py-1 text-sm font-bold text-pink-400/50 hover:text-pink-400 rounded transition-colors" title="Phóng to chữ">A+</button>
+                          </div>
+                          <button onClick={() => setIsPlayerAiMaximized(!isPlayerAiMaximized)} className="p-2 hover:bg-pink-900/30 rounded text-[var(--text-muted)] hover:text-pink-400 transition-colors hidden md:block" title={isPlayerAiMaximized ? "Thu nhỏ" : "Phóng to"}>{isPlayerAiMaximized ? <ZoomOut size={20}/> : <Maximize size={20}/>}</button>
+                          <button onClick={() => setIsPlayerAIAssistantOpen(false)} className="p-2 hover:bg-pink-900/30 rounded text-[var(--text-muted)] hover:text-pink-400 transition-colors"><X size={20}/></button>
+                      </div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[var(--bg-body)] space-y-4" ref={playerAiChatScrollRef}>
+                      {playerAiChatMessages.map((msg, idx) => (
+                          <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2`}>
+                              {msg.role === 'ai' && <span className="text-[10px] font-bold text-pink-500/80 mb-1 ml-1 flex items-center gap-1"><Bot size={12}/> AI Min</span>}
+                             <div className={`max-w-[90%] md:max-w-[80%] p-4 leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'bg-pink-600 text-white rounded-2xl rounded-tr-sm shadow-md' : 'bg-[var(--bg-surface)] border border-pink-900/50 text-[var(--text-main)] rounded-2xl rounded-tl-sm shadow-sm'}`} style={{ fontSize: `${playerAiFontSize}px` }}>
+                                  {msg.text.split(/(\*\*.*?\*\*)/g).map((part, i) => {
+                                      if (part.startsWith('**') && part.endsWith('**')) {
+                                          return <span key={i} className={`underline underline-offset-4 ${msg.role === 'user' ? 'decoration-pink-300' : 'decoration-pink-500'}`}>{part.slice(2, -2)}</span>;
+                                      }
+                                      return part;
+                                  })}
+                              </div>
+                          </div>
+                      ))}
+                      {isPlayerAiGenerating && (
+                          <div className="flex flex-col items-start animate-in fade-in">
+                              <span className="text-[10px] font-bold text-pink-500/80 mb-1 ml-1 flex items-center gap-1"><Bot size={12}/> AI Min</span>
+                              <div className="max-w-[80%] p-4 bg-[var(--bg-surface)] border border-pink-900/50 text-pink-400 rounded-2xl rounded-tl-sm shadow-sm flex items-center gap-3 font-bold text-sm">
+                                  <Activity size={16} className="animate-spin" /> Đang chìm đắm trong vạn giới thư khố tìm câu trả lời...
+                              </div>
+                          </div>
+                      )}
+                  </div>
+                  
+                  <form onSubmit={handleSendPlayerAIChat} className="p-4 bg-[var(--bg-surface)] border-t border-pink-900/50 flex gap-3 shrink-0">
+                      <textarea 
+                          value={playerAiChatInput} 
+                          onChange={e => {
+                              setPlayerAiChatInput(e.target.value);
+                              e.target.style.height = 'auto';
+                              e.target.style.height = (e.target.scrollHeight) + 'px';
+                          }} 
+                          onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  if (playerAiChatInput.trim() && !isPlayerAiGenerating) {
+                                      handleSendPlayerAIChat(e);
+                                      e.target.style.height = 'auto';
+                                  }
+                              }
+                          }}
+                          rows={1}
+                          disabled={isPlayerAiGenerating}
+                          placeholder="Hỏi AI Min về bất cứ điều gì..." 
+                          className="flex-1 bg-[var(--bg-body)] border border-[var(--border-main)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] focus:outline-none focus:border-pink-500 shadow-inner disabled:opacity-50 resize-none overflow-hidden" 
+                          style={{ minHeight: '46px', maxHeight: '150px' }}
+                      />
+                      <button type="submit" disabled={!playerAiChatInput.trim() || isPlayerAiGenerating} className="bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white px-6 rounded-xl transition-colors shadow-md flex items-center justify-center">
+                          <Send size={18}/>
+                      </button>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* V12.14: GIAO DIỆN NẠP ĐIỂM HỆ THỐNG */}
+      {isSystemRechargeModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--bg-overlay)] p-4 animate-in fade-in zoom-in-95">
+          <div className="bg-[var(--bg-panel)] w-full max-w-2xl max-h-[85vh] rounded-2xl flex flex-col border border-teal-500/50 shadow-2xl relative overflow-hidden">
+            <div className="p-4 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-body)] shrink-0">
+               <div className="flex items-center gap-3">
+                   <div className="bg-teal-900/30 p-2 rounded-lg border border-teal-500/50"><Monitor className="text-teal-500" size={20} /></div>
+                   <div>
+                       <h3 className="text-lg font-bold text-teal-400 uppercase tracking-widest">Nạp Điểm Hệ Thống</h3>
+                       <p className="text-[10px] text-[var(--text-muted)] mt-1">Chuyển hóa Linh thạch hoặc Pháp bảo thành Điểm để nâng cấp.</p>
+                   </div>
+               </div>
+               <button onClick={() => { setIsSystemRechargeModalOpen(false); setActiveSacrificeIdx(null); }} className="text-[var(--text-muted)] hover:text-red-500"><X size={20}/></button>
+            </div>
+            <div className="p-5 flex flex-col gap-4 bg-[var(--bg-body)] overflow-y-auto custom-scrollbar flex-1">
+                <div className="bg-teal-900/10 p-4 rounded-xl border border-teal-900/30 flex justify-between items-center shadow-inner">
+                    <span className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">Điểm Hệ Thống Hiện Có:</span>
+                    <span className="text-2xl font-mono font-bold text-teal-400">{formatLargeNumber(gameState.systemPoints || 0)}</span>
+                </div>
+                
+                <h4 className="text-xs font-bold text-yellow-500 uppercase tracking-widest border-b border-[var(--border-main)] pb-2 mt-2">Dùng Linh Thạch Nạp Điểm (Tỷ lệ 1:1)</h4>
+                <div className="flex flex-col bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] transition-colors hover:border-teal-500/50">
+                    <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                            <div className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2"><Coins size={16} className="text-yellow-500"/> Linh Thạch Đang Có</div>
+                            <div className="text-xs font-mono text-yellow-400 mt-1">{formatLargeNumber(gameState.spiritStones)}</div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            {gameState.spiritStones > 0 && (
+                                <button onClick={() => {
+                                    const amt = Math.floor(gameState.spiritStones);
+                                    setGameState(prev => {
+                                        const timeStr = getRealmTimeStr(prev.currentLocation || 'Thế giới hiện tại', prev.knownRealms);
+                                        return {
+                                            ...prev,
+                                            spiritStones: 0,
+                                            systemPoints: (prev.systemPoints || 0) + amt,
+                                            stonesHistory: [{ time: timeStr, reason: 'Nạp Điểm Hệ Thống Phân Thân', change: -amt, breakdown: [{ action: `Chuyển hóa Linh Thạch thành Điểm Hệ Thống`, change: `-${amt}`, time: timeStr }] }, ...(prev.stonesHistory || [])].slice(0, 30),
+                                        };
+                                    });
+                                    showAlert(`Nạp thành công ${formatLargeNumber(amt)} Điểm Hệ Thống!`);
+                                    setActiveSacrificeIdx(null);
+                                }} className="px-3 py-2 bg-red-900/20 text-red-500 hover:bg-red-600 hover:text-white border border-red-800/50 rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap">
+                                    Tất Cả
+                                </button>
+                            )}
+                            <button onClick={() => {
+                                if (activeSacrificeIdx === 'linhthach') {
+                                    setActiveSacrificeIdx(null);
+                                } else {
+                                    setActiveSacrificeIdx('linhthach');
+                                    let safeAmount = Math.max(1, Math.min(1000, Math.floor(gameState.spiritStones)));
+                                    setSacrificeAmount(safeAmount);
+                                }
+                            }} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap ${activeSacrificeIdx === 'linhthach' ? 'bg-yellow-600 text-white border border-yellow-500' : 'bg-yellow-900/20 text-yellow-500 hover:bg-yellow-600 hover:text-white border border-yellow-800/50'}`}>
+                                {activeSacrificeIdx === 'linhthach' ? "Đóng" : "Nạp Tùy Chọn"}
+                            </button>
+                        </div>
+                    </div>
+                    {activeSacrificeIdx === 'linhthach' && (
+                        <div className="mt-4 pt-4 border-t border-[var(--border-main)] border-dashed animate-in fade-in slide-in-from-top-2">
+                            <div className="flex items-center gap-3 mb-4 bg-[var(--bg-body)] p-3 rounded-lg border border-[var(--border-main)]">
+                                <span className="text-xs uppercase font-bold text-[var(--text-muted)] whitespace-nowrap">Số lượng:</span>
+                                <input type="range" min="1" max={Math.max(1, Math.floor(gameState.spiritStones))} value={sacrificeAmount} onChange={e => setSacrificeAmount(Number(e.target.value))} className="flex-1 accent-yellow-500 h-1.5 bg-gray-700 rounded-lg cursor-pointer appearance-none" />
+                                <input type="number" min="1" max={Math.max(1, Math.floor(gameState.spiritStones))} value={sacrificeAmount} onChange={e => setSacrificeAmount(Math.min(Math.floor(gameState.spiritStones), Math.max(1, parseInt(e.target.value)||1)))} className="w-20 bg-[var(--bg-surface)] text-[var(--text-main)] border border-[var(--border-main)] rounded px-2 py-1.5 text-sm font-bold text-center focus:outline-none focus:border-yellow-500" />
+                            </div>
+                            <button onClick={() => {
+                                const amt = Math.floor(sacrificeAmount);
+                                if (isNaN(amt) || amt <= 0 || amt > gameState.spiritStones) return showAlert("Số lượng không hợp lệ hoặc vượt quá Linh thạch rỗng!");
+                                setGameState(prev => {
+                                    const timeStr = getRealmTimeStr(prev.currentLocation || 'Thế giới hiện tại', prev.knownRealms);
+                                    return {
+                                        ...prev,
+                                        spiritStones: prev.spiritStones - amt,
+                                        systemPoints: (prev.systemPoints || 0) + amt,
+                                        stonesHistory: [{ time: timeStr, reason: 'Nạp Điểm Hệ Thống Phân Thân', change: -amt, breakdown: [{ action: `Chuyển hóa Linh Thạch thành Điểm Hệ Thống`, change: `-${amt}`, time: timeStr }] }, ...(prev.stonesHistory || [])].slice(0, 30),
+                                    };
+                                });
+                                showAlert(`Nạp thành công ${formatLargeNumber(amt)} Điểm Hệ Thống!`);
+                                setActiveSacrificeIdx(null);
+                            }} className="w-full px-5 py-3 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg text-sm font-bold transition-colors shadow-md flex items-center justify-center gap-2">
+                                <Coins size={16}/> Xác Nhận Nạp ({formatLargeNumber(sacrificeAmount)})
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                <h4 className="text-xs font-bold text-orange-500 uppercase tracking-widest border-b border-[var(--border-main)] pb-2 mt-4">Dùng Vật Phẩm Đổi Điểm (Tế Vật)</h4>
+                <div className="space-y-2">
+                    {gameState.inventory.filter(i => !['spatial', 'sealed_spatial', 'soul_spatial', 'currency'].includes(i.type)).length === 0 ? (
+                        <div className="text-center py-6 text-[var(--text-muted)] italic text-sm">Hành trang không có vật phẩm phù hợp để hiến tế.</div>
+                    ) : (
+                        gameState.inventory.filter(i => !['spatial', 'sealed_spatial', 'soul_spatial', 'currency'].includes(i.type)).map((item, idx) => {
+                            const sysLvl = gameState.cloneSystemLevel || 1;
+                            const baseRarityPts = { 'Trắng': 10, 'Xanh lá': 50, 'Xanh lam': 200, 'Tím': 1000, 'Vàng': 5000, 'Cam': 20000, 'Đỏ': 100000, 'Đen': 10, 'Xám': 0 };
+                            const rarityValue = { 'Xám': 0, 'Đen': 1, 'Trắng': 1, 'Xanh lá': 2, 'Xanh lam': 3, 'Tím': 4, 'Vàng': 5, 'Cam': 6, 'Đỏ': 7 };
+                            
+                            let basePts = baseRarityPts[item.rarity] !== undefined ? baseRarityPts[item.rarity] : 0;
+                            const itemRarityVal = rarityValue[item.rarity] !== undefined ? rarityValue[item.rarity] : 0;
+                            
+                            let multiplier = 1.0;
+                            if (sysLvl > itemRarityVal + 1) {
+                                // Hệ thống cấp cao làm vật phẩm rác bị trượt giá
+                                multiplier = Math.max(0.1, 1.0 - ((sysLvl - itemRarityVal) * 0.15));
+                            } else if (itemRarityVal >= sysLvl) {
+                                // Rất có giá trị khi nạp hàng hiếm vượt cấp Hệ thống
+                                multiplier = Math.min(2.5, 1.0 + ((itemRarityVal - sysLvl) * 0.25));
+                            }
+                            
+                            // Trang bị và hồn tinh có sức mạnh lõi lớn hơn vật phẩm thường
+                            if (item.type === 'equip') multiplier *= 1.5;
+                            if (item.type === 'demon_soul') multiplier *= 2.0;
+
+                            const ptsPerItem = Math.floor(basePts * multiplier);
+                            const isDevalued = multiplier < 1.0;
+                            const isBuffed = multiplier > 1.2;
+                            
+                            return (
+                                <div key={idx} className="flex flex-col bg-[var(--bg-surface)] p-3 rounded-lg border border-[var(--border-main)] hover:border-orange-500/50 transition-colors">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex-1 overflow-hidden pr-3">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                {item.type === 'equip' ? <Axe size={14} className={RARITY_COLORS[item.rarity]?.text || 'text-[var(--text-muted)]'}/> : item.type === 'food' ? <FlaskRound size={14} className={RARITY_COLORS[item.rarity]?.text || 'text-[var(--text-muted)]'}/> : <Package size={14} className={RARITY_COLORS[item.rarity]?.text || 'text-[var(--text-muted)]'}/>}
+                                                <span className={`text-sm font-bold truncate leading-6 ${RARITY_COLORS[item.rarity]?.text || 'text-[var(--text-main)]'}`}>{item.name}</span>
+                                                <span className="text-[10px] font-mono text-[var(--text-muted)]">x{item.quantity}</span>
+                                            </div>
+                                            <div className="text-[10px] font-mono flex flex-wrap items-center gap-2 mt-1">
+                                                <span className={`${isDevalued ? 'text-gray-500' : isBuffed ? 'text-yellow-400' : 'text-orange-400'}`}>Quy đổi: {formatLargeNumber(ptsPerItem)} Điểm/cái</span>
+                                                {isDevalued && <span className="text-red-500 font-bold bg-red-900/20 px-1 rounded shadow-sm" title="Hệ thống cấp cao làm đồ phẩm chất thấp bị mất giá!">📉 Rớt Giá</span>}
+                                                {isBuffed && <span className="text-emerald-500 font-bold bg-emerald-900/20 px-1 rounded shadow-sm" title="Đồ xịn vược cấp hệ thống sẽ đem lại lượng Điểm thưởng khổng lồ!">📈 Đắt Giá</span>}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            {item.quantity > 1 && (
+                                                <button onClick={() => {
+                                                    const amt = item.quantity;
+                                                    const totalPtsGained = amt * ptsPerItem;
+                                                    setGameState(prev => {
+                                                        const newInv = [...prev.inventory];
+                                                        const iIdx = newInv.findIndex(i => i.name === item.name && i.containerId === item.containerId);
+                                                        if (iIdx >= 0) {
+                                                            newInv[iIdx].quantity -= amt;
+                                                            if (newInv[iIdx].quantity <= 0) newInv.splice(iIdx, 1);
+                                                        }
+                                                        return { ...prev, inventory: newInv, systemPoints: (prev.systemPoints || 0) + totalPtsGained };
+                                                    });
+                                                    showAlert(`Đã hiến tế TẤT CẢ thành công! Nhận ${formatLargeNumber(totalPtsGained)} Điểm!`);
+                                                    setActiveSacrificeIdx(null);
+                                                }} className="px-3 py-2 bg-red-900/20 text-red-500 hover:bg-red-600 hover:text-white border border-red-800/50 rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap">
+                                                    Tất Cả
+                                                </button>
+                                            )}
+                                            <button onClick={() => {
+                                                if (item.quantity === 1) {
+                                                    const amt = 1;
+                                                    const totalPtsGained = amt * ptsPerItem;
+                                                    setGameState(prev => {
+                                                        const newInv = [...prev.inventory];
+                                                        const iIdx = newInv.findIndex(i => i.name === item.name && i.containerId === item.containerId);
+                                                        if (iIdx >= 0) {
+                                                            newInv[iIdx].quantity -= amt;
+                                                            if (newInv[iIdx].quantity <= 0) newInv.splice(iIdx, 1);
+                                                        }
+                                                        return { ...prev, inventory: newInv, systemPoints: (prev.systemPoints || 0) + totalPtsGained };
+                                                    });
+                                                    showAlert(`Đã hiến tế thành công! Nhận ${formatLargeNumber(totalPtsGained)} Điểm!`);
+                                                    setActiveSacrificeIdx(null);
+                                                } else {
+                                                    if (activeSacrificeIdx === idx) {
+                                                        setActiveSacrificeIdx(null);
+                                                    } else {
+                                                        setActiveSacrificeIdx(idx);
+                                                        setSacrificeAmount(1);
+                                                    }
+                                                }
+                                            }} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap ${activeSacrificeIdx === idx ? 'bg-orange-600 text-white border border-orange-500' : 'bg-orange-900/20 text-orange-400 hover:bg-orange-600 hover:text-white border border-orange-800/50'}`}>
+                                                {item.quantity > 1 ? (activeSacrificeIdx === idx ? "Đóng" : "Tùy Chọn") : "Hiến Tế"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    {activeSacrificeIdx === idx && item.quantity > 1 && (
+                                        <div className="mt-3 pt-3 border-t border-[var(--border-main)] border-dashed animate-in fade-in slide-in-from-top-2">
+                                            <div className="flex items-center gap-3 mb-3 bg-[var(--bg-body)] p-3 rounded-lg border border-[var(--border-main)]">
+                                                <span className="text-xs uppercase font-bold text-[var(--text-muted)] whitespace-nowrap">Số lượng:</span>
+                                                <input type="range" min="1" max={item.quantity} value={sacrificeAmount} onChange={e => setSacrificeAmount(Number(e.target.value))} className="flex-1 accent-orange-500 h-1.5 bg-gray-700 rounded-lg cursor-pointer appearance-none" />
+                                                <input type="number" min="1" max={item.quantity} value={sacrificeAmount} onChange={e => setSacrificeAmount(Math.min(item.quantity, Math.max(1, parseInt(e.target.value)||1)))} className="w-16 bg-[var(--bg-surface)] text-[var(--text-main)] border border-[var(--border-main)] rounded px-2 py-1 text-sm font-bold text-center focus:outline-none focus:border-orange-500" />
+                                            </div>
+                                            <div className="flex justify-end gap-3">
+                                                <button onClick={() => {
+                                                    const amt = Math.min(item.quantity, Math.max(1, item.quantity > 1 ? sacrificeAmount : 1));
+                                                    const totalPtsGained = amt * ptsPerItem;
+                                                    setGameState(prev => {
+                                                        const newInv = [...prev.inventory];
+                                                        const iIdx = newInv.findIndex(i => i.name === item.name && i.containerId === item.containerId);
+                                                        if (iIdx >= 0) {
+                                                            newInv[iIdx].quantity -= amt;
+                                                            if (newInv[iIdx].quantity <= 0) newInv.splice(iIdx, 1);
+                                                        }
+                                                        return { ...prev, inventory: newInv, systemPoints: (prev.systemPoints || 0) + totalPtsGained };
+                                                    });
+                                                    showAlert(`Đã hiến tế thành công! Hệ thống hấp thu năng lượng vật phẩm và phản hồi lại cho bạn ${formatLargeNumber(totalPtsGained)} Điểm!`);
+                                                    setActiveSacrificeIdx(null);
+                                                }} className="w-full px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-bold transition-colors shadow-md flex items-center justify-center gap-2">
+                                                    <Sparkles size={16}/> Xác Nhận Đoạt Hóa ({sacrificeAmount})
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* V14.8: TÀNG THƯ BẢN NGÃ (SÁCH TRI THỨC) MODAL */}

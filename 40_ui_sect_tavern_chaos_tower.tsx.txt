@@ -1,0 +1,1368 @@
+      {/* V6.71: TÔNG MÔN TOÀN MÀN HÌNH (QUỶ CỐC BÁT HOANG STYLE) */}
+      {isSectModalOpen && gameState.sect && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[var(--bg-overlay)] p-0 md:p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--bg-body)] w-full max-w-6xl h-full md:h-[90vh] rounded-none md:rounded-2xl flex flex-col border border-purple-900/50 shadow-[0_0_50px_rgba(168,85,247,0.15)] relative overflow-hidden">
+            
+            {/* Header Sơn Môn */}
+            <div className="p-4 md:p-6 border-b border-purple-900/30 flex justify-between items-center bg-[var(--bg-surface)] shrink-0 relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-purple-900/20 to-transparent pointer-events-none"></div>
+               <div className="flex items-center gap-4 relative z-10">
+                   <div className="bg-purple-900/30 p-3 rounded-full border-2 border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]"><ShieldCheck className="text-purple-400" size={32} /></div>
+                   <div>
+                       <div className="flex items-center gap-3">
+                           <h2 className={`text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r ${gameState.sect.isDynasty ? 'from-yellow-400 to-orange-500' : 'from-purple-400 to-pink-600'} uppercase tracking-widest`} style={{fontFamily: 'Lexend, sans-serif'}}>{gameState.sect.name}</h2>
+                           <button onClick={() => {
+                               showPrompt(`Ban danh Sơn Môn mới:`, (newName) => {
+                                   if(newName && newName.trim()) {
+                                       setGameState(prev => ({...prev, sect: {...prev.sect, name: newName.trim()}}));
+                                       showAlert(`Đã tạc lại bảng hiệu! Từ nay đổi tên thành [${newName.trim()}].`);
+                                   }
+                               }, "Nhập tên Tông môn...", false);
+                           }} className="text-purple-500/50 hover:text-purple-400 transition-colors" title="Đổi tên Tông Môn"><Wrench size={16}/></button>
+                       </div>
+                       <div className="flex flex-col gap-1 mt-1.5">
+                           <div className="flex items-center gap-2">
+                               <span className="text-[10px] md:text-xs text-purple-200 bg-purple-900/50 px-2 py-1 rounded border border-purple-500/30 font-bold tracking-widest">{gameState.sect.tier}</span>
+                               <span className="text-xs text-purple-400/60 italic hidden md:block">Kiến lập cơ đồ, lưu danh thiên cổ.</span>
+                           </div>
+                           <div className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
+                               <MapPin size={12}/> Trụ sở chính: <span className="text-emerald-400 font-bold">{gameState.sect.baseLocation || 'Chưa rõ tọa độ'}</span>
+                           </div>
+                       </div>
+                   </div>
+               </div>
+               <div className="flex items-center gap-2 relative z-10">
+                   <div className="flex bg-[var(--bg-body)] rounded-lg p-1 border border-purple-900/50">
+                       <button onClick={() => setSectModalTab('overview')} className={`px-4 py-2 text-xs md:text-sm font-bold rounded-md transition-colors ${sectModalTab === 'overview' ? 'bg-purple-900/40 text-purple-300 shadow-sm border border-purple-500/30' : 'text-gray-500 hover:text-gray-300'}`}>Tổng Quan</button>
+                       <button onClick={() => setSectModalTab('infra')} className={`px-4 py-2 text-xs md:text-sm font-bold rounded-md transition-colors ${sectModalTab === 'infra' ? 'bg-purple-900/40 text-purple-300 shadow-sm border border-purple-500/30' : 'text-gray-500 hover:text-gray-300'}`}>Hạ Tầng</button>
+                       <button onClick={() => { setSectModalTab('members'); setNpcFilter('all'); }} className={`px-4 py-2 text-xs md:text-sm font-bold rounded-md transition-colors ${sectModalTab === 'members' ? 'bg-purple-900/40 text-purple-300 shadow-sm border border-purple-500/30' : 'text-gray-500 hover:text-gray-300'}`}>Danh Sách Môn Đồ</button>
+                       <button onClick={() => setSectModalTab('history')} className={`px-4 py-2 text-xs md:text-sm font-bold rounded-md transition-colors ${sectModalTab === 'history' ? 'bg-purple-900/40 text-purple-300 shadow-sm border border-purple-500/30' : 'text-gray-500 hover:text-gray-300'}`}>Lịch Sử</button>
+                       {gameState.sect.isAtWar && (
+                           <button onClick={() => setSectModalTab('war')} className={`px-4 py-2 text-xs md:text-sm font-bold rounded-md transition-colors animate-pulse ${sectModalTab === 'war' ? 'bg-red-900/40 text-red-300 shadow-sm border border-red-500/30' : 'text-red-500 hover:text-red-300'}`}>Tử Chiến Đại Kiếp</button>
+                       )}
+                   </div>
+                   <button onClick={() => setIsSectModalOpen(false)} className="p-2 bg-[var(--bg-body)] hover:bg-red-900/30 hover:text-red-500 border border-purple-900/50 hover:border-red-900/50 rounded-lg text-gray-500 transition-colors ml-2"><X size={24}/></button>
+               </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto custom-scrollbar bg-[var(--bg-body)] relative p-4 md:p-8">
+               {/* TAB LỊCH SỬ TÔNG MÔN */}
+               {sectModalTab === 'history' && (
+                   <div className="max-w-4xl mx-auto space-y-6 animate-in slide-in-from-right-4">
+                       <div className="p-6 rounded-2xl border shadow-sm bg-[var(--bg-surface)] border-purple-900/30">
+                           <h4 className="text-sm font-bold text-purple-400 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-purple-900/30 pb-2"><History size={16}/> Biên Niên Sử {gameState.sect.isDynasty ? 'Quốc Gia' : 'Tông Môn'}</h4>
+                           <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
+                               {(!gameState.sect.chronicles || gameState.sect.chronicles.length === 0) ? (
+                                   <p className="text-gray-600 italic text-sm text-center py-8 border border-dashed border-gray-800 rounded-xl">Chưa có sự kiện nào được ghi nhận vào sử sách.</p>
+                               ) : (
+                                   gameState.sect.chronicles.map((c, i) => (
+                                       <div key={i} className="bg-[var(--bg-body)] p-4 rounded-xl border border-gray-800 shadow-inner flex flex-col md:flex-row gap-4 items-start md:items-center hover:border-purple-500/50 transition-colors">
+                                           <div className="text-xs text-teal-500 font-mono bg-teal-900/20 px-3 py-1.5 rounded border border-teal-800/50 whitespace-nowrap shrink-0">{c.time}</div>
+                                           <div className="text-sm text-gray-300 leading-relaxed flex-1">{c.event}</div>
+                                       </div>
+                                   ))
+                               )}
+                           </div>
+                       </div>
+                   </div>
+               )}
+
+               {/* TAB 1: TỔNG QUAN TÔNG MÔN */}
+               {sectModalTab === 'overview' && (
+                   <div className="max-w-5xl mx-auto space-y-6 animate-in slide-in-from-bottom-4">
+                       {/* Top Stats */}
+                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                           <div className="bg-[var(--bg-surface)] p-5 rounded-2xl border border-purple-900/30 shadow-sm flex flex-col items-center text-center group hover:border-purple-500/50 transition-colors">
+                               <ShieldCheck size={24} className="text-purple-500 mb-2 opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all"/>
+                               <span className="text-[10px] text-purple-400/70 uppercase tracking-widest font-bold mb-1">Uy Tín Sơn Môn</span>
+                               <span className="text-2xl font-mono font-black text-purple-300">{formatLargeNumber(gameState.sect.prestige)}</span>
+                           </div>
+                           <div onClick={() => showAlert(`GIẢI THÍCH: ${gameState.sect.isDynasty ? 'TỔNG QUÂN/DÂN' : 'TỔNG MÔN ĐỒ'}\n\nĐây là con số thống kê tổng lượng nhân sự vô danh trực thuộc quản lý của bạn (dùng để tính toán thu nhập và sức mạnh vĩ mô).\n\nLưu ý: Trong phần "Danh Sách" sẽ CHỈ HIỂN THỊ những nhân vật CÓ TÊN TUỔI cụ thể (do bạn đích thân bổ nhiệm hoặc tương tác và được Thiên Đạo ghi nhớ).`)} className="bg-[var(--bg-surface)] p-5 rounded-2xl border border-purple-900/30 shadow-sm flex flex-col items-center text-center group hover:border-teal-500/50 transition-colors cursor-pointer" title="Nhấn để xem giải thích chi tiết">
+                               <Users size={24} className="text-teal-500 mb-2 opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all"/>
+                               <span className="text-[10px] text-teal-400/70 uppercase tracking-widest font-bold mb-1">{gameState.sect.isDynasty ? 'Tổng Quân/Dân' : 'Tổng Môn Đồ'}</span>
+                               <span className="text-2xl font-mono font-black text-teal-300">{formatLargeNumber(gameState.sect.members)}</span>
+                           </div>
+                           <div className="bg-[var(--bg-surface)] p-5 rounded-2xl border border-purple-900/30 shadow-sm flex flex-col items-center text-center group hover:border-yellow-500/50 transition-colors col-span-2 md:col-span-2 relative overflow-hidden">
+                               <div className="absolute right-[-20px] bottom-[-20px] opacity-10"><Coins size={100} className="text-yellow-500"/></div>
+                               <Coins size={24} className="text-yellow-500 mb-2 opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all"/>
+                               <div className="flex justify-between items-center w-full px-4 cursor-pointer hover:bg-yellow-900/30 py-2 rounded-lg transition-colors" onClick={() => showStatHistoryModal('Quỹ Tông Môn', gameState.sectWealthHistory)} title="Nhấn để xem Lịch Sử Biến Động Quỹ chi tiết">
+                                   <span className="text-[10px] text-yellow-400/70 uppercase tracking-widest font-bold flex items-center gap-1"><History size={12}/> Quỹ Lưu Trữ</span>
+                                   <span className={`text-3xl font-mono font-black ${gameState.sect.wealth < 50 ? 'text-red-500 animate-pulse' : 'text-yellow-400'}`}>{formatLargeNumber(gameState.sect.wealth)} {'LT'}</span>
+                               </div>
+                               <div className="flex gap-2 mt-2 w-full px-4 z-10">
+                                   <button onClick={() => {
+                                       const unit = 'Linh Thạch';
+                                       showPrompt(`Nhập số ${unit} muốn NẠP vào Quỹ (Bạn đang có: ${formatLargeNumber(gameState.spiritStones)} ${'LT'}):`, (val) => {
+                                           const amount = Math.floor(Number(val));
+                                           if(isNaN(amount) || amount <= 0) return showAlert("Số lượng không hợp lệ!");
+                                           setGameState(prev => {
+                                               if (amount > (prev.spiritStones || 0)) {
+                                                   setTimeout(() => showAlert(`Bạn không có đủ ${unit} trên người!`), 10);
+                                                   return prev;
+                                               }
+                                               const timeStr = getRealmTimeStr(prev.currentLocation, prev.knownRealms);
+                                               setTimeout(() => showAlert(`Đã nạp ${formatLargeNumber(amount)} ${unit} vào quỹ!`), 10);
+                                               return { 
+                                                   ...prev, 
+                                                   spiritStones: prev.spiritStones - amount, 
+                                                   stonesHistory: [{ time: timeStr, reason: 'Giao dịch / Nạp Quỹ', change: -amount, breakdown: [{ action: `Nạp tiền túi vào Quỹ`, change: `-${amount}`, time: timeStr }] }, ...(prev.stonesHistory || [])].slice(0, 30),
+                                                   sect: { ...prev.sect, wealth: (prev.sect.wealth || 0) + amount },
+                                                   sectWealthHistory: [{ time: timeStr, reason: 'Nạp quỹ', change: amount, breakdown: [{ action: `Chi tiền túi nạp vào quỹ`, change: `+${amount}`, time: timeStr }] }, ...(prev.sectWealthHistory || [])].slice(0, 100)
+                                               };
+                                           });
+                                       }, "Nhập số lượng (Tối thiểu 1)...", false);
+                                   }} className="flex-1 text-[10px] font-bold text-yellow-500 hover:text-white bg-yellow-900/20 hover:bg-yellow-600 px-2 py-1.5 rounded-full border border-yellow-500/30 transition-all shadow-sm">
+                                       Nạp Quỹ
+                                   </button>
+                                   <button onClick={() => {
+                                       const unit = 'Linh Thạch';
+                                       showPrompt(`Nhập số ${unit} muốn RÚT khỏi Quỹ (Quỹ đang có: ${formatLargeNumber(gameState.sect.wealth)} ${'LT'}):`, (val) => {
+                                           const amount = Math.floor(Number(val));
+                                           if(isNaN(amount) || amount <= 0) return showAlert("Số lượng không hợp lệ!");
+                                           setGameState(prev => {
+                                               if (amount > (prev.sect?.wealth || 0)) {
+                                                   setTimeout(() => showAlert(`Quỹ không có nhiều ${unit} như vậy!`), 10);
+                                                   return prev;
+                                               }
+                                               const timeStr = getRealmTimeStr(prev.currentLocation, prev.knownRealms);
+                                               setTimeout(() => showAlert(`Đã rút ${formatLargeNumber(amount)} ${unit} từ quỹ vào túi cá nhân!`), 10);
+                                               return { 
+                                                   ...prev, 
+                                                   spiritStones: prev.spiritStones + amount, 
+                                                   stonesHistory: [{ time: timeStr, reason: 'Giao dịch / Rút Quỹ', change: amount, breakdown: [{ action: `Rút tiền từ Quỹ`, change: `+${amount}`, time: timeStr }] }, ...(prev.stonesHistory || [])].slice(0, 30),
+                                                   sect: { ...prev.sect, wealth: (prev.sect.wealth || 0) - amount },
+                                                   sectWealthHistory: [{ time: timeStr, reason: 'Rút quỹ', change: -amount, breakdown: [{ action: `Rút tiền làm việc tư`, change: `-${amount}`, time: timeStr }] }, ...(prev.sectWealthHistory || [])].slice(0, 100)
+                                               };
+                                           });
+                                       }, "Nhập số lượng (Tối thiểu 1)...", false);
+                                   }} className="flex-1 text-[10px] font-bold text-emerald-500 hover:text-white bg-emerald-900/20 hover:bg-emerald-600 px-2 py-1.5 rounded-full border border-emerald-500/30 transition-all shadow-sm">
+                                       Rút Quỹ
+                                   </button>
+                               </div>
+                           </div>
+                       </div>
+
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           {/* Tôn Chỉ / Quốc Pháp */}
+                           <div className={`p-6 rounded-2xl border shadow-sm relative ${'bg-[var(--bg-surface)] border-purple-900/30'}`}>
+                               <div className={`flex justify-between items-center mb-4 border-b pb-2 ${gameState.sect.isDynasty ? 'border-yellow-900/30' : 'border-purple-900/30'}`}>
+                                   <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${gameState.sect.isDynasty ? 'text-yellow-500' : 'text-purple-400'}`}>
+                                       <BookOpen size={16}/> {gameState.sect.isDynasty ? 'Quốc Pháp / Chiếu Chỉ' : 'Tôn Chỉ Môn Phái'}
+                                   </span>
+                                   <button onClick={() => {
+                                       showPrompt(gameState.sect.isDynasty ? `Ban bố Quốc Pháp / Chiếu Chỉ mới:` : `Ban bố Quy định/Tôn chỉ mới:`, (newRules) => {
+                                           if(newRules && newRules.trim()) {
+                                               setGameState(prev => ({...prev, sect: {...prev.sect, rules: newRules.trim()}}));
+                                               showAlert(gameState.sect.isDynasty ? "Đã ban bố Hoàng Ân / Chiếu Chỉ ra toàn thiên hạ!" : "Đã ban bố Thiết Luật mới ra toàn Tông môn!");
+                                           }
+                                       }, gameState.sect.isDynasty ? "Ví dụ: Thiên tử phạm pháp tội như thứ dân..." : "Ví dụ: Chính tà bất lưỡng lập...", false);
+                                   }} className={`${gameState.sect.isDynasty ? 'text-yellow-600 hover:text-yellow-400' : 'text-purple-500 hover:text-white'} transition-colors`}><Wrench size={14}/></button>
+                               </div>
+                               <div className="text-sm text-gray-300 italic leading-loose">"{String(gameState.sect.rules || '')}"</div>
+                           </div>
+
+                           {/* Drama Báo Cáo / Tấu Chương */}
+                           <div className={`p-6 rounded-2xl border shadow-sm flex flex-col ${'bg-[var(--bg-surface)] border-purple-900/30'}`}>
+                               <div className="mb-6 bg-[var(--bg-body)] p-4 rounded-xl border border-red-900/30 relative overflow-hidden">
+                                   <div className="flex justify-between items-center mb-2 relative z-10">
+                                       <span className="text-xs font-bold text-red-400 uppercase tracking-widest flex items-center gap-2"><Flame size={14}/> Thanh Kiếp Nạn</span>
+                                       <span className="text-xs font-mono font-bold text-red-500">{Math.floor(gameState.sect.tribulationProgress || 0)}% / 100%</span>
+                                   </div>
+                                   <div className="h-2 w-full bg-red-950 rounded-full overflow-hidden border border-red-900/50 relative z-10">
+                                       <div className="h-full bg-gradient-to-r from-red-800 to-red-500 transition-all duration-500" style={{width: `${Math.min(100, gameState.sect.tribulationProgress || 0)}%`}}></div>
+                                   </div>
+                                   <p className="text-[10px] text-gray-500 mt-2 italic relative z-10">Kiếp nạn gia tăng theo tốc độ phát triển, danh vọng, tài phú, nghiệp lực và kỳ trân dị bảo cất giấu. Khi đạt 100%, Đại Kiếp giáng lâm!</p>
+                                   {(gameState.sect.tribulationProgress || 0) >= 100 && <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-red-600/20 to-transparent pointer-events-none"></div>}
+                               </div>
+
+                               <span className="text-xs font-bold text-orange-400 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-orange-900/30 pb-2"><Megaphone size={16}/> {gameState.sect.isDynasty ? 'Tấu Chương / Quốc Sự' : 'Tình Hình Gần Đây'}</span>
+                               {gameState.sect.currentDrama ? (
+                                   <div className="text-sm text-gray-300 leading-relaxed border-l-2 border-orange-500 pl-3 mt-4 flex-1">
+                                       {String(gameState.sect.currentDrama || '')}
+                                   </div>
+                               ) : <div className="text-sm italic text-gray-600 mt-4 flex-1">{gameState.sect.isDynasty ? 'Quốc thái dân an, thiên hạ thái bình.' : 'Trời yên biển lặng, môn đồ chăm chỉ tu luyện.'}</div>}
+                               
+                               {/* V7.16 & V10.17: Nút Hành Động Uy Quyền */}
+                               <div className={`mt-6 pt-4 border-t flex gap-2 ${gameState.sect.isDynasty ? 'border-yellow-900/30' : 'border-purple-900/30'}`}>
+                                   <button onClick={() => {
+                                       const unit = 'Linh Thạch';
+                                       showPrompt(`Nhập số ${unit} muốn NẠP (Đang có: ${formatLargeNumber(gameState.spiritStones)} ${'LT'}):`, (val) => {
+                                           const amount = Math.floor(Number(val));
+                                           if(isNaN(amount) || amount <= 0) return showAlert("Số lượng không hợp lệ!");
+                                           setGameState(prev => {
+                                               if (amount > (prev.spiritStones || 0)) {
+                                                   setTimeout(() => showAlert("Không đủ tiền!"), 10);
+                                                   return prev;
+                                               }
+                                               const timeStr = getRealmTimeStr(prev.currentLocation, prev.knownRealms);
+                                               if (!prev.sect.isDynasty) setTimeout(() => showAlert(`Đã nạp ${formatLargeNumber(amount)} ${unit} vào quỹ!`), 10);
+                                               else setTimeout(() => showAlert(`Đã xuất ${formatLargeNumber(amount)} ${unit} ban thưởng!`), 10);
+                                               return { 
+                                                   ...prev, 
+                                                   spiritStones: prev.spiritStones - amount, 
+                                                   stonesHistory: [{ time: timeStr, reason: prev.sect.isDynasty ? 'Giao dịch / Xóa đói giảm nghèo' : 'Giao dịch / Nạp Quỹ', change: -amount, breakdown: [{ action: prev.sect.isDynasty ? 'Hoàng đế xuất tiền túi cứu trợ bá tánh' : 'Nạp tiền túi vào Quỹ', change: `-${amount}`, time: timeStr }] }, ...(prev.stonesHistory || [])].slice(0, 30),
+                                                   sect: { ...prev.sect, wealth: (prev.sect.wealth || 0) + amount },
+                                                   sectWealthHistory: [{ time: timeStr, reason: prev.sect.isDynasty ? 'Quân Vương cứu trợ' : 'Nạp vào quỹ', change: amount, breakdown: [{ action: prev.sect.isDynasty ? 'Tiền từ túi riêng sung vào Quốc khố' : 'Chi tiền túi nạp vào quỹ', change: `+${amount}`, time: timeStr }] }, ...(prev.sectWealthHistory || [])].slice(0, 100)
+                                               };
+                                           });
+                                       }, "Tối thiểu 1...", false);
+                                   }} className="flex-1 bg-yellow-900/20 hover:bg-yellow-600 text-yellow-400 hover:text-white text-[10px] font-bold py-2 rounded border border-yellow-900/50">{gameState.sect.isDynasty ? 'Ban Thưởng' : 'Nạp Quỹ'}</button>
+                                   
+                                   <button onClick={() => {
+                                       const unit = 'Linh Thạch';
+                                       showPrompt(`Nhập số ${unit} muốn RÚT (${gameState.sect.isDynasty ? 'Quốc khố' : 'Quỹ'}: ${formatLargeNumber(gameState.sect.wealth)} ${'LT'}):`, (val) => {
+                                           const amount = Math.floor(Number(val));
+                                           if(isNaN(amount) || amount <= 0) return showAlert("Số lượng không hợp lệ!");
+                                           setGameState(prev => {
+                                               if (amount > (prev.sect?.wealth || 0)) {
+                                                   setTimeout(() => showAlert(prev.sect.isDynasty ? "Quốc khố không đủ tiền!" : "Quỹ không đủ!"), 10);
+                                                   return prev;
+                                               }
+                                               const timeStr = getRealmTimeStr(prev.currentLocation, prev.knownRealms);
+                                               if (!prev.sect.isDynasty) setTimeout(() => showAlert(`Đã rút ${formatLargeNumber(amount)} ${unit} từ quỹ vào túi cá nhân!`), 10);
+                                               else setTimeout(() => showAlert(`Đã thu ${formatLargeNumber(amount)} ${unit} vào túi!`), 10);
+                                               return { 
+                                                   ...prev, 
+                                                   spiritStones: prev.spiritStones + amount, 
+                                                   stonesHistory: [{ time: timeStr, reason: prev.sect.isDynasty ? 'Giao dịch / Rút Quốc Khố' : 'Giao dịch / Rút Quỹ', change: amount, breakdown: [{ action: prev.sect.isDynasty ? 'Quân vương thu thuế làm việc riêng' : 'Rút tiền từ Quỹ', change: `+${amount}`, time: timeStr }] }, ...(prev.stonesHistory || [])].slice(0, 30),
+                                                   sect: { ...prev.sect, wealth: (prev.sect.wealth || 0) - amount },
+                                                   sectWealthHistory: [{ time: timeStr, reason: prev.sect.isDynasty ? 'Quân Vương rút thuế' : 'Rút khỏi quỹ', change: -amount, breakdown: [{ action: prev.sect.isDynasty ? 'Rút tiền Quốc khố làm việc tư' : 'Rút tiền làm việc tư', change: `-${amount}`, time: timeStr }] }, ...(prev.sectWealthHistory || [])].slice(0, 100)
+                                               };
+                                           });
+                                       }, "Tối thiểu 1...", false);
+                                   }} className="flex-1 bg-emerald-900/20 hover:bg-emerald-600 text-emerald-400 hover:text-white text-[10px] font-bold py-2 rounded border border-emerald-900/50">{gameState.sect.isDynasty ? 'Thu Thuế' : 'Rút Quỹ'}</button>
+
+                                   <button onClick={() => {
+                                       showPrompt(`Nhập tên người bạn muốn ${gameState.sect.isDynasty ? 'Truyền Ngôi / Nhường Ngôi' : 'nhường ngôi Tông Chủ'}:\n(Nhân duyên ứng nghiệm: Kế vị hiếu kính hay phản nghịch sẽ thuận theo Đạo nghiệp và ân nghĩa đã gieo!)`, (successor) => {
+                                           if(!successor || !successor.trim()) return;
+                                           const sName = successor.trim();
+                                           setGameState(prev => {
+                                               const allKnown = [...(prev.sect?.npcs || []), ...(prev.journal?.npcs || [])];
+                                               const existing = allKnown.find(n => n.name.toLowerCase() === sName.toLowerCase());
+                                               let isTraitor = false;
+                                               let role = prev.sect?.isDynasty ? 'Tân Hoàng Đế' : 'Tân Tông Chủ';
+                                               let alignment = 'Chính Đạo / Trung Trinh';
+                                               let relationType = 'Tôn Sùng';
+                                               let hostility = 0;
+                                               let state = prev.sect?.isDynasty ? 'Phụng dưỡng Thái Thượng Hoàng, kế thừa ngai vàng quốc gia vững mạnh.' : 'Cung kính phụng dưỡng Thái Thượng Trưởng Lão, phát dương quang đại tông môn.';
+
+                                               if (existing) {
+                                                   if (existing.hostility > 50 || existing.relationType === 'Kẻ thù' || existing.relationType === 'Tử địch' || (existing.alignment && existing.alignment.includes('Tà'))) {
+                                                       isTraitor = true;
+                                                   }
+                                               } else {
+                                                   if ((prev.karma || 0) < -30) {
+                                                       isTraitor = true;
+                                                   }
+                                               }
+
+                                               if (isTraitor) {
+                                                   alignment = 'Phản Đồ / Bạo Quân';
+                                                   relationType = 'Tử địch';
+                                                   hostility = 100;
+                                                   state = prev.sect?.isDynasty ? 'Đang lùng sục giết Thái Thượng Hoàng để trừ hậu họa diệt khẩu.' : 'Đang truy sát cựu tông chủ nhằm củng cố uy quyền.';
+                                               }
+
+                                               const filteredOld = (prev.journal?.npcs || []).filter(n => n.name.toLowerCase() !== sName.toLowerCase());
+                                               const newNpcs = [...filteredOld, { name: sName, role, alignment, relationType, hostility, state }];
+                                               return { ...prev, sect: null, journal: { ...prev.journal, npcs: newNpcs } };
+                                           });
+                                           setIsSectModalOpen(false);
+                                       }, "Tên truyền nhân...", false);
+                                   }} className="flex-1 bg-orange-900/20 hover:bg-orange-600 text-orange-400 hover:text-white text-[10px] font-bold py-2 rounded border border-orange-900/50">{gameState.sect.isDynasty ? 'Truyền Ngôi' : 'Nhường Ngôi'}</button>
+                                   
+                                   <button onClick={() => {
+                                       if ((gameState.sect.wealth || 0) < 0) {
+                                           showConfirm(`${gameState.sect.isDynasty ? 'Quốc gia' : 'Tông môn'} nợ nần chồng chất! Giải tán lúc này sẽ bị các chủ nợ, cường quốc xung quanh xé xác. Xác nhận?`, () => {
+                                               setGameState(prev => ({ ...prev, sect: null, karma: prev.karma - 50 }));
+                                               setIsSectModalOpen(false);
+                                           });
+                                       } else {
+                                           showConfirm(`Xác nhận ${gameState.sect.isDynasty ? 'Hủy Diệt Quốc Gia / Xóa sổ vương triều này' : 'giải tán Tông Môn'}? Mọi thứ sẽ hóa thành tro bụi.`, () => {
+                                               setGameState(prev => ({ ...prev, sect: null, karma: prev.karma - 30 }));
+                                               setIsSectModalOpen(false);
+                                           });
+                                       }
+                                   }} className="flex-1 bg-red-900/20 hover:bg-red-600 text-red-400 hover:text-white text-[10px] font-bold py-2 rounded border border-red-900/50">{gameState.sect.isDynasty ? 'Hủy Diệt' : 'Giải Tán'}</button>
+                               </div>
+                           </div>
+                       </div>
+
+                       {/* Tông Môn / Triều Đình Kiến Trúc */}
+                       <div className={`p-6 rounded-2xl border shadow-sm ${'bg-[var(--bg-surface)] border-purple-900/30'}`}>
+                           <span className={`text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 border-b pb-2 ${gameState.sect.isDynasty ? 'text-amber-500 border-amber-900/30' : 'text-blue-400 border-blue-900/30'}`}><Home size={16}/> {gameState.sect.isDynasty ? 'Cơ Quan / Phủ Đệ' : 'Phân Khu Kiến Trúc'}</span>
+                           <div className="flex flex-wrap gap-3 mt-4">
+                               {(gameState.sect.buildings || []).map((b, i) => {
+                                   const bName = typeof b === 'object' ? (b.name || JSON.stringify(b)) : String(b);
+                                   let icon = <Home size={16}/>;
+                                   if (/đan|luyện|y tế|y viện|hồi phục/i.test(bName)) icon = <FlaskRound size={16}/>;
+                                   if (/điền|vườn|thảo|nông|sinh thái/i.test(bName)) icon = <Sparkles size={16}/>;
+                                   if (/mỏ|quặng|tài|hộ bộ|khoáng/i.test(bName)) icon = <Axe size={16}/>;
+                                   if (/kinh|thư|quyết|viện|trường|phòng tập|trọng lực/i.test(bName)) icon = <BookOpen size={16}/>;
+                                   if (/binh|quân|tướng|phi thuyền|tàu|capsule/i.test(bName)) icon = <ShieldCheck size={16}/>;
+                                   
+                                   return (
+                                   <div key={i} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-bold text-sm shadow-sm ${gameState.sect.isDynasty ? 'bg-amber-900/10 text-amber-400 border-amber-500/20' : 'bg-blue-900/10 text-blue-300 border-blue-500/20'}`}>
+                                       <span className="opacity-70">{icon}</span> {bName}
+                                   </div>
+                               )})}
+                           </div>
+                           <p className="text-[10px] text-gray-500 mt-4 italic">* Hệ thống sẽ tự động đọc tính cách của các {gameState.sect.isDynasty ? 'Quan lại / Thái thú' : 'Trưởng Lão'} phụ trách để tính toán Năng suất làm việc và Quốc Tộ mỗi 3 chương một lần.</p>
+                       </div>
+                   </div>
+               )}
+
+               {/* TAB CƠ SỞ HẠ TẦNG */}
+               {sectModalTab === 'infra' && (
+                   <div className="max-w-5xl mx-auto space-y-6 animate-in slide-in-from-bottom-4">
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           {(gameState.sect.infrastructure || []).map((inf, idx) => {
+                               const upgradeCost = inf.level * 1000;
+                               const repairCost = Math.floor(((inf.maxDurability - inf.durability) / inf.maxDurability) * 500);
+                               
+                               return (
+                                   <div key={inf.id} className={`p-5 rounded-2xl border shadow-sm relative ${'bg-[var(--bg-surface)] border-purple-900/30'} flex flex-col`}>
+                                       <div className="flex justify-between items-start mb-3">
+                                           <div>
+                                               <h4 className={`text-lg font-bold ${gameState.sect.isDynasty ? 'text-yellow-500' : 'text-purple-400'} uppercase tracking-widest`}>{inf.name} <span className="text-sm text-gray-400 lowercase">(Cấp {inf.level})</span></h4>
+                                               <p className="text-xs text-gray-400 mt-1 italic">{inf.desc}</p>
+                                           </div>
+                                           <div className={`p-2 rounded-lg border ${gameState.sect.isDynasty ? 'bg-yellow-900/20 border-yellow-500/30 text-yellow-500' : 'bg-purple-900/20 border-purple-500/30 text-purple-400'}`}>
+                                               {inf.id === 'dong_phu' ? <Home size={20}/> : inf.id === 'luyen_dan' ? <FlaskRound size={20}/> : inf.id === 'tang_kinh' ? <BookOpen size={20}/> : <Sparkles size={20}/>}
+                                           </div>
+                                       </div>
+                                       
+                                       <div className="space-y-3 mb-4 flex-1">
+                                           <div>
+                                               <div className="flex justify-between text-[10px] font-bold text-blue-400 mb-1"><span>ĐỘ BỀN</span><span>{Math.floor(inf.durability)}/{inf.maxDurability}</span></div>
+                                               <div className="h-1.5 w-full bg-blue-950 rounded-full overflow-hidden"><div className="h-full bg-blue-500 transition-all" style={{width: `${Math.max(0, (inf.durability/inf.maxDurability)*100)}%`}}></div></div>
+                                           </div>
+                                           <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                                               <div className="bg-[var(--bg-body)] p-2 rounded border border-gray-800">
+                                                   <span className="text-gray-500 block mb-0.5">{inf.id === 'dong_phu' ? 'Sức Chứa:' : inf.id === 'linh_dien' ? 'Mức Sản Lượng:' : 'Hiệu Suất:'}</span>
+                                                   {(() => {
+                                                       const ratio = inf.maxDurability > 0 ? (inf.durability / inf.maxDurability) : 1;
+                                                       const effMult = Math.max(0.1, ratio);
+                                                       if (inf.id === 'dong_phu') {
+                                                           const realCap = Math.floor(inf.capacity * effMult);
+                                                           return <span className="text-emerald-400 font-bold">{formatLargeNumber(realCap)} Người {effMult < 1 ? <span className="text-red-500 text-[10px] line-through ml-1" title="Sức chứa bị sụt giảm do hỏng hóc">{formatLargeNumber(inf.capacity)}</span> : ''}</span>;
+                                                       }
+                                                       const realEff = Math.floor(inf.efficiency * effMult);
+                                                       return <span className="text-emerald-400 font-bold">{realEff}% {effMult < 1 ? <span className="text-red-500 text-[10px] line-through ml-1" title="Hiệu suất bị sụt giảm do hỏng hóc">{inf.efficiency}%</span> : ''}</span>;
+                                                   })()}
+                                               </div>
+                                               <div className="bg-[var(--bg-body)] p-2 rounded border border-gray-800">
+                                                   <span className="text-gray-500 block mb-0.5">Bảo Trì / Tháng:</span>
+                                                   <span className="text-red-400 font-bold">-{inf.maintenance} LT</span>
+                                               </div>
+                                           </div>
+                                       </div>
+                                       
+                                       <div className="flex gap-2 mt-auto pt-4 border-t border-gray-800 border-dashed">
+                                           <button onClick={() => {
+                                               if (inf.level >= 30) return showAlert(`[${inf.name}] đã đạt cấp độ tối đa (Cấp 30)!`);
+                                               showConfirm(`Nâng cấp [${inf.name}] lên Cấp ${inf.level + 1} sẽ tốn ${formatLargeNumber(upgradeCost)} Linh Thạch từ Quỹ. Xác nhận?`, () => {
+                                                   if ((gameState.sect.wealth || 0) < upgradeCost) return showAlert("Quỹ không đủ Linh Thạch để nâng cấp!");
+                                                   setGameState(prev => {
+                                                       const newInfra = [...(prev.sect.infrastructure || [])];
+                                                       const idx = newInfra.findIndex(i => i.id === inf.id);
+                                                       if (idx >= 0) {
+                                                           newInfra[idx].level += 1;
+                                                           // V13.9 FIX: Mở rộng Không Gian theo Hệ số nhân (Exponential) thay vì cộng dồn tuyến tính
+                                                           newInfra[idx].maxDurability = Math.floor(newInfra[idx].maxDurability * 1.2) + 50;
+                                                           newInfra[idx].durability = newInfra[idx].maxDurability;
+                                                           newInfra[idx].maintenance = Math.floor(newInfra[idx].maintenance * 1.5) + 10;
+                                                           
+                                                           if (inf.id === 'dong_phu') {
+                                                               // Sức chứa tăng bạo phát để chứa hàng vạn đệ tử (Động Thiên Phúc Địa)
+                                                               newInfra[idx].capacity = Math.floor(newInfra[idx].capacity * 2.5) + 100;
+                                                           } else {
+                                                               // Hiệu suất cũng tăng theo tỷ lệ % cộng dồn
+                                                               newInfra[idx].efficiency = Math.floor(newInfra[idx].efficiency * 1.3) + 20;
+                                                           }
+                                                       }
+                                                       const timeStr = getRealmTimeStr(prev.currentLocation, prev.knownRealms);
+                                                       return {
+                                                           ...prev,
+                                                           sect: { ...prev.sect, wealth: prev.sect.wealth - upgradeCost, infrastructure: newInfra },
+                                                           sectWealthHistory: [{ time: timeStr, reason: `Nâng cấp ${inf.name}`, change: -upgradeCost, breakdown: [{ action: `Chi phí thi công (Kiến tạo Không Gian mới)`, change: `-${upgradeCost}`, time: timeStr }] }, ...(prev.sectWealthHistory || [])].slice(0, 100)
+                                                       };
+                                                   });
+                                                   showAlert(`Đã nâng cấp ${inf.name} thành công! Diện tích và Hiệu suất được bạo tăng nhờ Không Gian Trận Pháp!`);
+                                               });
+                                           }} disabled={inf.level >= 30} className="flex-1 bg-teal-900/20 hover:bg-teal-600 text-teal-400 hover:text-white disabled:opacity-50 disabled:hover:bg-teal-900/20 disabled:hover:text-teal-400 text-xs font-bold py-2 rounded-lg border border-teal-900/50 transition-colors">
+                                               {inf.level >= 30 ? 'Tối Đa (Max)' : `Nâng Cấp (${formatLargeNumber(upgradeCost)})`}
+                                           </button>
+                                           <button onClick={() => {
+                                               if (inf.durability >= inf.maxDurability) return showAlert("Công trình đang ở trạng thái hoàn hảo, không cần bảo trì!");
+                                               showConfirm(`Bảo trì [${inf.name}] phục hồi Độ Bền sẽ tốn ${formatLargeNumber(repairCost)} Linh Thạch từ Quỹ. Xác nhận?`, () => {
+                                                   if ((gameState.sect.wealth || 0) < repairCost) return showAlert("Quỹ không đủ Linh Thạch để bảo trì!");
+                                                   setGameState(prev => {
+                                                       const newInfra = [...(prev.sect.infrastructure || [])];
+                                                       const idx = newInfra.findIndex(i => i.id === inf.id);
+                                                       if (idx >= 0) newInfra[idx].durability = newInfra[idx].maxDurability;
+                                                       const timeStr = getRealmTimeStr(prev.currentLocation, prev.knownRealms);
+                                                       return {
+                                                           ...prev,
+                                                           sect: { ...prev.sect, wealth: prev.sect.wealth - repairCost, infrastructure: newInfra },
+                                                           sectWealthHistory: [{ time: timeStr, reason: `Bảo trì ${inf.name}`, change: -repairCost, breakdown: [{ action: `Chi phí sửa chữa`, change: `-${repairCost}`, time: timeStr }] }, ...(prev.sectWealthHistory || [])].slice(0, 100)
+                                                       };
+                                                   });
+                                                   showAlert(`Đã khôi phục Độ Bền ${inf.name}!`);
+                                               });
+                                           }} disabled={inf.durability >= inf.maxDurability} className="flex-1 bg-blue-900/20 hover:bg-blue-600 text-blue-400 hover:text-white disabled:opacity-50 disabled:hover:bg-blue-900/20 disabled:hover:text-blue-400 border border-blue-900/50 text-xs font-bold py-2 rounded-lg transition-colors">
+                                               Bảo Trì ({formatLargeNumber(repairCost)})
+                                           </button>
+                                       </div>
+                                   </div>
+                               );
+                           })}
+                       </div>
+                   </div>
+               )}
+
+               {/* TAB 2: DANH SÁCH MÔN ĐỒ (CÁCH LY KHỎI HỒNG TRẦN LỤC) */}
+               {sectModalTab === 'members' && (
+                   <div className="flex flex-col h-full animate-in slide-in-from-right-4 max-w-6xl mx-auto">
+                       {/* V1.25.1: Thanh Tìm Kiếm Môn Đồ Tông Môn */}
+                       <div className="relative mb-3 shrink-0">
+                           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-400/50" />
+                           <input 
+                               type="text" 
+                               placeholder="Tìm kiếm tên môn đồ, chức vụ, cảnh giới..." 
+                               value={sectMemberSearch} 
+                               onChange={e => setSectMemberSearch(e.target.value)} 
+                               className="w-full bg-[var(--bg-surface)] border border-purple-900/40 rounded-xl pl-9 pr-8 py-2 text-xs text-gray-200 focus:outline-none focus:border-purple-500 shadow-inner" 
+                           />
+                           {sectMemberSearch && (
+                               <button onClick={() => setSectMemberSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-400/50 hover:text-purple-300 p-0.5" title="Xóa tìm kiếm">
+                                   <X size={14} />
+                               </button>
+                           )}
+                       </div>
+
+                       {/* Tab Bộ Lọc */}
+                       <div className={`flex gap-2 overflow-x-auto custom-scrollbar pb-3 mb-4 border-b shrink-0 ${gameState.sect.isDynasty ? 'border-yellow-900/30' : 'border-purple-900/30'}`}>
+                           {(gameState.sect.isDynasty ? [
+                               { id: 'all', label: 'Toàn Bộ Dân Quốc', color: 'text-gray-300 bg-gray-800' },
+                               { id: 'Thái Thượng', label: 'Hộ Quốc Thần Vật', color: 'text-red-400 bg-red-900/20' },
+                               { id: 'Trưởng Lão', label: 'Đại Tướng / Thái Thú', color: 'text-yellow-500 bg-yellow-900/20' },
+                               { id: 'Khách Khanh', label: 'Quốc Sư / Tế Tự', color: 'text-orange-400 bg-orange-900/20' },
+                               { id: 'Chấp Sự', label: 'Quan Lại Đình Thần', color: 'text-amber-400 bg-amber-900/20' },
+                               { id: 'Nội Môn', label: 'Cấm Vệ Quân', color: 'text-teal-400 bg-teal-900/20' },
+                               { id: 'Ngoại Môn', label: 'Quân Đội / Tướng Sĩ', color: 'text-emerald-400 bg-emerald-900/20' },
+                               { id: 'Tạp Dịch', label: 'Bá Tánh Thường Dân', color: 'text-gray-500 bg-gray-900/40' }
+                           ] : [
+                               { id: 'all', label: 'Tất Cả Phân Cấp', color: 'text-gray-300 bg-gray-800' },
+                               { id: 'Thái Thượng', label: 'Thái Thượng Trưởng Lão', color: 'text-red-400 bg-red-900/20' },
+                               { id: 'Trưởng Lão', label: 'Trưởng Lão', color: 'text-purple-400 bg-purple-900/20' },
+                               { id: 'Khách Khanh', label: 'Khách Khanh', color: 'text-yellow-400 bg-yellow-900/20' },
+                               { id: 'Chấp Sự', label: 'Chấp Sự', color: 'text-orange-400 bg-orange-900/20' },
+                               { id: 'Nội Môn', label: 'Nội Môn Đệ Tử', color: 'text-teal-400 bg-teal-900/20' },
+                               { id: 'Ngoại Môn', label: 'Ngoại Môn Đệ Tử', color: 'text-emerald-400 bg-emerald-900/20' },
+                               { id: 'Tạp Dịch', label: 'Tạp Dịch', color: 'text-gray-500 bg-gray-900/40' }
+                           ]).map(tab => (
+                               <button 
+                                   key={tab.id} 
+                                   onClick={() => { setNpcFilter(tab.id); setNpcVisibleCount(50); }} 
+                                   className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border shadow-sm ${npcFilter === tab.id ? `${tab.color} border-[currentColor]` : `${'bg-[var(--bg-surface)] border-purple-900/30'} text-gray-500 hover:text-gray-300`}`}
+                               >
+                                   {tab.label}
+                               </button>
+                           ))}
+                       </div>
+
+                       {/* Lưới Đệ Tử */}
+                       <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-6">
+                           {(() => {
+                              // V1.24.9: ĐỒNG BỘ MÔN ĐỒ TÔNG MÔN — HỢP NHẤT SECT NPCS VÀ JOURNAL NPCS
+                              const sectNameClean = String(gameState.sect?.name || '').trim().toLowerCase();
+                              let rawMembers = [
+                                  ...(gameState.sect?.npcs || []),
+                                  ...((gameState.journal?.npcs || []).filter((n: any) => 
+                                      (n.sect && sectNameClean && String(n.sect).trim().toLowerCase() === sectNameClean) || 
+                                      n.isSectMember
+                                  ))
+                              ];
+                              const seenMNames = new Set<string>();
+                              let members = rawMembers.filter((m: any) => {
+                                  const cName = String(m.name || '').trim().toLowerCase();
+                                  if (!cName || seenMNames.has(cName)) return false;
+                                  seenMNames.add(cName);
+                                  return true;
+                              });
+                              
+                              if (hideDeadNpcs) members = members.filter(n => !n.isDead);
+                              
+                              if (npcFilter !== 'all') {
+                                  members = members.filter(n => new RegExp(npcFilter, 'i').test(n.role || ''));
+                              }
+
+                              if (sectMemberSearch.trim()) {
+                                  const q = sectMemberSearch.toLowerCase().trim();
+                                  members = members.filter((m: any) => `${m.name || ''} ${m.role || ''} ${m.level || ''}`.toLowerCase().includes(q));
+                              }
+                              
+                              // Ưu tiên Sống -> Chết, và Role quan trọng lên đầu
+                              const roleWeight = (r) => {
+                                  const text = String(r).toLowerCase();
+                                  if (text.includes('thái thượng')) return 100;
+                                  if (text.includes('trưởng lão')) return 90;
+                                  if (text.includes('khách khanh')) return 80;
+                                  if (text.includes('chấp sự')) return 70;
+                                  if (text.includes('nội môn')) return 60;
+                                  if (text.includes('ngoại môn')) return 50;
+                                  return 0; // Tạp dịch
+                              };
+
+                              members.sort((a, b) => {
+                                  if (a.isDead && !b.isDead) return 1;  
+                                  if (!a.isDead && b.isDead) return -1; 
+                                  const wA = roleWeight(a.role);
+                                  const wB = roleWeight(b.role);
+                                  if (wA !== wB) return wB - wA;
+                                  return (b.lastUpdated || 0) - (a.lastUpdated || 0);
+                              });
+
+                              if (members.length === 0) return (
+                                  <div className="flex flex-col items-center justify-center py-20 opacity-50 px-4 text-center">
+                                      <Users size={60} className="text-purple-500 mb-4"/>
+                                      <p className="text-lg italic text-purple-300">Chưa có ai thuộc chức vụ này được ghi nhận.</p>
+                                      <p className="text-xs text-purple-400 mt-2 max-w-md leading-relaxed">Lưu ý: Nơi này chỉ hiển thị những người có Tên Tuổi cụ thể do Thiên Đạo ghi nhớ. Những người vô danh được cộng dồn vào "Tổng Môn Đồ" ở bảng Tổng Quan.</p>
+                                  </div>
+                              );
+                              
+                              const displayList = members.slice(0, npcVisibleCount);
+
+                              return (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                      {displayList.map((npc, i) => {
+                                          const rel = getRelationStatus(npc);
+                                          // Format Thẻ Tông Môn / Quan Lại
+                                          return (
+                                          <div key={i} onClick={() => showNPCInfo(npc)} className={`cursor-pointer flex flex-col p-4 rounded-xl border transition-all group relative overflow-hidden shadow-md ${npc.isDead ? 'border-gray-800 grayscale opacity-60 bg-[var(--bg-surface)]' : gameState.sect.isDynasty ? 'bg-[#141005] border-yellow-900/30 hover:border-yellow-500 hover:shadow-[0_0_15px_rgba(234,179,8,0.2)] hover:-translate-y-1' : 'bg-[var(--bg-surface)] border-purple-900/30 hover:border-purple-500 hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:-translate-y-1'}`}>
+                                              {/* Nền Gradient theo Role */}
+                                              <div className={`absolute top-0 left-0 w-1.5 h-full ${roleWeight(npc.role) >= 90 ? 'bg-red-500' : roleWeight(npc.role) >= 60 ? (gameState.sect.isDynasty ? 'bg-yellow-500' : 'bg-purple-500') : 'bg-emerald-500'}`}></div>
+                                              
+                                              <div className="flex justify-between items-start mb-2 pl-3">
+                                                  <div className="overflow-hidden pr-2">
+                                                      <span className={`font-bold text-base truncate block ${npc.isDead ? 'text-gray-500 line-through' : 'text-[var(--text-bold)]'}`}>{npc.isPinned && <span className="text-yellow-500 mr-1" title="Đã Ghim Đồng Hành">📌</span>}{npc.name}</span>
+                                                      <span className={`text-[10px] uppercase font-bold tracking-widest mt-1 block ${roleWeight(npc.role) >= 90 ? 'text-red-400' : roleWeight(npc.role) >= 60 ? (gameState.sect.isDynasty ? 'text-yellow-500' : 'text-purple-400') : 'text-emerald-400'}`}>{npc.role || (gameState.sect.isDynasty ? 'Thần Dân' : 'Đệ Tử')}</span>
+                                                  </div>
+                                                  <div className={`bg-[var(--bg-body)] px-2 py-1 rounded-lg border flex flex-col items-center shrink-0 ${gameState.sect.isDynasty ? 'border-yellow-900/50' : 'border-purple-900/50'}`}>
+                                                      <span className="text-[9px] text-gray-500 uppercase font-bold mb-0.5">{'Cảnh Giới'}</span>
+                                                      <span className="text-xs font-bold text-teal-400">{npc.level || ('Phàm nhân')}</span>
+                                                  </div>
+                                              </div>
+
+                                              <div className="pl-3 mt-2 flex flex-col gap-1.5">
+                                                  <div className="text-[11px] text-gray-400 flex items-center gap-2"><Brain size={12} className="text-orange-400"/> Tố Chất: <span className="text-gray-200 truncate">{npc.personality || 'Bình thường'}</span></div>
+                                                  <div className={`text-[11px] flex items-center gap-2 ${npc.isDead ? 'text-gray-600' : rel.color}`}><Heart size={12}/> Thái Độ: <span className="truncate">{npc.isDead ? 'Đã chết' : rel.desc}</span></div>
+                                                  <div className={`flex justify-between items-center mt-1 pt-1.5 border-t ${gameState.sect.isDynasty ? 'border-yellow-900/30' : 'border-purple-900/30'}`}>
+                                                      <span className="text-[10px] text-gray-400" title="Độ Trung Thành">Trung thành: <span className={(npc.loyalty||0) < 30 ? 'text-red-400' : (npc.loyalty||0) > 80 ? 'text-emerald-400' : 'text-yellow-400'}>{npc.loyalty || 0}/100</span></span>
+                                                      <span className="text-[10px] text-gray-400" title="Điểm Cống Hiến">Cống hiến: <span className={(npc.contribution||0) < 0 ? 'text-red-400' : 'text-blue-400'}>{npc.contribution || 0}</span></span>
+                                                  </div>
+                                              </div>
+                                              
+                                              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                                  <button onClick={(e) => togglePinNpc(e, npc.id)} className={`p-1.5 rounded-lg border transition-all shadow-md ${npc.isPinned ? 'text-yellow-500 bg-yellow-900/20 border-yellow-500/50' : `text-gray-500 hover:text-yellow-500 bg-[var(--bg-body)] hover:bg-yellow-900/20 hover:border-yellow-500/50 ${gameState.sect.isDynasty ? 'border-yellow-900/50' : 'border-purple-900/50'}`}`} title={npc.isPinned ? "Bỏ ghim đồng hành" : "Ghim làm đồng hành (Tối đa 1 người)"}><BookMarked size={14}/></button>
+                                                  <button onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      showPrompt(gameState.sect.isDynasty ? `Sắc phong/Bổ nhiệm chức quan mới cho [${npc.name}]:\n(Ví dụ: Thái Thú, Tướng Quân, Lính Gác, Tể Tướng...)` : `Bổ nhiệm/Thăng cấp chức vụ mới cho [${npc.name}]:\n(Ví dụ: Trưởng Lão, Nội Môn, Đệ Tử Thân Truyền...)`, (newRole) => {
+                                                          if(newRole && newRole.trim()) {
+                                                              setGameState(prev => {
+                                                                  const newSectNPCs = prev.sect.npcs.map(n => n.name === npc.name ? { ...n, role: newRole.trim() } : n);
+                                                                  const newJournalNPCs = prev.journal.npcs.map(n => n.name === npc.name ? { ...n, role: newRole.trim() } : n);
+                                                                  return { ...prev, sect: { ...prev.sect, npcs: newSectNPCs }, journal: { ...prev.journal, npcs: newJournalNPCs } };
+                                                              });
+                                                              setStoryLog(prev => [...prev, { type: 'system', text: gameState.sect.isDynasty ? `[Vận Triều] Đã giáng hạ Thánh Chỉ, sắc phong [${npc.name}] làm ${newRole.trim()}!` : `[Tông Môn] Đã ban bố Lệnh Bài, bổ nhiệm [${npc.name}] làm ${newRole.trim()}!`, chapter: gameState.chapterCount }].slice(-50));
+                                                          }
+                                                      }, gameState.sect.isDynasty ? "Nhập chức quan..." : "Nhập chức vụ...", false);
+                                                  }} className={`text-gray-500 hover:text-emerald-500 bg-[var(--bg-body)] hover:bg-emerald-900/20 p-1.5 rounded-lg border hover:border-emerald-500/50 transition-all shadow-md ${gameState.sect.isDynasty ? 'border-yellow-900/50' : 'border-purple-900/50'}`} title={gameState.sect.isDynasty ? "Sắc Phong Quan Tước" : "Bổ Nhiệm Chức Vụ"}><Crown size={14}/></button>
+
+                                                  <button onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      const isFriendlyOrSpouse = /(đạo lữ|thê tử|phu quân|tri kỷ|bằng hữu|hảo hữu)/i.test(String(npc.relationType)) || (Number(npc.affinity) || 0) > 0;
+                                                      const confirmMsg = isFriendlyOrSpouse ? (gameState.sect.isDynasty ? `Chuẩn tấu cho [${npc.name}] xuất cung, trở về làm thường dân?\nHọ vẫn giữ nguyên quan hệ [${npc.relationType || 'Hảo cảm'}] và ân tình với ngươi, chuyển về Sổ Hồng Trần.` : `Đưa [${npc.name}] xuất sư rời khỏi Tông Môn trở về Sổ Hồng Trần?\nHọ vẫn giữ nguyên quan hệ [${npc.relationType || 'Hảo cảm'}] và ân tình với ngươi.`) : (gameState.sect.isDynasty ? `Giáng tội và Lưu phóng [${npc.name}] ra biên cương?\nHắn sẽ bị tước bỏ quan tước, trở thành Nghịch tặc mang lòng oán hận, chuyển về Sổ Hồng Trần.` : `Khai trừ [${npc.name}] khỏi Tông Môn?\nHọ sẽ trở thành Kẻ lang thang và mang lòng oán hận, chuyển về Sổ Hồng Trần.`);
+                                                      showConfirm(confirmMsg, () => {
+                                                          setGameState(prev => {
+                                                              const newSectNPCs = prev.sect.npcs.filter(n => n.name !== npc.name);
+                                                              const newJournalNPCs = [...prev.journal.npcs, { ...npc, role: isFriendlyOrSpouse ? (npc.relationType || 'Tự do') : (prev.sect.isDynasty ? 'Nghịch tặc (Bị lưu đày)' : 'Kẻ lang thang (Bị khai trừ)'), relationType: isFriendlyOrSpouse ? npc.relationType : 'Kẻ thù ngầm', hostility: isFriendlyOrSpouse ? (npc.hostility || 0) : 90, state: isFriendlyOrSpouse ? 'Đã rời khỏi tông môn, tự do tu luyện trong hồng trần.' : (prev.sect.isDynasty ? 'Lưu lạc biên cương, ngày đêm chửi rủa Hoàng Đế.' : 'Nuôi chí báo thù vì bị đuổi khỏi tông môn.') }];
+                                                              return { ...prev, sect: { ...prev.sect, npcs: newSectNPCs }, journal: { ...prev.journal, npcs: newJournalNPCs } };
+                                                          });
+                                                          setStoryLog(prev => [...prev, { type: 'system', text: isFriendlyOrSpouse ? (gameState.sect.isDynasty ? `[Vận Triều] Đã chuẩn tấu cho [${npc.name}] xuất cung tự do, tiếp tục kết duyên cùng ngươi trong hồng trần.` : `[Tông Môn] Đã chuẩn tấu cho [${npc.name}] xuất sư rời khỏi môn phái, tiếp tục kết duyên cùng ngươi trong hồng trần.`) : (gameState.sect.isDynasty ? `[Vận Triều] Đã giáng tội lưu đày [${npc.name}]. Kẻ này hiện đã hóa thành nghịch tặc ôm hận trong lòng.` : `[Tông Môn] Đã nhẫn tâm khai trừ [${npc.name}]. Kẻ này hiện đã lưu lạc giang hồ và ôm hận trong lòng.`), chapter: gameState.chapterCount }].slice(-50));
+                                                      });
+                                                  }} className={`text-gray-500 hover:text-red-500 bg-[var(--bg-body)] hover:bg-red-900/20 p-1.5 rounded-lg border hover:border-red-500/50 transition-all shadow-md ${gameState.sect.isDynasty ? 'border-yellow-900/50' : 'border-purple-900/50'}`} title={gameState.sect.isDynasty ? "Lưu Phóng / Trảm Thủ" : "Khai Trừ Khỏi Môn Phái"}><Trash2 size={14}/></button>
+                                              </div>
+                                          </div>
+                                       )})}
+                                  </div>
+                              );
+                           })()}
+                           
+                           {/* Nút Load More */}
+                           {npcVisibleCount < ((hideDeadNpcs ? (gameState.sect?.npcs||[]).filter(n=>!n.isDead) : (gameState.sect?.npcs||[])).filter(n => npcFilter==='all' || new RegExp(npcFilter,'i').test(n.role||'')).length) && (
+                               <div className="flex justify-center mt-6">
+                                   <button onClick={() => setNpcVisibleCount(prev => prev + 50)} className="bg-purple-900/20 hover:bg-purple-900/40 text-purple-400 font-bold border border-purple-500/30 px-6 py-2.5 rounded-full text-sm transition-colors shadow-sm flex items-center gap-2">
+                                       <Activity size={16}/> Xem thêm môn đồ (+50)
+                                   </button>
+                               </div>
+                           )}
+                       </div>
+                   </div>
+               )}
+
+               {/* TAB TỬ CHIẾN ĐẠI KIẾP */}
+               {sectModalTab === 'war' && gameState.sect.isAtWar && gameState.sect.warData && (
+                   <div className="max-w-5xl mx-auto space-y-6 animate-in slide-in-from-bottom-4">
+                       <div className="bg-red-950/30 border-2 border-red-500/50 p-6 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+                           <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-red-600/20 to-transparent pointer-events-none"></div>
+                           
+                           <div className="text-center mb-6">
+                               <h2 className="text-3xl font-black text-red-500 uppercase tracking-widest drop-shadow-md mb-2">{gameState.sect.warData.type}</h2>
+                               <p className="text-red-300/80 text-sm italic">Sự tồn vong của {gameState.sect.isDynasty ? 'Quốc Gia' : 'Tông Môn'} phụ thuộc vào trận chiến này. Toàn bộ nội uẩn tích lũy từ đầu game sẽ được kiểm chứng!</p>
+                           </div>
+
+                           <div className="flex flex-col md:flex-row gap-8 items-center">
+                               {/* Boss Side */}
+                               <div className="flex-1 w-full bg-[var(--bg-body)] border border-red-900/50 p-5 rounded-xl text-center">
+                                   <Skull size={48} className="text-red-500 mx-auto mb-3 animate-pulse" />
+                                   <h3 className="text-xl font-bold text-red-400 mb-4">{gameState.sect.warData.bossName}</h3>
+                                   <div className="w-full bg-red-950 rounded-full h-3 mb-2 border border-red-800">
+                                       <div className="bg-red-500 h-full rounded-full transition-all" style={{width: `${Math.max(0, (gameState.sect.warData.bossHp / gameState.sect.warData.bossMaxHp) * 100)}%`}}></div>
+                                   </div>
+                                   <div className="text-sm font-mono text-red-300 mb-3">{formatLargeNumber(gameState.sect.warData.bossHp)} / {formatLargeNumber(gameState.sect.warData.bossMaxHp)} HP</div>
+                                   <div className="text-xs text-red-500 font-bold">Sát Thương: {formatLargeNumber(gameState.sect.warData.bossAtk)}</div>
+                               </div>
+
+                               <div className="text-3xl font-black text-red-500 italic">VS</div>
+
+                               {/* Sect Side */}
+                               <div className="flex-1 w-full bg-[var(--bg-body)] border border-blue-900/50 p-5 rounded-xl text-center">
+                                   <ShieldCheck size={48} className="text-blue-500 mx-auto mb-3" />
+                                   <h3 className="text-xl font-bold text-blue-400 mb-4">{gameState.sect.name}</h3>
+                                   
+                                   {(() => {
+                                       let totalInfraHp = 0;
+                                       let totalInfraMaxHp = 0;
+                                       (gameState.sect.infrastructure || []).forEach(inf => {
+                                           totalInfraHp += inf.durability * 1000;
+                                           totalInfraMaxHp += inf.maxDurability * 1000;
+                                       });
+                                       const sectCurrentHp = totalInfraHp + (gameState.sect.members * 100);
+                                       const sectMaxHp = totalInfraMaxHp + (gameState.sect.members * 100);
+                                       
+                                       return (
+                                           <>
+                                               <div className="w-full bg-blue-950 rounded-full h-3 mb-2 border border-blue-800">
+                                                   <div className="bg-blue-500 h-full rounded-full transition-all" style={{width: `${Math.max(0, (sectCurrentHp / sectMaxHp) * 100)}%`}}></div>
+                                               </div>
+                                               <div className="text-sm font-mono text-blue-300 mb-3">{formatLargeNumber(sectCurrentHp)} / {formatLargeNumber(sectMaxHp)} Sinh Lực</div>
+                                           </>
+                                       );
+                                   })()}
+                                   
+                                   <div className="text-xs text-blue-500 font-bold">Quân Số: {formatLargeNumber(gameState.sect.members)}</div>
+                               </div>
+                           </div>
+
+                           {/* Battle Logs */}
+                           <div className="mt-6 bg-[var(--bg-body)] border border-red-900/30 rounded-xl p-4 h-40 overflow-y-auto custom-scrollbar flex flex-col gap-2">
+                               {gameState.sect.warData.logs.map((l, i) => (
+                                   <div key={i} className="text-xs font-mono">
+                                       <span className="text-gray-500">[{l.time}]</span> <span className={l.isSect ? 'text-blue-400' : 'text-red-400'}>{l.text}</span>
+                                   </div>
+                               ))}
+                           </div>
+
+                           {/* Action Buttons */}
+                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 relative z-10">
+                               <button onClick={() => handleWarAction('all_out')} className="bg-blue-900/20 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/50 py-3 rounded-xl font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2">
+                                   <Users size={18}/> Toàn Tông Xuất Kích
+                               </button>
+                               <button onClick={() => handleWarAction('burn_wealth')} className="bg-yellow-900/20 hover:bg-yellow-600 text-yellow-400 hover:text-white border border-yellow-500/50 py-3 rounded-xl font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2">
+                                   <Coins size={18}/> Đốt Quỹ Hộ Tông
+                               </button>
+                               <button onClick={() => handleWarAction('hero_strike')} className="bg-red-900/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/50 py-3 rounded-xl font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2">
+                                   <Crosshair size={18}/> Đích Thân Trảm Tướng
+                               </button>
+                           </div>
+                       </div>
+                   </div>
+               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ================= V2.91: GIAO DIỆN QUẢN LÝ TỬU QUÁN MODAL (GÓP Ý VŨ ĐỨC & DARK) ================= */}
+      {isTavernModalOpen && (() => {
+        const tv = getTavern(gameState);
+        const curTierCfg = TAVERN_TIERS[tv.level - 1] || TAVERN_TIERS[0];
+        const nextTierCfg = tv.level < 5 ? TAVERN_TIERS[tv.level] : null;
+
+        return (
+          <div className="fixed inset-0 z-[85] flex items-center justify-center bg-[var(--bg-overlay)] p-1 md:p-4 animate-in fade-in duration-200">
+            <div className="bg-[var(--bg-body)] w-full max-w-6xl h-full md:h-[92vh] rounded-none md:rounded-2xl flex flex-col border border-amber-900/60 shadow-[0_0_50px_rgba(245,158,11,0.15)] relative overflow-hidden">
+              
+              {/* Header Tửu Quán */}
+              <div className="p-3 md:p-5 border-b border-amber-900/40 bg-gradient-to-r from-amber-950/60 via-[var(--bg-surface)] to-[var(--bg-surface)] flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="bg-amber-900/40 p-2.5 rounded-xl border border-amber-600/50 shadow-md">
+                    <Utensils className="text-amber-400" size={26} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-orange-400 to-amber-500 uppercase tracking-widest" style={{fontFamily: 'Lexend, sans-serif'}}>
+                        {tv.name}
+                      </h2>
+                      <button onClick={() => {
+                        showPrompt("Đổi tên bảng hiệu Tửu Quán:", (newName) => {
+                          if (newName && newName.trim()) {
+                            setGameState((prev: any) => ({
+                              ...prev,
+                              tavern: { ...getTavern(prev), name: newName.trim() }
+                            }));
+                            showAlert(`Đã tạc lại bảng hiệu! Tửu Quán đổi tên thành: [${newName.trim()}].`);
+                          }
+                        }, "Nhập tên mới...", false);
+                      }} className="text-amber-500/60 hover:text-amber-400 transition-colors" title="Đổi tên Tửu Quán"><Wrench size={16} /></button>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] md:text-xs text-amber-300 bg-amber-900/50 px-2 py-0.5 rounded border border-amber-600/40 font-bold tracking-wider">
+                        Cấp {tv.level}: {tv.tier}
+                      </span>
+                      <span className="text-[10px] md:text-xs text-amber-200/80">
+                        • {tv.tables} Bàn Khách • Uy Danh: {tv.reputation} • Ngân Quỹ: <span className="font-bold text-yellow-400">{tv.vault.toLocaleString()}</span> Linh Thạch
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setIsTavernModalOpen(false)} className="p-2 hover:bg-amber-900/40 text-amber-400 hover:text-white rounded-lg border border-amber-900/50 transition-colors">
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Navigation Tabs */}
+              <div className="flex bg-[var(--bg-surface)] border-b border-amber-900/30 px-3 overflow-x-auto custom-scrollbar shrink-0 gap-1 py-1.5">
+                {[
+                  { id: 'overview', label: 'Tổng Quan & Nâng Cấp', icon: Home },
+                  { id: 'ingredients', label: 'Kho Nguyên Liệu', icon: Package },
+                  { id: 'wines', label: 'Hầm Linh Tửu', icon: FlaskRound },
+                  { id: 'farm', label: 'Chuồng Thú & Vườn Quả', icon: PawPrint },
+                  { id: 'staff', label: 'Đội Ngũ Nhân Sự', icon: Users },
+                  { id: 'news', label: 'Bảng Tin Tức', icon: Megaphone },
+                  { id: 'finance', label: 'Thu Chi & Lỗ Lãi', icon: Coins }
+                ].map((t) => {
+                  const Icon = t.icon;
+                  const active = tavernTab === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setTavernTab(t.id as any)}
+                      className={`flex items-center gap-2 px-3 py-2 text-xs md:text-sm font-bold rounded-lg transition-colors whitespace-nowrap ${
+                        active
+                          ? 'bg-amber-900/50 text-amber-300 border border-amber-500/50 shadow-sm'
+                          : 'text-[var(--text-muted)] hover:text-amber-200 hover:bg-amber-950/30'
+                      }`}
+                    >
+                      <Icon size={16} className={active ? 'text-amber-400' : 'text-amber-500/60'} />
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Content Area */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-3 md:p-6 bg-[var(--bg-body)]">
+                
+                {/* TAB 1: OVERVIEW */}
+                {tavernTab === 'overview' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-amber-900/40">
+                        <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Quy Mô Cơ Sở</div>
+                        <div className="text-xl font-bold text-amber-400 mt-1">{tv.tier}</div>
+                        <p className="text-xs text-[var(--text-muted)] mt-2 leading-relaxed">{curTierCfg.desc}</p>
+                      </div>
+                      <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-amber-900/40">
+                        <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Tình Hình Kinh Doanh</div>
+                        <div className="text-xl font-bold text-emerald-400 mt-1">+{tv.totalProfit} Linh Thạch / ngày</div>
+                        <div className="text-xs text-[var(--text-muted)] mt-2">
+                          Doanh thu: <span className="text-emerald-400 font-bold">+{tv.dailyRevenue}</span> • Chi phí: <span className="text-red-400 font-bold">-{tv.dailyExpense}</span>
+                        </div>
+                      </div>
+                      <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-amber-900/40">
+                        <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Hòm Tiền Ngân Quỹ</div>
+                        <div className="text-xl font-bold text-yellow-400 mt-1">{tv.vault.toLocaleString()} Linh Thạch</div>
+                        <div className="flex gap-2 mt-3">
+                          <button onClick={() => {
+                            showPrompt("Số Linh Thạch muốn nạp vào ngân quỹ tửu quán:", (amt) => {
+                              const n = parseInt(amt, 10);
+                              if (n > 0) handleDepositTavernVault(n);
+                            }, "500", false);
+                          }} className="flex-1 px-2.5 py-1.5 bg-amber-950/50 hover:bg-amber-900/70 text-amber-300 border border-amber-600/40 rounded text-xs font-bold transition-colors">Nạp Tiền</button>
+                          <button onClick={() => {
+                            showPrompt("Số Linh Thạch muốn rút từ ngân quỹ về túi đồ:", (amt) => {
+                              const n = parseInt(amt, 10);
+                              if (n > 0) handleWithdrawTavernVault(n);
+                            }, "500", false);
+                          }} className="flex-1 px-2.5 py-1.5 bg-emerald-950/50 hover:bg-emerald-900/70 text-emerald-300 border border-emerald-600/40 rounded text-xs font-bold transition-colors">Rút Tiền</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Nâng cấp quy mô */}
+                    <div className="bg-gradient-to-r from-amber-950/30 to-[var(--bg-surface)] p-5 rounded-xl border border-amber-800/40">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                          <h3 className="text-base font-bold text-amber-300 flex items-center gap-2">
+                            <Sparkles size={18} className="text-yellow-400" /> Nâng Cấp Mở Rộng Tửu Quán
+                          </h3>
+                          <p className="text-xs text-[var(--text-muted)] mt-1">
+                            {nextTierCfg
+                              ? `Tiếp theo: [${nextTierCfg.name}] (Cấp ${nextTierCfg.level}). Tăng lên ${nextTierCfg.maxTables} bàn khách, doanh thu cơ bản +${nextTierCfg.baseIncome} Linh Thạch.`
+                              : 'Tửu Quán đã đạt đẳng cấp tối cao, không thể nâng cấp thêm!'}
+                          </p>
+                        </div>
+                        {nextTierCfg && (
+                          <button
+                            onClick={handleUpgradeTavern}
+                            className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold text-sm rounded-xl shadow-lg transition-all"
+                          >
+                            Nâng Cấp ({nextTierCfg.upgradeCost.toLocaleString()} Linh Thạch)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: INGREDIENTS */}
+                {tavernTab === 'ingredients' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-sm font-bold text-amber-300">Kho Nguyên Liệu Ẩm Thực & Chế Biến</h3>
+                      <button onClick={() => {
+                        if ((Number(tv.vault) || 0) < 100) return showAlert("Ngân quỹ tửu quán cần ít nhất 100 Linh Thạch để nhập nguyên liệu!");
+                        setGameState((prev: any) => {
+                          const curTv = getTavern(prev);
+                          const updated = curTv.ingredients.map((ing: any) => ({ ...ing, quantity: (ing.quantity || 0) + 20 }));
+                          return {
+                            ...prev,
+                            tavern: {
+                              ...curTv,
+                              vault: Math.max(0, curTv.vault - 100),
+                              ingredients: updated,
+                              financeLogs: [{ time: `Năm ${prev.age || 18}`, type: 'Chi', amount: 100, desc: 'Nhập kiện nguyên liệu tổng hợp từ thương đoàn' }, ...(curTv.financeLogs || [])].slice(0, 30)
+                            }
+                          };
+                        });
+                        showAlert("Đã tiêu hao 100 Linh Thạch ngân quỹ, nhập thêm +20 đơn vị cho toàn bộ kho nguyên liệu!");
+                      }} className="px-3 py-1.5 bg-amber-900/50 hover:bg-amber-800 text-amber-200 border border-amber-600/40 rounded-lg text-xs font-bold transition-colors">
+                        + Nhập Nguyên Liệu Từ Thương Đoàn (100 Linh Thạch)
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {(tv.ingredients || []).map((ing: any) => (
+                        <div key={ing.id} className="bg-[var(--bg-surface)] p-3.5 rounded-xl border border-amber-900/40 flex justify-between items-center">
+                          <div>
+                            <div className="text-sm font-bold text-amber-200">{ing.name}</div>
+                            <div className="text-xs text-[var(--text-muted)] mt-0.5">Phân loại: {ing.type} • Phẩm cấp: <span className="text-yellow-400">{ing.quality}</span></div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-black text-amber-400">{ing.quantity} <span className="text-xs font-normal text-[var(--text-muted)]">{ing.unit}</span></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 3: WINES */}
+                {tavernTab === 'wines' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-sm font-bold text-amber-300">Hầm Rượu Linh Tửu Trữ Danh</h3>
+                      <span className="text-xs text-[var(--text-muted)]">Thưởng tửu trực tiếp nhận buff hoặc ủ thêm mẻ mới</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {(tv.wines || []).map((wine: any) => (
+                        <div key={wine.id} className="bg-[var(--bg-surface)] p-4 rounded-xl border border-amber-900/40 flex flex-col justify-between">
+                          <div>
+                            <div className="flex justify-between items-start">
+                              <h4 className="text-base font-bold text-amber-300">{wine.name}</h4>
+                              <span className="text-[10px] bg-amber-900/60 text-amber-200 px-2 py-0.5 rounded border border-amber-600/40 font-bold">{wine.tier}</span>
+                            </div>
+                            <div className="text-xs text-amber-400/80 mt-1">Ủ: <span className="font-bold text-yellow-300">{wine.ageYears} năm</span> • Nồng độ: {wine.potency}</div>
+                            <p className="text-xs text-emerald-400/90 mt-2 bg-emerald-950/20 p-2 rounded border border-emerald-900/30">
+                              ✨ {wine.effect}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between mt-4 pt-3 border-t border-amber-900/30">
+                            <div className="text-xs text-[var(--text-muted)]">
+                              Tồn kho: <span className="font-bold text-amber-300">{wine.stock} vò</span> (Giá: {wine.price} LT)
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={() => handleBrewWine(wine.name)} className="px-2.5 py-1 bg-amber-950/60 hover:bg-amber-900 text-amber-300 border border-amber-600/40 rounded text-xs font-bold transition-colors">
+                                Ủ Mẻ Mới (50 LT)
+                              </button>
+                              <button onClick={() => handleDrinkWine(wine.id)} className="px-3 py-1 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded text-xs font-bold shadow transition-colors">
+                                Thưởng Tửu
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 4: FARM & PASTURE */}
+                {tavernTab === 'farm' && (
+                  <div className="space-y-6">
+                    {/* Chuồng Trại Nuôi Nhốt */}
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                        <h3 className="text-sm font-bold text-amber-300 flex items-center gap-2">
+                          <PawPrint size={16} /> Khu Chuồng Trại Nuôi Nhốt Linh Thú
+                        </h3>
+                        <button onClick={() => {
+                          if ((Number(tv.vault) || 0) < 80) return showAlert("Cần 80 Linh Thạch ngân quỹ để bắt thêm giống linh thú mới!");
+                          setGameState((prev: any) => {
+                            const curTv = getTavern(prev);
+                            const updatedBeasts = curTv.beasts.map((b: any) => ({ ...b, count: (b.count || 0) + 2 }));
+                            return {
+                              ...prev,
+                              tavern: {
+                                ...curTv,
+                                vault: Math.max(0, curTv.vault - 80),
+                                beasts: updatedBeasts,
+                                financeLogs: [{ time: `Năm ${prev.age || 18}`, type: 'Chi', amount: 80, desc: 'Nhập thêm con giống linh thú vào chuồng trại' }, ...(curTv.financeLogs || [])].slice(0, 30)
+                              }
+                            };
+                          });
+                          showAlert("Đã tiêu 80 Linh Thạch, mua thêm +2 con giống cho mỗi chuồng!");
+                        }} className="px-3 py-1 bg-amber-900/50 hover:bg-amber-800 text-amber-200 border border-amber-600/40 rounded-lg text-xs font-bold transition-colors">
+                          + Mua Con Giống Mới (80 LT)
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {(tv.beasts || []).map((b: any) => (
+                          <div key={b.id} className="bg-[var(--bg-surface)] p-3.5 rounded-xl border border-amber-900/40">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="text-sm font-bold text-amber-200">{b.name} (Giai {b.tier})</h4>
+                                <div className="text-xs text-[var(--text-muted)] mt-0.5">{b.desc}</div>
+                              </div>
+                              <span className="text-xs font-bold text-yellow-400 bg-yellow-950/40 px-2 py-0.5 rounded border border-yellow-800/40">{b.count} Con</span>
+                            </div>
+                            <div className="mt-2 text-xs text-emerald-400/90">Trạng thái: {b.feedStatus} ({b.fattenProgress}% vỗ béo)</div>
+                            <div className="mt-3 flex justify-end">
+                              <button onClick={() => handleSlaughterBeast(b.id)} className="px-3 py-1 bg-red-950/60 hover:bg-red-900 text-red-200 border border-red-700/50 rounded text-xs font-bold transition-colors">
+                                Đưa Vào Chế Biến
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Vườn Linh Quả */}
+                    <div>
+                      <h3 className="text-sm font-bold text-amber-300 mb-3 flex items-center gap-2">
+                        <Sprout size={16} /> Khu Vườn Trồng Linh Quả Ẩm Thực
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {(tv.fruits || []).map((f: any) => (
+                          <div key={f.id} className="bg-[var(--bg-surface)] p-3.5 rounded-xl border border-amber-900/40 flex justify-between items-center">
+                            <div>
+                              <h4 className="text-sm font-bold text-amber-200">{f.name}</h4>
+                              <div className="text-xs text-[var(--text-muted)] mt-0.5">{f.desc}</div>
+                              <div className="text-xs text-yellow-400 mt-1">Đang trữ: {f.count} quả • Chu kỳ: {f.harvestDaysLeft} ngày nữa</div>
+                            </div>
+                            <button onClick={() => handleHarvestFruit(f.id)} className="px-3 py-1.5 bg-emerald-950/60 hover:bg-emerald-900 text-emerald-200 border border-emerald-700/50 rounded-lg text-xs font-bold transition-colors">
+                              Thu Hoạch (+{f.yieldPerHarvest})
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 5: STAFF */}
+                {tavernTab === 'staff' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <div>
+                        <h3 className="text-sm font-bold text-amber-300">Đội Ngũ Nhân Sự Tửu Quán</h3>
+                        <p className="text-xs text-[var(--text-muted)]">Nhân sự độc lập có họ tên đầy đủ, KHÔNG làm rác danh sách NPC Hồng Trần Lục</p>
+                      </div>
+                      <button onClick={() => {
+                        if ((Number(tv.vault) || 0) < 150) return showAlert("Cần 150 Linh Thạch ngân quỹ để chiêu mộ nhân tài!");
+                        const randomNames = ["Trần Nhị Cẩu", "Bạch Ngũ Gia", "Vương Thiết Chùy", "Phùng Đại Hổ", "Tô Thập Nhất"];
+                        const randomRoles: Array<'Chưởng Quỹ' | 'Đầu Bếp' | 'Tiểu Nhị' | 'Bảo Kê'> = ['Tiểu Nhị', 'Bảo Kê', 'Đầu Bếp'];
+                        const pickedName = randomNames[Math.floor(Math.random() * randomNames.length)];
+                        const pickedRole = randomRoles[Math.floor(Math.random() * randomRoles.length)];
+                        const newStaffMember = {
+                          id: `st_${Date.now()}`,
+                          name: pickedName,
+                          role: pickedRole,
+                          skillLevel: Math.floor(Math.random() * 3) + 3,
+                          loyalty: 90,
+                          salary: 12,
+                          desc: 'Vừa được tuyển mộ từ các tán tu lang bạt kỳ hồ.'
+                        };
+                        setGameState((prev: any) => {
+                          const curTv = getTavern(prev);
+                          return {
+                            ...prev,
+                            tavern: {
+                              ...curTv,
+                              vault: Math.max(0, curTv.vault - 150),
+                              staff: [...(curTv.staff || []), newStaffMember],
+                              financeLogs: [{ time: `Năm ${prev.age || 18}`, type: 'Chi', amount: 150, desc: `Chiêu mộ nhân tài [${pickedName}] chức vụ [${pickedRole}]` }, ...(curTv.financeLogs || [])].slice(0, 30)
+                            }
+                          };
+                        });
+                        showAlert(`Đã chiêu mộ thành công [${pickedName}] giữ chức [${pickedRole}] vào tửu quán!`);
+                      }} className="px-3 py-1.5 bg-amber-900/50 hover:bg-amber-800 text-amber-200 border border-amber-600/40 rounded-lg text-xs font-bold transition-colors">
+                        + Chiêu Mộ Nhân Tài Mới (150 LT)
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {(tv.staff || []).map((st: any) => (
+                        <div key={st.id} className="bg-[var(--bg-surface)] p-3.5 rounded-xl border border-amber-900/40 flex flex-col justify-between">
+                          <div>
+                            <div className="flex justify-between items-start">
+                              <h4 className="text-sm font-bold text-amber-200">{st.name}</h4>
+                              <span className="text-[10px] bg-amber-900/60 text-amber-300 px-2 py-0.5 rounded border border-amber-600/40 font-bold">{st.role}</span>
+                            </div>
+                            <div className="text-xs text-[var(--text-muted)] mt-1">{st.desc}</div>
+                            <div className="text-xs text-yellow-400 mt-2">Tay nghề: Cấp {st.skillLevel}/10 • Lương: {st.salary} LT/ngày</div>
+                            <div className="text-xs text-emerald-400 mt-0.5">Lòng trung thành: {st.loyalty}%</div>
+                          </div>
+                          <div className="flex justify-between items-center mt-3 pt-2 border-t border-amber-900/30">
+                            <button onClick={() => handleRewardStaff(st.id)} className="px-2.5 py-1 bg-amber-950/60 hover:bg-amber-900 text-amber-300 border border-amber-600/40 rounded text-[11px] font-bold transition-colors">
+                              Thưởng (30 LT)
+                            </button>
+                            <button onClick={() => {
+                              showConfirm(`Xác nhận sa thải [${st.name}] khỏi tửu quán?`, () => {
+                                setGameState((prev: any) => {
+                                  const curTv = getTavern(prev);
+                                  return {
+                                    ...prev,
+                                    tavern: {
+                                      ...curTv,
+                                      staff: curTv.staff.filter((s: any) => s.id !== st.id)
+                                    }
+                                  };
+                                });
+                                showAlert(`Đã sa thải [${st.name}].`);
+                              });
+                            }} className="px-2 py-1 hover:bg-red-950/60 text-red-400 rounded text-[11px] transition-colors">Sa Thải</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 6: NEWS */}
+                {tavernTab === 'news' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <div>
+                        <h3 className="text-sm font-bold text-amber-300">Bảng Tin Tức & Tình Báo Giang Hồ</h3>
+                        <p className="text-xs text-[var(--text-muted)]">Tin tức, lời đồn, kỳ ngộ được tiểu nhị nghe ngóng từ thực khách tu tiên giới</p>
+                      </div>
+                      <button onClick={handleScoutNews} className="px-3 py-1.5 bg-amber-900/50 hover:bg-amber-800 text-amber-200 border border-amber-600/40 rounded-lg text-xs font-bold transition-colors">
+                        Sai Tiểu Nhị Dò La Tin Tức (20 LT)
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {(tv.news || []).map((nw: any) => (
+                        <div key={nw.id} className="bg-[var(--bg-surface)] p-3.5 rounded-xl border border-amber-900/40">
+                          <div className="flex justify-between items-start">
+                            <h4 className="text-sm font-bold text-amber-200">{nw.title}</h4>
+                            <span className="text-[10px] bg-amber-900/60 text-amber-300 px-2 py-0.5 rounded border border-amber-600/40 font-bold">{nw.type}</span>
+                          </div>
+                          <div className="text-xs text-[var(--text-muted)] mt-0.5">Nguồn tin: <span className="text-yellow-400">{nw.source}</span> • Thời gian: {nw.time}</div>
+                          <p className="text-xs text-amber-100/90 mt-2 leading-relaxed bg-amber-950/20 p-2 rounded border border-amber-900/30">
+                            {nw.content}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 7: FINANCE */}
+                {tavernTab === 'finance' && (
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-amber-300">Báo Cáo Thu Chi & Hạch Toán Lỗ Lãi</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div className="bg-[var(--bg-surface)] p-3 rounded-xl border border-amber-900/40">
+                        <div className="text-xs text-[var(--text-muted)]">Doanh Thu Hàng Ngày</div>
+                        <div className="text-lg font-black text-emerald-400 mt-1">+{tv.dailyRevenue} LT</div>
+                      </div>
+                      <div className="bg-[var(--bg-surface)] p-3 rounded-xl border border-amber-900/40">
+                        <div className="text-xs text-[var(--text-muted)]">Chi Phí Hàng Ngày</div>
+                        <div className="text-lg font-black text-red-400 mt-1">-{tv.dailyExpense} LT</div>
+                      </div>
+                      <div className="bg-[var(--bg-surface)] p-3 rounded-xl border border-amber-900/40">
+                        <div className="text-xs text-[var(--text-muted)]">Lợi Nhuận Ròng</div>
+                        <div className="text-lg font-black text-yellow-400 mt-1">{tv.totalProfit > 0 ? `+${tv.totalProfit}` : tv.totalProfit} LT/ngày</div>
+                      </div>
+                      <div className="bg-[var(--bg-surface)] p-3 rounded-xl border border-amber-900/40">
+                        <div className="text-xs text-[var(--text-muted)]">Số Dư Ngân Quỹ</div>
+                        <div className="text-lg font-black text-amber-300 mt-1">{tv.vault.toLocaleString()} LT</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">Lịch Sử Giao Dịch Gần Nhất</h4>
+                      <div className="space-y-2">
+                        {(tv.financeLogs || []).map((log: any, idx: number) => (
+                          <div key={idx} className="bg-[var(--bg-surface)] p-2.5 rounded-lg border border-amber-900/30 flex justify-between items-center text-xs">
+                            <div>
+                              <span className="text-[var(--text-muted)] mr-2">[{log.time}]</span>
+                              <span className="text-amber-200">{log.desc}</span>
+                            </div>
+                            <span className={`font-bold ${log.type === 'Thu' ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {log.type === 'Thu' ? '+' : '-'}{log.amount.toLocaleString()} LT
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      
+      {/* V6.22: HỖN ĐỘN THÁP (CHAOS TOWER MODAL) */}
+{/* V6.22: HỖN ĐỘN THÁP (CHAOS TOWER MODAL) */}
+      {isChaosTowerModalOpen && (
+        <div className="fixed inset-0 z-[80] flex flex-col bg-[var(--bg-body)] animate-in fade-in duration-200">
+            <div className="p-3 md:p-4 border-b border-indigo-900/50 bg-gradient-to-b from-indigo-950/40 to-transparent flex justify-between items-center shrink-0 shadow-lg z-10">
+                <div className="flex items-center gap-3">
+                    <div className="bg-indigo-900/30 p-2 rounded-lg border border-indigo-900/50"><Flame className="text-indigo-500" size={24} /></div>
+                    <div>
+                        <h3 className="text-lg md:text-xl font-bold text-indigo-500 uppercase tracking-widest">{'Hỗn Độn Tháp'}</h3>
+                        <p className="text-[10px] md:text-xs text-indigo-400/60 mt-0.5">{'Không ảnh hưởng đến nhục thân bên ngoài.'}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="flex gap-1 bg-[var(--bg-body)] rounded-lg border border-indigo-900/50 p-1 mr-2">
+                        <button onClick={() => setTowerFontSize(Math.max(12, towerFontSize - 2))} className="px-3 py-1 text-sm font-bold text-indigo-400/50 hover:text-indigo-400 rounded transition-colors" title="Thu nhỏ chữ">A-</button>
+                        <button onClick={() => setTowerFontSize(Math.min(28, towerFontSize + 2))} className="px-3 py-1 text-sm font-bold text-indigo-400/50 hover:text-indigo-400 rounded transition-colors" title="Phóng to chữ">A+</button>
+                    </div>
+                    <button onClick={() => setIsChaosTowerModalOpen(false)} className="p-2 hover:bg-indigo-900/30 hover:text-indigo-500 border border-[var(--border-main)] hover:border-indigo-900/50 rounded-lg text-[var(--text-muted)] transition-colors"><X size={20}/></button>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-hidden flex flex-col bg-[var(--bg-body)] relative">
+                {chaosTowerState.status === 'lobby' && (
+                    <div className="flex flex-col items-center justify-center h-full p-6 text-center animate-in zoom-in-95">
+                        <Flame size={80} className="text-indigo-500 mb-6 animate-pulse" />
+                        <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-600 uppercase tracking-widest mb-4" style={{fontFamily: 'Lexend, sans-serif'}}>{`Kỷ Lục Cao Nhất: Tầng ${gameState.chaosTowerFloor || 1}`}</h2>
+                        <p className="text-[var(--text-muted)] max-w-lg mb-8 italic">Ảo cảnh do Hỗn Độn Tháp ngưng tụ. Kẻ thù là tàn ảnh của cường giả viễn cổ. Tử vong tại đây chỉ bị đánh bật ra ngoài, tuyệt đối an toàn cho nhục thân.</p>
+                        
+                        <div className="flex items-center justify-center gap-4 mb-8 bg-indigo-900/20 p-5 rounded-2xl border border-indigo-500/30 shadow-inner">
+                            <span className="text-indigo-400 font-bold text-lg uppercase tracking-widest hidden sm:block">Chọn Tầng Mục Tiêu:</span>
+                            <input 
+                                type="number" 
+                                min="1" 
+                                max="9999" 
+                                value={chaosTowerState.targetFloor || 1} 
+                                onChange={(e) => setChaosTowerState(prev => ({...prev, targetFloor: Math.max(1, parseInt(e.target.value)||1)}))} 
+                                className="w-28 bg-[var(--bg-body)] border-2 border-indigo-500/50 text-white font-black text-3xl text-center rounded-xl py-3 focus:outline-none focus:border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.2)]" 
+                            />
+                        </div>
+                        
+                        <button onClick={() => {
+                            const stConfig = getStageConfig(gameState.cultivationLevel);
+                            const myMaxHp = (100 * Math.pow(2, stConfig.id - 1)) + (Number(gameState.bonusMaxHp) || 0);
+                            const myMaxMp = (50 * Math.pow(2, stConfig.id - 1)) + (Number(gameState.bonusMaxMp) || 0);
+                            const currentFloor = chaosTowerState.targetFloor || 1;
+                            const opp = generateTowerOpponent(currentFloor);
+                            
+                            setChaosTowerState(prev => ({
+                                ...prev,
+                                status: 'battle',
+                                logs: [{ type: 'system', text: `🗼 BƯỚC VÀO TẦNG ${currentFloor}!\nĐối thủ: ${opp.name} - Cảnh Giới: ${opp.level}.\n${opp.desc}` }],
+                                myHP: myMaxHp, myMaxHP: myMaxHp, myMP: myMaxMp, myMaxMP: myMaxMp, myStamina: 100, myMaxStamina: 100,
+                                oppName: opp.name, oppLevel: opp.level, oppHP: opp.maxHp, oppMaxHP: opp.maxHp, oppMP: opp.maxMp, oppMaxMP: opp.maxMp, oppStamina: 9999, oppMaxStamina: 9999,
+                                oppAtk: opp.atk, oppDef: opp.def, oppSpd: opp.spd, oppSpp: opp.spp, oppDesc: opp.desc,
+                                oppStrategy: opp.strategy, oppPersonality: opp.personality, oppSkills: opp.skills,
+                                isGenerating: false, customAction: '', options: ['Lao lên tấn công', 'Mở khiên phòng ngự', 'Dùng sát chiêu mạnh nhất', 'Thăm dò đối thủ']
+                            }));
+                        }} className="bg-indigo-600 hover:bg-indigo-500 text-white text-xl font-bold px-12 py-5 rounded-xl shadow-[0_0_30px_rgba(79,70,229,0.4)] transition-transform hover:scale-105 uppercase tracking-widest flex items-center gap-3">
+                            <Swords size={24}/> Khiêu Chiến Tầng {chaosTowerState.targetFloor || 1}
+                        </button>
+                    </div>
+                )}
+
+                {(chaosTowerState.status === 'battle' || chaosTowerState.status === 'victory' || chaosTowerState.status === 'defeat') && (
+                    <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden relative animate-in zoom-in-95">
+                        {/* CỘT TRÁI: LOG CHAT */}
+                        <div className="flex-1 flex flex-col border-r border-indigo-900/30 overflow-hidden h-full">
+                            
+                            <div ref={towerScrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar space-y-6">
+                                {chaosTowerState.logs.map((l, i) => (
+                                    <div key={i} className={`animate-in slide-in-from-bottom-2 ${l.type==='system' ? 'text-center my-6' : l.isMe ? 'text-right' : 'text-left'}`}>
+                                        {l.type === 'system' ? (
+                                            <span className="inline-block px-6 py-2.5 bg-indigo-950/80 text-xs font-mono text-indigo-300 rounded-full border border-indigo-700/50 shadow-sm tracking-wide whitespace-pre-wrap">{String(l.text)}</span>
+                                        ) : l.type === 'action' ? (
+                                            <span className={`inline-block px-6 py-3.5 rounded-2xl text-base font-bold shadow-md bg-blue-600 text-white rounded-tr-sm`}>{l.text}</span>
+                                        ) : (
+                                            <div className="p-6 md:p-8 bg-[var(--bg-surface)] rounded-2xl rounded-tl-sm border border-indigo-900/50 shadow-[0_4px_20px_rgba(0,0,0,0.5)] whitespace-pre-wrap leading-loose tracking-wide text-[var(--text-main)]" style={{fontFamily: storyFont, fontSize: `${towerFontSize}px`}}>
+                                                {String(l.text)}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                                {chaosTowerState.isGenerating && (
+                                    <div className="flex justify-center p-6">
+                                        <div className="bg-indigo-900/20 border border-indigo-500/30 px-6 py-3 rounded-full flex items-center gap-3 text-indigo-400 font-bold text-base shadow-sm">
+                                            <Activity size={20} className="animate-spin" />
+                                            Đang phân định sinh tử...
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="p-4 md:p-6 bg-[var(--bg-body)] border-t border-indigo-900/50 shrink-0">
+                                {chaosTowerState.status === 'battle' ? (
+                                    <>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                                            {chaosTowerState.options.map((opt, i) => (
+                                                <button key={i} onClick={() => callTowerAPI(opt)} disabled={chaosTowerState.isGenerating} className="bg-[var(--bg-body)] hover:bg-indigo-900/20 disabled:opacity-50 border border-[var(--border-main)] hover:border-indigo-500 text-[var(--text-bold)] font-bold text-left px-5 py-4 rounded-xl transition-all shadow-sm">
+                                                    <span className="text-indigo-500 font-bold mr-2">{i + 1}.</span>{opt}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <form onSubmit={(e) => { e.preventDefault(); if(chaosTowerState.customAction) callTowerAPI(chaosTowerState.customAction); }} className="relative flex gap-3">
+                                            <textarea 
+                                                maxLength={200} 
+                                                value={chaosTowerState.customAction} 
+                                                onChange={e => {
+                                                    setChaosTowerState(prev=>({...prev, customAction: e.target.value}));
+                                                    e.target.style.height = 'auto';
+                                                    e.target.style.height = (e.target.scrollHeight) + 'px';
+                                                }} 
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                        e.preventDefault();
+                                                        if (chaosTowerState.customAction.trim() && !chaosTowerState.isGenerating) {
+                                                            callTowerAPI(chaosTowerState.customAction);
+                                                            e.target.style.height = 'auto';
+                                                        }
+                                                    }
+                                                }}
+                                                rows={1}
+                                                disabled={chaosTowerState.isGenerating} 
+                                                placeholder="Tự do xuất chiêu..." 
+                                                className="flex-1 bg-[var(--bg-body)] border border-[var(--border-main)] focus:border-indigo-500 focus:outline-none rounded-xl px-5 py-4 text-base text-[var(--text-main)] shadow-inner resize-none overflow-hidden" 
+                                                style={{ minHeight: '56px', maxHeight: '150px' }}
+                                            />
+                                            <button type="submit" disabled={!chaosTowerState.customAction || chaosTowerState.isGenerating} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-6 rounded-xl font-bold transition-colors shadow-md"><Send size={22}/></button>
+                                            <button type="button" onClick={() => setChaosTowerState(prev=>({...prev, status: 'lobby'}))} disabled={chaosTowerState.isGenerating} className="bg-gray-800 hover:bg-red-900/80 text-gray-400 hover:text-red-400 border border-gray-600 px-5 py-4 rounded-xl font-bold transition-colors shadow-md">Bỏ Cuộc</button>
+                                        </form>
+                                    </>
+                                ) : chaosTowerState.status === 'victory' ? (
+                                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                                        <button onClick={() => {
+                                            // Lên tầng thì update kỷ lục nếu tầng hiện tại lớn hơn kỷ lục cũ
+                                            const newFloorRecord = Math.max(gameState.chaosTowerFloor || 1, (chaosTowerState.targetFloor || 1) + 1);
+                                            setGameState(prev => ({...prev, chaosTowerFloor: newFloorRecord}));
+                                            syncGlobalStats(newFloorRecord, null); // V6.32: Đẩy Kỷ lục Tháp lên Đám Mây
+                                            
+                                            setTimeout(() => {
+                                                const nextFloor = (chaosTowerState.targetFloor || 1) + 1;
+                                                const opp = generateTowerOpponent(nextFloor);
+                                                setChaosTowerState(prev => ({
+                                                    ...prev,
+                                                    targetFloor: nextFloor,
+                                                    status: 'battle',
+                                                    logs: [{ type: 'system', text: `🗼 TẦNG ${nextFloor}! Đối thủ: ${opp.name} - ${opp.level}.` }],
+                                                    myHP: prev.myMaxHP, myMP: prev.myMaxMP, myStamina: 100,
+                                                    oppName: opp.name, oppLevel: opp.level, oppHP: opp.maxHp, oppMaxHP: opp.maxHp, oppMP: opp.maxMp, oppMaxMP: opp.maxMp, oppStamina: 9999, oppMaxStamina: 9999,
+                                                    oppAtk: opp.atk, oppDef: opp.def, oppSpd: opp.spd, oppSpp: opp.spp, oppDesc: opp.desc,
+                                                    oppStrategy: opp.strategy, oppPersonality: opp.personality, oppSkills: opp.skills,
+                                                    isGenerating: false, customAction: '', options: ['Lao lên tấn công', 'Mở khiên phòng ngự', 'Dùng sát chiêu mạnh nhất', 'Thăm dò đối thủ']
+                                                }));
+                                            }, 100);
+                                        }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-8 py-3.5 rounded-xl shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-transform hover:scale-105 text-base uppercase tracking-wider">Lên Tầng Tiếp Theo</button>
+                                        <button onClick={() => {
+                                            setGameState(prev => ({...prev, chaosTowerFloor: Math.max(prev.chaosTowerFloor || 1, (chaosTowerState.targetFloor || 1) + 1)}));
+                                            setChaosTowerState(prev=>({...prev, status: 'lobby'}));
+                                        }} className="bg-indigo-800 hover:bg-indigo-600 text-white font-bold px-8 py-3.5 rounded-xl shadow-lg transition-transform hover:scale-105 text-base uppercase tracking-wider">Tạm Nghỉ (Lưu Mốc)</button>
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-center">
+                                        <button onClick={() => setChaosTowerState(prev=>({...prev, status: 'lobby'}))} className="bg-red-800 hover:bg-red-600 text-white font-bold px-10 py-3.5 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.5)] text-base uppercase transition-transform hover:scale-105 tracking-wider">Rời Khỏi Tháp</button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        {/* CỘT PHẢI: CHỈ SỐ */}
+                        <div className="w-full lg:w-80 shrink-0 bg-[var(--bg-body)] overflow-y-auto custom-scrollbar flex flex-col border-t lg:border-t-0 lg:border-l border-indigo-900/30">
+                            <div className="p-5 flex-1 flex flex-col gap-6">
+                                <div className="bg-blue-900/10 p-5 rounded-xl border border-blue-900/30 relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                                    <div className="text-center font-bold text-blue-400 text-xl mb-5 uppercase tracking-widest">{gameState.name}</div>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <div className="flex justify-between text-xs font-bold text-red-400 mb-1.5"><span>MÁU (HP)</span><span>{Math.floor(chaosTowerState.myHP)}</span></div>
+                                            <div className="h-2 w-full bg-red-950 rounded-full overflow-hidden"><div className="h-full bg-red-500 transition-all duration-300" style={{width: `${Math.max(0, (chaosTowerState.myHP/chaosTowerState.myMaxHP)*100)}%`}}></div></div>
+                                        </div>
+                                        <div>
+                                            <div className="flex justify-between text-xs font-bold text-teal-400 mb-1.5"><span>NĂNG LƯỢNG</span><span>{Math.floor(chaosTowerState.myMP)}</span></div>
+                                            <div className="h-1.5 w-full bg-teal-950 rounded-full overflow-hidden"><div className="h-full bg-teal-500 transition-all duration-300" style={{width: `${Math.max(0, (chaosTowerState.myMP/chaosTowerState.myMaxMP)*100)}%`}}></div></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-center shrink-0">
+                                    <div className="w-12 h-12 rounded-full bg-[var(--bg-body)] border-2 border-indigo-900/50 flex items-center justify-center font-black text-indigo-500 italic shadow-[0_0_15px_rgba(99,102,241,0.3)]">VS</div>
+                                </div>
+
+                                <div className="bg-indigo-900/10 p-5 rounded-xl border border-indigo-900/30 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-1 h-full bg-indigo-500"></div>
+                                    <div className="text-center font-bold text-indigo-400 text-xl mb-1 uppercase tracking-widest">{chaosTowerState.oppName}</div>
+                                    <div className="text-center text-[10px] text-indigo-400/80 mb-4 italic line-clamp-3">"{chaosTowerState.oppDesc}"</div>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <div className="flex justify-between text-xs font-bold text-red-400 mb-1.5"><span>MÁU (HP)</span><span>{Math.floor(chaosTowerState.oppHP)}</span></div>
+                                            <div className="h-2 w-full bg-red-950 rounded-full overflow-hidden"><div className="h-full bg-red-600 transition-all duration-300" style={{width: `${Math.max(0, (chaosTowerState.oppHP/chaosTowerState.oppMaxHP)*100)}%`}}></div></div>
+                                        </div>
+                                        <div>
+                                            <div className="flex justify-between text-xs font-bold text-purple-400 mb-1.5"><span>NĂNG LƯỢNG</span><span>{Math.floor(chaosTowerState.oppMP)}</span></div>
+                                            <div className="h-1.5 w-full bg-purple-950 rounded-full overflow-hidden"><div className="h-full bg-purple-500 transition-all duration-300" style={{width: `${Math.max(0, (chaosTowerState.oppMP/chaosTowerState.oppMaxMP)*100)}%`}}></div></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+      )}
+{/* V6.28: MODAL KHẮC ẤN TRANG BỊ (VLTK STYLE) */}

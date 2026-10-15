@@ -1,0 +1,1001 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Heart, Zap, Lock, Globe, Clock, Coins, Backpack, Users, BookOpen, Send, Save, RotateCcw, Activity, Trash2, Home, X, ChevronDown, ChevronUp, Utensils, Dices, Check, Scale, Calendar, History, ShieldAlert, Smile, Brain, Sparkles, TrendingUp, AlertTriangle, Wind, ScrollText, Moon, Sun, Cloud, Download, Upload, Copy, Library, MousePointerClick, Eye, EyeOff, Map, Database, Smartphone, Monitor, MonitorSmartphone, BookMarked, Megaphone, User, Type, Crosshair, Shield, Calculator, Info, Swords, Skull, Search, Flame, Bot, Bug, ShieldCheck, ArrowUpDown, FlaskRound, Package, Axe, Tags, ZoomIn, ZoomOut, Maximize, Menu, MapPin, Mail, MessageCircle, Crown, Gem, ShoppingCart, Wrench, Settings, Hexagon, PenTool, PawPrint, Play, Gamepad2, Trees, TreePine, Mountain, Castle, Building2, Waves, Snowflake, Sprout, Cpu, Compass } from 'lucide-react';
+import LZString from 'lz-string'; 
+
+// --- FIREBASE IMPORTS ---
+import { initializeApp } from 'firebase/app';
+import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, addDoc, query, orderBy, limit } from 'firebase/firestore';
+
+// --- CẤU HÌNH API GEMINI & FIREBASE ---
+const apiKey = ""; 
+const UPDATE_HISTORY = [
+    {
+        version: "v3.37",
+        date: "08/10/2026",
+        title: "Vá Triệt Để Lỗi Kẹt Sinh Chương Do ReferenceError playerStageId Trong Tính Toán Chiến Đấu",
+        desc: "Khắc phục triệt để lỗi ReferenceError: playerStageId is not defined tại động cơ tính toán sát thương chiến đấu V1.29.6 và cơ chế Vạn Tầng Phá Giai V2.46. Di dời khai báo playerStageId ra ngoài khối điều kiện đối thủ, bảo đảm an toàn phạm vi biến (variable scope) 100%, triệt tiêu hoàn toàn sự cố báo lỗi mất kết nối 'Máy tính của đạo hữu kết nối với thiên đạo đang bị chập chờn' khi người chơi thực hiện các hành động giao tranh hoặc thi triển công pháp (Báo lỗi Lucifinil)."
+    }
+];
+
+// ============================================================================
+// V2.81: ĐÃ GỠ BỎ HOÀN TOÀN HỆ THỐNG TIỂU THẾ GIỚI (NỘI THIÊN ĐỊA) THEO ĐẶC QUYỀN CHỦ TOẠ DARK
+// Triệt tiêu gánh nặng engine, chống phình dữ liệu save và giảm thiểu lỗi xung đột
+// ============================================================================
+const INNER_WORLD_STAGES: any[] = [];
+const getInnerWorld = (_state: any) => ({
+  unlocked: false, level: 0, originPoints: 0, population: 0, faithPoints: 0, herbs: [], beasts: []
+});
+
+
+
+
+// ============================================================================
+// V2.96: HỆ THỐNG DỌN DẸP LỊCH SỬ THUỘC TÍNH (ROLLING WINDOW 30 MỐC) & KHÓA TRẦN 12 BUFF
+// Đặc quyền Chủ toạ Dark - Tối ưu toàn diện hiệu năng và chống phình dữ liệu save
+// ============================================================================
+const STAT_HISTORY_KEYS = [
+    'hpHistory', 'mpHistory', 'staminaHistory', 'foodHistory', 'stonesHistory', 'mortalCoinsHistory',
+    'karmaHistory', 'reputationHistory', 'corruptionHistory', 'atkHistory', 'defHistory', 'spdHistory',
+    'sppHistory', 'alcHistory', 'smiHistory', 'arrHistory', 'talHistory', 'thuHistory', 'thucHistory',
+    'thuongHistory', 'miHistory', 'progressHistory', 'pityHistory', 'levelHistory', 'sectWealthHistory',
+    'actionHistory', 'deathHistory'
+];
+
+const pruneStatHistories = (state: any, maxKeep = 10) => {
+    if (!state || typeof state !== 'object') return state;
+    for (const key of STAT_HISTORY_KEYS) {
+        if (Array.isArray(state[key]) && state[key].length > maxKeep) {
+            state[key] = state[key].slice(0, maxKeep);
+        }
+    }
+    // V2.99: Khóa trần tóm tắt cốt truyện 20 chương gần nhất theo lệnh Chủ toạ Dark
+    if (Array.isArray(state.summaries) && state.summaries.length > 20) {
+        state.summaries = state.summaries.slice(0, 20);
+    }
+    return state;
+};
+
+const capActiveEffects = (effects: any[], maxCount = 12): any[] => {
+    if (!Array.isArray(effects)) return [];
+    if (effects.length <= maxCount) return effects.filter(Boolean);
+    
+    const validEffects = effects.filter(Boolean);
+    const priority1: any[] = [];
+    const debuffs: any[] = [];
+    const normalBuffs: any[] = [];
+
+    validEffects.forEach(e => {
+        if (e.type === 'core_method' || (e.durationMinutes || 0) > 50000000 || e.id === 'eff_chan_than_boc_phat' || e.id === 'eff_nhan_the_han_che') {
+            priority1.push(e);
+        } else if (e.type === 'debuff') {
+            debuffs.push(e);
+        } else {
+            normalBuffs.push(e);
+        }
+    });
+
+    const result: any[] = [...priority1];
+    for (const d of debuffs) {
+        if (result.length < maxCount) result.push(d);
+    }
+    normalBuffs.sort((a, b) => (b.durationMinutes || 0) - (a.durationMinutes || 0));
+    for (const b of normalBuffs) {
+        if (result.length < maxCount) result.push(b);
+    }
+    return result;
+};
+
+// ============================================================================
+// V2.91: HỆ THỐNG QUẢN LÝ TỬU QUÁN (TỬU LÂU GIANG HỒ) - GÓP Ý VŨ ĐỨC & DARK
+// ============================================================================
+const TAVERN_TIERS = [
+  { level: 1, name: 'Quán Trà Ven Đường', maxTables: 4, upgradeCost: 500, baseIncome: 30, desc: 'Mái tranh đơn sơ ven đường lớn, chủ yếu phục vụ trà thô và lương khô cho người qua đường.' },
+  { level: 2, name: 'Tửu Điếm Tán Tu', maxTables: 8, upgradeCost: 1500, baseIncome: 80, desc: 'Quán rượu bằng gỗ khang trang ở góc phường thị, nơi tán tu tụ tập đối ẩm và trao đổi tin tức.' },
+  { level: 3, name: 'Tửu Lâu Sầm Uất', maxTables: 16, upgradeCost: 5000, baseIncome: 220, desc: 'Tửu lâu 3 tầng lộng lẫy trung tâm cổ thành, nườm nượp tu sĩ đại phái ra vào thưởng tửu.' },
+  { level: 4, name: 'Thiên Thượng Gian', maxTables: 32, upgradeCost: 20000, baseIncome: 650, desc: 'Cung điện lơ lửng trên mây, sơn hào hải vị ngàn năm, chỉ đại năng và thiên kiêu mới đủ tư cách ghé thăm.' },
+  { level: 5, name: 'Vạn Giới Đệ Nhất Lâu', maxTables: 64, upgradeCost: 100000, baseIncome: 2000, desc: 'Siêu lâu đài thông suốt chư thiên vạn giới, thu hút Chân Tiên, Ma Tôn và Đạo Tổ đến bàn luận đại đạo.' }
+];
+
+const DEFAULT_TAVERN_DATA = {
+  unlocked: false,
+  name: "Thiên Hương Tửu Lâu",
+  tier: "Tửu Điếm Tán Tu",
+  level: 2,
+  reputation: 150,
+  tables: 8,
+  vault: 600,
+  dailyRevenue: 120,
+  dailyExpense: 45,
+  totalProfit: 75,
+  staff: [
+    { id: 'st_1', name: 'Triệu Quản Sự', role: 'Chưởng Quỹ', skillLevel: 4, loyalty: 95, salary: 15, desc: 'Túc trí đa mưu, am hiểu sổ sách và hạch toán thu chi.' },
+    { id: 'st_2', name: 'Ngưu Thiết Trù', role: 'Đầu Bếp', skillLevel: 5, loyalty: 90, salary: 20, desc: 'Tay nghề hầm thịt yêu thú và linh mễ xuất quỷ nhập thần.' },
+    { id: 'st_3', name: 'Lý Tiểu Nhị', role: 'Tiểu Nhị', skillLevel: 3, loyalty: 88, salary: 10, desc: 'Nhanh nhẹn hoạt bát, tai mắt thông suốt khắp phường thị.' }
+  ],
+  ingredients: [
+    { id: 'ing_1', name: 'Thượng Phẩm Linh Mễ', type: 'Ngũ Cốc Linh Mễ', quality: 'Trung Phẩm', quantity: 80, unit: 'Cân' },
+    { id: 'ing_2', name: 'Thịt Bát Trân Kê', type: 'Thịt Yêu Thú', quality: 'Thượng Phẩm', quantity: 25, unit: 'Cân' },
+    { id: 'ing_3', name: 'Hàn Tuyền Linh Thủy', type: 'Linh Tuyền Thủy', quality: 'Trung Phẩm', quantity: 50, unit: 'Vò' },
+    { id: 'ing_4', name: 'Tử Vân Tiêu', type: 'Linh Dược Gia Vị', quality: 'Hạ Phẩm', quantity: 15, unit: 'Lạng' }
+  ],
+  wines: [
+    { id: 'wn_1', name: 'Trúc Diệp Thanh', tier: 'Hạ Phẩm', ageYears: 10, potency: 'Thanh Khiết Dịu Nhẹ', effect: 'Thanh đạm giải độc, hồi phục 15% MP', stock: 18, price: 15 },
+    { id: 'wn_2', name: 'Đào Hoa Tửu', tier: 'Trung Phẩm', ageYears: 25, potency: 'Hương Thơm Say Đắm', effect: 'Tăng 50 Mị Lực trong 3 chương kế', stock: 12, price: 35 },
+    { id: 'wn_3', name: 'Bách Thảo Quỳnh Tương', tier: 'Thượng Phẩm', ageYears: 60, potency: 'Ôn Nhuận Hoãn Tâm', effect: 'Hồi phục 25% HP và giảm 5 điểm Tâm Ma', stock: 6, price: 80 },
+    { id: 'wn_4', name: 'Cửu Chuyển Tiên Tửu', tier: 'Cực Phẩm', ageYears: 120, potency: 'Liệt Khí Xung Thiên', effect: 'Tăng 100 Điểm Tu Vi mỗi khi thưởng thức', stock: 2, price: 250 }
+  ],
+  beasts: [
+    { id: 'bst_1', name: 'Bát Trân Kê', tier: 1, count: 6, fattenProgress: 85, feedStatus: 'Béo Tốt Sung Mãn', desc: 'Linh cầm quý hiếm, thịt thơm ngọt bồi bổ khí huyết.' },
+    { id: 'bst_2', name: 'Tuyết Cước Linh Lộc', tier: 2, count: 2, fattenProgress: 60, feedStatus: 'Khỏe Mạnh Sinh Trưởng', desc: 'Lộc nhung và thịt đều là thượng phẩm ẩm thực.' }
+  ],
+  fruits: [
+    { id: 'frt_1', name: 'Ngọc Lộ Quả', count: 12, harvestDaysLeft: 1, yieldPerHarvest: 8, desc: 'Linh quả mọng nước, nguyên liệu pha chế rượu Đào Hoa.' },
+    { id: 'frt_2', name: 'Tử Tinh Đào', count: 6, harvestDaysLeft: 3, yieldPerHarvest: 4, desc: 'Linh đào trăm năm, dùng làm tráng miệng bồi dưỡng linh căn.' }
+  ],
+  news: [
+    { id: 'nw_1', time: 'Hôm nay', source: 'Khách Tán Tu Lạc Lối', title: 'Bí Cảnh Thượng Cổ Xuất Hiện Manh Mối', content: 'Có tán tu vừa uống rượu say kể rằng sâu trong Vạn Yêu Lãnh vừa xuất hiện dị tượng cột sáng tím, nghi là Động Phủ Chân Nhân mở lối.', type: 'Kỳ Ngộ' },
+    { id: 'nw_2', time: 'Hôm qua', source: 'Lái Buôn Vạn Bảo Lâu', title: 'Giá Linh Dược Toàn Vực Biến Động', content: 'Thương đoàn Vạn Bảo Lâu đang thu mua lượng lớn Hàn Tuyền Linh Thủy và Linh Mễ, giá thị trường tăng 20%.', type: 'Thị Trường' },
+    { id: 'nw_3', time: '3 ngày trước', source: 'Đệ Tử Ngoại Môn Say Rượu', title: 'Trưởng Lão Kiếm Tông Thu Nhận Đồ Đệ', content: 'Kiếm Tông mở sơn môn tuyển nhận thiên tài kiếm đạo, ai có Thiên Linh Căn sẽ được đặc cách vào nội môn.', type: 'Môn Phái' }
+  ],
+  financeLogs: [
+    { time: 'Hôm nay', type: 'Thu', amount: 120, desc: 'Thực khách thưởng tửu & ẩm thực tại đại sảnh' },
+    { time: 'Hôm nay', type: 'Chi', amount: 45, desc: 'Chi trả lương nhân sự & nhập nguyên liệu dự phòng' }
+  ]
+};
+
+const getTavern = (state: any) => {
+  if (!state || !state.tavern) return DEFAULT_TAVERN_DATA;
+  return {
+    ...DEFAULT_TAVERN_DATA,
+    ...state.tavern,
+    staff: Array.isArray(state.tavern.staff) && state.tavern.staff.length > 0 ? state.tavern.staff : DEFAULT_TAVERN_DATA.staff,
+    ingredients: Array.isArray(state.tavern.ingredients) && state.tavern.ingredients.length > 0 ? state.tavern.ingredients : DEFAULT_TAVERN_DATA.ingredients,
+    wines: Array.isArray(state.tavern.wines) && state.tavern.wines.length > 0 ? state.tavern.wines : DEFAULT_TAVERN_DATA.wines,
+    beasts: Array.isArray(state.tavern.beasts) && state.tavern.beasts.length > 0 ? state.tavern.beasts : DEFAULT_TAVERN_DATA.beasts,
+    fruits: Array.isArray(state.tavern.fruits) && state.tavern.fruits.length > 0 ? state.tavern.fruits : DEFAULT_TAVERN_DATA.fruits,
+    news: Array.isArray(state.tavern.news) && state.tavern.news.length > 0 ? state.tavern.news : DEFAULT_TAVERN_DATA.news,
+    financeLogs: Array.isArray(state.tavern.financeLogs) && state.tavern.financeLogs.length > 0 ? state.tavern.financeLogs : DEFAULT_TAVERN_DATA.financeLogs
+  };
+};
+
+const GAME_VERSION = UPDATE_HISTORY[0].version;
+
+// V12.15: ĐỊNH TRẠNG THẦN HỒN VÀ PHƯƠNG THỨC TU LUYỆN
+// V1.49: HELPER NHẬN DIỆN XUẤT THÂN YÊU TỘC THUẦN CHỦNG (Góp ý Ethan195)
+const isForbiddenThienDaoKhuocTuTrait = (t: any): boolean => {
+    if (!t) return false;
+    const n = (t.name || '').toLowerCase();
+    const d = (t.desc || '').toLowerCase();
+    return (
+        Boolean(t.isSystemParent) || Boolean(t.isSystemChild) ||
+        n.includes('thiên mệnh') || n.includes('khí vận chi tử') || n.includes('khí vận chi nữ') ||
+        n.includes('may mắn') || n.includes('phúc duyên') || n.includes('hệ thống') ||
+        n.includes('quý nhân') || n.includes('hồng vận') || n.includes('đại vận') ||
+        d.includes('thiên đạo gia hộ') || d.includes('may mắn') || d.includes('quý nhân phù trợ') ||
+        [201, 202, 203, 2002, 901, 902, 903, 904, 905, 710, 409, 411].includes(t.id) ||
+        t.name === 'Thiên Đạo Áp Chế' || t.name === 'Thiên Sinh Phế Vật' || t.name === 'Thiên Sinh Rác Rưởi'
+    );
+};
+
+const isPureYeuTocBg = (bgId) => {
+    if (!bgId) return false;
+    return ['bg_yeu_thuan_long', 'bg_yeu_thuan_phuong', 'bg_yeu_thuan_mieu', 'bg_yeu_thuan_ho', 'bg_yeu_thuan_dieu', 'bg_yeu_thuan_di_toc', 'bg_yeu_thuan_ngu'].includes(bgId);
+};
+
+// V2.77 FIX (BÁO LỖI HOÀNG ĐẠT): Nhận diện thực thể Yêu Tộc / Thần Thú toàn diện (Background, Chức nghiệp, Cảnh giới, Khí vận)
+const isYeuTocEntity = (stateOrBg: any, path?: string, level?: string, traits?: any[]) => {
+    let bgId = '';
+    let cPath = '';
+    let cLevel = '';
+    let tList: any[] = [];
+    if (stateOrBg && typeof stateOrBg === 'object') {
+        bgId = String(stateOrBg.backgroundId || stateOrBg.id || '');
+        cPath = String(stateOrBg.cultivationPath || '');
+        cLevel = String(stateOrBg.cultivationLevel || '');
+        tList = Array.isArray(stateOrBg.traits) ? stateOrBg.traits : [];
+    } else {
+        bgId = String(stateOrBg || '');
+        cPath = String(path || '');
+        cLevel = String(level || '');
+        tList = Array.isArray(traits) ? traits : [];
+    }
+    const tNames = tList.map((t: any) => (typeof t === 'string' ? t : String(t?.name || '')));
+    const isYeuBg = isPureYeuTocBg(bgId) || ['bg_10', 'bg_25', 'bg_taotie', 'bg_long_toc', 'bg_con_bang', 'bg_ho_toc', 'bg_vien_co_cu_long'].includes(bgId);
+    const isYeuPath = cPath === 'yeu_tu';
+    const isYeuLevel = /(thông trí|khai quang|yêu đan|hóa hình|yêu tướng|yêu vương|yêu hoàng|yêu đế|thái cổ yêu tổ)/i.test(cLevel);
+    const isYeuTrait = tNames.some((n: string) => /tiên thiên đại yêu|thái cổ ngự yêu sư|chân long huyết mạch|nhục thân cự long|viễn cổ cự long|yêu tộc/i.test(n));
+    return isYeuBg || isYeuPath || isYeuLevel || isYeuTrait;
+};
+
+// V3.17 FIX (BÁO LỖI HOÀNG ĐẠT): Helper xác định hệ số Nhân Thể (-50%) vs Chân Thân (100%) đồng bộ toàn diện
+const getTurnYeuHumanMult = (stateOrBg: any, path?: string, level?: string, traits?: any[]): number => {
+    const isY = isYeuTocEntity(stateOrBg, path, level, traits);
+    let bgId = '';
+    let isHuman: boolean | undefined = undefined;
+    if (stateOrBg && typeof stateOrBg === 'object') {
+        bgId = String(stateOrBg.backgroundId || stateOrBg.id || '');
+        isHuman = stateOrBg.isHumanForm;
+    } else {
+        bgId = String(stateOrBg || '');
+    }
+    const isBeast = isPureYeuTocBg(bgId);
+    const isHumanActive = isY && (
+        isHuman === true ||
+        (isHuman === undefined && !isBeast)
+    );
+    return isHumanActive ? 0.5 : 1.0;
+};
+
+// V1.72 (ETHAN195 PHẢN ÁNH): Helper nhận diện địa danh biệt lập / cô lập chống NPC ngoại lai xâm nhập
+const isIsolatedLocation = (locName?: string, actionText?: string): boolean => {
+    const locLower = String(locName || '').toLowerCase();
+    const actLower = String(actionText || '').toLowerCase();
+    const isolatedKeywords = /(hang đá|hang động|đáy hồ|mật thất|cấm địa|dị không gian|đáy vực|lòng đất|phong ấn|động thiên phong bế|không gian độc lập|bí cảnh cô lập|đáy biển|thạch thất|u cốc biệt lập|hang ngầm|động ngầm)/;
+    const actIsolatedKeywords = /(bế quan|tĩnh tọa trong hang|ẩn cư trong mật thất|lặn xuống đáy hồ|tiến vào dị không gian|phong bế động phủ)/;
+    return isolatedKeywords.test(locLower) || actIsolatedKeywords.test(actLower);
+};
+
+const getSoulMechanism = (bgId, traits) => {
+    if (__GlobalPremadeWorld === 'dau_pha') {
+        return { type: "Linh Hồn Lực", mechanism: "Tu luyện linh hồn từ Phàm cảnh đến Đế cảnh. Linh hồn lực càng mạnh, khả năng khống chế dị hỏa và luyện dược càng cao." };
+    }
+    let type = "Phàm Hồn Thất Tình";
+    let mechanism = "Thần hồn nguyên sơ bị ràng buộc bởi nhục dục thất tình lục dục. Tu luyện thần hồn chủ yếu dựa vào việc tĩnh tâm, thiền định đạo pháp, trải qua sinh tử luân hồi, nếm trải ái hận tình cừu để chế ngự cám dỗ, ngưng tụ linh quang.";
+    
+    // Check traits
+    const tNames = traits.map(t => t.name);
+
+    // V1.22.4: ĐỒNG BỘ THẦN HỒN CÁC THẦN THỂ DUNG HỢP TỐI CAO
+    if (tNames.includes('Bồ Đề Ma La Bất Hoại Thân')) {
+        type = "Thanh Ma Đồng Nguyên Hồn";
+        mechanism = "Nửa Thánh Huy thuần khiết, nửa Ma Uyên hắc diễm. Siêu thoát khỏi thiện ác nhị nguyên, lấy tâm ma rèn luyện bản tính, lấy thanh quang tôi luyện sát ý. Tu luyện bằng cách cân bằng hai cực âm dương quang ám, vạn pháp bất xâm.";
+    } else if (tNames.includes('Hoang Cổ Chí Tôn Thể')) {
+        type = "Hoang Cổ Thần Vương Hồn";
+        mechanism = "Thần hồn ngưng tụ bóng hình Thần Vương viễn cổ tọa trấn thức hải, hai mắt Trùng Đồng khai thiên tịch địa, bảo cốt trấn áp chư thiên. Tu luyện bằng cách quan tưởng tinh tú hồng hoang và chiến đấu vượt cấp.";
+    } else if (tNames.includes('Hỗn Độn Bàn Cổ Khu') || tNames.includes('Thập Nhị Đô Thiên Thần Sát Chân Thân')) {
+        type = "Hỗn Độn Khai Thiên Hồn";
+        mechanism = "Thần hồn hóa thành cự nhân khai thiên, dĩ lực chứng đạo. Không sợ hãi bất kỳ thần thông ảo thuật nào, uy áp huyết khí chấn vỡ thức hải kẻ địch có thần thức yếu hơn.";
+    } else if (tNames.includes('Vạn Kiếp Chân Tôn Thể')) {
+        type = "Luân Hồi Bất Diệt Hồn";
+        mechanism = "Khắc ghi dấu ấn vạn kiếp trầm luân của sông Hoàng Tuyền. Linh hồn không chịu sự quản thúc của Sổ Sinh Tử, mỗi lần cận kề cái chết lại đốn ngộ thêm một tầng áo nghĩa sinh tử.";
+    } else if (tNames.includes('Cơ Giới Hắc Quang Thể') || tNames.includes('Hạch Tâm Cơ Thần Khôi Lỗi') || tNames.includes('Chung Yên Điểm Kỳ Dị Thể')) {
+        type = "Cơ Thần Lượng Tử Hồn";
+        mechanism = "Thần hồn số hóa thành biển dữ liệu lượng tử của kim loại sống. Tính toán điểm yếu đối thủ với tốc độ hàng triệu phép tính mỗi nhịp thở, miễn nhiễm tuyệt đối mọi ảo mộng mê hoặc.";
+    } else if (tNames.includes('Đạo Tổ Toàn Tri Thể')) {
+        type = "Đại Đạo Toàn Tri Hồn";
+        mechanism = "Hòa nhập ý niệm vào Thiên Đạo ý chí. Nhìn thấu quá khứ tương lai của nhân quả, lời nói ra hóa thành pháp tắc chi phối thế giới.";
+    } else if (tNames.includes('Vạn Trận Quy Tông Thể')) {
+        type = "Lăng Kính Trận Hồn";
+        mechanism = "Thần hồn lấp lánh như chiếc gương đa diện phân tích vạn vật. Tự khắc họa các trận đồ vi mô lên tư duy não bộ, giải mã cấu trúc càn khôn.";
+    } else if (tNames.includes('Hư Vọng Chân Đế Thể')) {
+        type = "Thái Hư Ảo Hồn";
+        mechanism = "Thần hồn điên đảo hư thực, biến giả thành chân. Đắm chìm trong hư vô để dệt nên thực tại.";
+    } else if (tNames.includes('Vạn Yêu Thánh Hoàng Thể') || tNames.includes('Thao Thiết Ma Độc Cổ Thể')) {
+        type = "Man Hoang Thiên Hồn";
+        mechanism = "Thần hồn mang đậm dã tính vạn cổ, thống ngự vạn linh muôn thú, cắn nuốt tinh hoa thiên địa.";
+    } else if (tNames.includes('Cực Đạo Ma Hoàng Khí Vận') || tNames.includes('Cửu U Minh Mị Thể')) {
+        type = "Ma Uyên Nghịch Hồn";
+        mechanism = "Thần hồn ma đạo tột cùng, ngưng tụ sát khí và oán niệm của vạn kiếp sinh linh thành vương miện thống trị U Minh.";
+    } else if (bgId === 'bg_ctan') {
+        type = "Tinh Tú Bản Nguyên (C'tan)";
+        mechanism = "Bản chất C'tan không có linh hồn theo định nghĩa sinh học hay ma pháp. Thức hải của chúng là một khối năng lượng bức xạ tinh tú khổng lồ chứa đựng quy luật vật lý. Kháng 100% ảo mộng nhưng tuyệt đối vô duyên với ma thuật tâm linh.";
+    } else if (tNames.includes('Ma Tôn Chuyển Thế') || tNames.includes('Vạn Ác Tội Thể') || tNames.includes('Thiên Ma Thể') || tNames.includes('Quỷ Đạo Truyền Nhân') || tNames.includes('Người Gặp Ma') || tNames.includes('Hợp Hoan Mị Cốt') || tNames.includes('Bán Mị Ma (Huyết Mạch Lai)') || tNames.includes('Bán Ma (Huyết Mạch Lai)') || bgId.includes('thi_am_tong') || bgId.includes('bg_succubus') || bgId.includes('bg_19')) {
+        type = "Ma Uyên Nghịch Hồn";
+        mechanism = "Thần hồn nhuốm màu bạo tàn, ngưng tụ từ hận thù và oán khí. Tu luyện bằng cách cắn nuốt tàn hồn kẻ địch, tra tấn kẻ thù sinh ra sợ hãi để hấp thu, hoặc chủ động dẫn Tâm Ma vào thể để dung hợp luyện hóa ma chướng lớn mạnh Thức hải.";
+    } else if (tNames.includes('Phật Cốt Xá Lợi') || bgId === 'bg_angel') {
+        type = "Thanh Tịnh Kim Hồn";
+        mechanism = "Thần hồn thánh khiết, phát ra Thánh Quang hoặc Bản Nguyên Thanh Tịnh Lực bảo hộ sinh linh. Tu luyện bằng cách ngộ đạo Vô Ngã, thuận ứng Duyên Khởi tự nhiên, hành thiện tích đức bồi đắp thiên địa, đoạn trừ chấp niệm để thức hải trong suốt không vướng bụi trần.";
+    } else if (bgId === 'bg_10' || bgId === 'bg_25' || bgId === 'bg_long_toc' || bgId === 'bg_con_bang' || bgId === 'bg_ho_toc' || bgId === 'bg_taotie' || bgId === 'bg_vien_co_cu_long' || isPureYeuTocBg(bgId) || tNames.includes('Tiên Thiên Đại Yêu') || tNames.includes('Thái Cổ Ngự Yêu Sư')) {
+        type = "Man Hoang Thiên Hồn";
+        mechanism = "Thần hồn mang đậm dã tính vạn cổ, không bị gò bó bởi đạo lý. Tu luyện bằng cách thấu hiểu thiên địa sơ khai, gầm thét dưới ánh trăng, hấp thụ Nhật Nguyệt Tinh Hoa, hoặc bộc phát sát ý tối nguyên thủy để đánh thức ý chí cường hoành của cự thú.";
+    } else if (bgId === 'bg_21' || bgId === 'bg_22' || bgId === 'bg_23' || tNames.includes('Thạch Thần Bất Diệt') || tNames.includes('Cơ Quan Hạch Tâm') || tNames.includes('Bảo Vật Hóa Hình')) {
+        type = "Vật Linh Khí Hồn";
+        mechanism = "Không sinh ra từ xương thịt, linh hồn hình thành từ tinh hoa vạn năm ngưng tụ. Tu luyện bằng cách chìm vào giấc ngủ vùi tẩm bổ linh khí vũ trụ, được đại năng giảng đạo khai sáng, hoặc dung hợp với pháp bảo cấp cao khác để gia tăng dung lượng linh tính phần cứng.";
+    } else if (bgId === 'bg_nho_sinh' || tNames.includes('Hạo Nhiên Chính Khí') || tNames.includes('Thuyết Khách')) {
+        type = "Hạo Nhiên Chính Hồn";
+        mechanism = "Thần hồn được đúc bằng niềm tin sắt đá và văn tự thánh hiền. Tu luyện thông qua việc đọc thuộc Nho đạo cổ tịch, ngâm thi ngâm phú tạo ra dị tượng thiên địa, xử án nghiêm minh bảo vệ nhân luân để không ngừng thổi phồng Chính Khí trong thức hải.";
+    } else if (tNames.includes('Trận Tổ Chuyển Thế') || tNames.includes('Vạn Vật Giai Trận') || tNames.includes('Trận Sư Thiên Tài')) {
+        type = "Lăng Kính Trận Hồn";
+        mechanism = "Thần hồn lấp lánh như chiếc gương đa diện phân tích vạn vật. Tu luyện bằng cách tự khắc họa các trận đồ vi mô lên tư duy não bộ, giải mã số liệu từ trường của trời đất, bóc tách phân tích cấu trúc vi diện vào tiềm thức để khuếch đại não vực.";
+    } else if (tNames.includes('Huyễn Mộng Chân Thể') || tNames.includes('Mị Cốt Thiên Sương') || tNames.includes('Tọa Vong Đạo')) {
+        type = "Thái Hư Ảo Hồn";
+        mechanism = "Thần hồn như một giấc mộng hư thực đan xen. Tu luyện bằng cách chìm sâu vào Huyễn mộng giới do chính mình tạo ra, hấp thu dục vọng và ảo giác của thế nhân, không ngừng dệt nên huyễn thuật để tôi luyện tinh thần lực ảo diệu.";
+    } else if (tNames.includes('Hư Không Lậu Thể')) {
+        type = "Hư Không Thần Hồn";
+        mechanism = "Thần hồn dung nhập vào vô biên tĩnh mịch. Tu luyện bằng cách hòa mình vào loạn lưu hư không, cắn nuốt không thời gian và vật chất để tự bồi đắp linh giác cường đại.";
+    } else if (tNames.some(t => t.includes('Tuyệt Thế')) || tNames.includes('Đại Đạo Trùng Tu (Cương Khí)')) {
+        type = "Binh Ý Sát Hồn";
+        mechanism = "Thần hồn mang hình bóng của một loại tuyệt thế binh khí trầm mặc. Tu luyện không dựa vào thiền định mà thông qua việc chém giết, vung binh khí giữa sinh tử lằn ranh, lấy huyết nhục địch nhân làm đá mài rèn giũa ý chí sắc bén không thể uốn cong.";
+    }
+    
+    return { type, mechanism };
+};
+
+// V12.15: ĐỊNH DANH CĂN CƠ THEO ĐIỂM SỐ
+const getFoundationName = (score) => {
+    const s = Number(score) || 50;
+    if (s <= 20) return 'Hư Phù';
+    if (s <= 50) return 'Phàm Đạo';
+    if (s <= 80) return 'Thiên Đạo'; 
+    return 'Cực Đạo';
+};
+
+// =========================================================================
+// V1.86 (GÓP Ý HOENGGG & DARK): HỆ THỐNG QUY CHUẨN KÍCH THƯỚC CHÂN THÂN YÊU TỘC, BÀN CỔ CỰ NHÂN & ĐA ĐẠO PHÁP TƯỚNG
+// =========================================================================
+
+export interface TrueBodySizeInfo {
+    category: 'ban_co' | 'ctan' | 'than_thu' | 'cu_thu' | 'da_thu_nho' | 'duc_toc' | 'elf' | 'ngu_toc' | 'ma_toc' | 'thao_thach' | 'nhan_toc';
+    categoryLabel: string;
+    name: string;
+    purity: number; // 0.5 (bán yêu lai) -> 1.0 (thuần chủng)
+    purityLabel: string;
+    age: number;
+    matureAge: number;
+    naturalBaseMeters: number;
+    cultivationMult: number;
+    totalMeters: number;
+    totalTruong: number;
+    displayStr: string;
+    scaleComparison: string;
+    combatFormDesc: string;
+    hasPhapTuong: boolean;
+    phapTuongDesc?: string;
+    humanFormMeters?: number;
+    humanFormDisplay?: string;
+    customHeightStr?: string;
+}
+
+// V3.32 (HOÀNG ĐẠT & TOÀ ÁN PHÊ DUYỆT): Helper bóc tách & chuẩn hóa chiều cao nhân vật đa dạng
+const parseCharacterHeight = (rawHeight: any, gender: string = 'Nam'): { meters: number, display: string } => {
+    let str = String(rawHeight || '').trim();
+    if (!str) {
+        const defM = gender === 'Nữ' ? 1.65 : 1.78;
+        return { meters: defM, display: `${defM.toFixed(2)} m` };
+    }
+    let m = 0;
+    const mMatch = str.match(/^([0-2])\s*[mM]\s*(\d{1,2})$/);
+    if (mMatch) {
+        m = parseFloat(mMatch[1]) + parseFloat(mMatch[2]) / 100;
+    } else {
+        const numMatch = str.match(/([0-9]+(?:\.[0-9]+)?)/);
+        if (numMatch) {
+            let val = parseFloat(numMatch[1]);
+            if (val >= 100 && val <= 300) {
+                m = val / 100;
+            } else if (val >= 0.5 && val <= 3.5) {
+                m = val;
+            }
+        }
+    }
+    if (!m || isNaN(m)) {
+        m = gender === 'Nữ' ? 1.65 : 1.78;
+    }
+    m = Math.min(2.5, Math.max(1.2, Math.round(m * 100) / 100));
+    return { meters: m, display: `${m.toFixed(2)} m` };
+};
+
+const getCharacterTrueBodySize = (state: any): TrueBodySizeInfo => {
+    const userGender = String(state?.gender || 'Nam');
+    const parsedH = parseCharacterHeight(state?.customHeight, userGender);
+    const baseH = parsedH.meters;
+
+    const stageId = (typeof getStageConfig === 'function' ? getStageConfig(state?.cultivationLevel || 'Phàm Nhân').id : 1) || 1;
+    let humanMult = 1.0;
+    if (stageId >= 18) humanMult = 1.15; // Tiên Vương -> Đạo Tổ / Siêu Thoát: uy nghi cực cảnh
+    else if (stageId >= 11) humanMult = 1.10; // Hư Tiên -> Tiên Tôn: tiên thể lột xác
+    else if (stageId >= 8) humanMult = 1.06; // Hợp Thể -> Độ Kiếp: nhục thân đại thành
+    else if (stageId >= 4) humanMult = 1.03; // Nguyên Anh -> Luyện Hư: khai mở cốt cách
+    else humanMult = 1.0; // Phàm Nhân -> Kim Đan: thể trạng sơ khai
+
+    const humanFormMeters = Math.min(2.5, Math.round(baseH * humanMult * 100) / 100);
+    const humanFormDisplay = `${humanFormMeters.toFixed(2)} m`;
+
+    if (!state) {
+        return {
+            category: 'nhan_toc',
+            categoryLabel: 'Nhân Tộc Phàm Thân',
+            name: 'Nhân Tộc',
+            purity: 1.0,
+            purityLabel: 'Thuần Chủng 100%',
+            age: 18,
+            matureAge: 18,
+            naturalBaseMeters: baseH,
+            cultivationMult: 1.0,
+            totalMeters: baseH,
+            totalTruong: Math.round((baseH / 3.3) * 100) / 100,
+            displayStr: `${Math.round((baseH / 3.3) * 100) / 100} trượng (~${baseH.toFixed(2)} mét)`,
+            scaleComparison: 'Thể trạng phàm nhân bình thường',
+            combatFormDesc: 'Nhục thân nhân tộc tiêu chuẩn, linh hoạt điều khiển pháp bảo và chiến đấu.',
+            hasPhapTuong: false,
+            humanFormMeters,
+            humanFormDisplay,
+            customHeightStr: parsedH.display
+        };
+    }
+
+    const bgId = String(state.backgroundId || '');
+    const traits = Array.isArray(state.traits) ? state.traits : [];
+    const tNames = traits.map((t: any) => t ? String(t.name || '') : '');
+    const age = Math.max(1, Number(state.age) || 18);
+    const path = String(state.cultivationPath || 'tu_tien');
+    const customSpecies = String(state.customSpecies || state.beastSpeciesName || '').toLowerCase();
+
+    // 1. Kiểm tra Bàn Cổ Huyết Mạch & Cự Nhân Tộc
+    const isBanCoOrTitan = tNames.includes('Bàn Cổ Huyết Mạch') || 
+                           tNames.includes('Hỗn Độn Bàn Cổ Khu') || 
+                           tNames.includes('Thập Nhị Đô Thiên Thần Sát Chân Thân') || 
+                           tNames.includes('Cự Nhân Thể') || 
+                           ['bg_titan', 'bg_vu_toc', 'bg_behemoth'].includes(bgId) || 
+                           String(state.cultivationLevel || '').toLowerCase().includes('bàn cổ chân thân');
+
+    // 2. Kiểm tra Bán Yêu / Huyết Mạch Lai
+    const isHalfBeast = tNames.includes('Bán Yêu (Huyết Mạch Lai)') || 
+                        tNames.includes('Bán Long (Huyết Mạch Lai)') || 
+                        tNames.includes('Bán yêu (Dị loại)') || 
+                        tNames.includes('Bán Yêu (Nô Lệ)') || 
+                        tNames.includes('Bán Mị Ma (Huyết Mạch Lai)') || 
+                        tNames.includes('Bán Ma (Huyết Mạch Lai)');
+
+    const purity = isHalfBeast ? 0.5 : 1.0;
+    const purityLabel = isHalfBeast ? 'Bán Yêu Lai Tạp (50% Huyết Mạch)' : 'Thuần Chủng Viễn Cổ (100%)';
+
+    // 3. Phân loại chủng loài
+    if (isBanCoOrTitan) {
+        const matureAge = 50;
+        const ageRatio = Math.min(1.0, Math.max(0.1, age / matureAge));
+        const naturalBaseMeters = 3.0 + (45.0 - 3.0) * ageRatio; // Sơ sinh 3m, trưởng thành tự nhiên 45m
+        
+        // Thang tu vi Bàn Cổ / Cự Nhân
+        const banCoMultMap: Record<number, number> = {
+            1: 1.5, 2: 5.0, 3: 15.0, 4: 40.0, 5: 100.0, 6: 250.0, 7: 600.0, 8: 1200.0, 9: 2500.0, 10: 4500.0, 
+            15: 10000.0, 18: 18000.0, 20: 25000.0
+        };
+        let mult = banCoMultMap[stageId] || 1.5;
+        if (!banCoMultMap[stageId]) {
+            const keys = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 18, 20];
+            for (let i = 0; i < keys.length - 1; i++) {
+                if (keys[i] <= stageId && stageId <= keys[i + 1]) {
+                    const t = (stageId - keys[i]) / (keys[i + 1] - keys[i]);
+                    mult = banCoMultMap[keys[i]] + t * (banCoMultMap[keys[i + 1]] - banCoMultMap[keys[i]]);
+                    break;
+                }
+            }
+        }
+        const totalMeters = naturalBaseMeters * mult;
+        const totalTruong = Math.round((totalMeters / 3.3) * 10) / 10;
+        const kmStr = totalMeters >= 1000 ? ` (~${(totalMeters / 1000).toFixed(1)} km)` : ` (~${Math.round(totalMeters)} m)`;
+
+        return {
+            category: 'ban_co',
+            categoryLabel: 'Bàn Cổ Huyết Mạch & Cự Nhân Thể (Chân Thân Vĩ Đại Nhất Toàn Vũ Trụ)',
+            name: tNames.includes('Hỗn Độn Bàn Cổ Khu') ? 'Hỗn Độn Bàn Cổ Khu' : tNames.includes('Thập Nhị Đô Thiên Thần Sát Chân Thân') ? 'Thập Nhị Đô Thiên Thần Sát Chân Thân' : bgId === 'bg_titan' ? 'Thái Thản Cự Thể' : 'Bàn Cổ Khai Thiên Cự Thân',
+            purity: 1.0,
+            purityLabel: 'Huyết Mạch Khai Thiên 100%',
+            age,
+            matureAge,
+            naturalBaseMeters,
+            cultivationMult: mult,
+            totalMeters,
+            totalTruong,
+            displayStr: `${totalTruong.toLocaleString()} trượng${kmStr}`,
+            scaleComparison: stageId >= 18 ? 'Một tay che trời, đầu đội thương khung chân đạp cửu u, dẫm nát tinh hà' : stageId >= 7 ? 'Sừng sững như Thái Sơn chống trời, khí huyết cuồn cuộn như biển gầm' : 'Người khổng lồ viễn cổ trăm trượng, uy áp dập tắt phong ba',
+            combatFormDesc: `Khi vận chuyển huyết mạch Bàn Cổ hoặc thi triển Pháp Thiên Tượng Địa, nhục thân phình to tới ${totalTruong.toLocaleString()} trượng${kmStr}, một trảo bóp nát hư không, khí huyết chấn vỡ càn khôn!`,
+            humanFormMeters,
+            humanFormDisplay,
+            customHeightStr: parsedH.display,
+            hasPhapTuong: true,
+            phapTuongDesc: 'Bản thân nhục thân Bàn Cổ chính là Chân Thân Tối Cao vượt trên mọi Pháp Tướng!'
+        };
+    }
+
+    // 1.1 Thần Sao (C'tan) - Thực thể quy luật tinh tú khởi nguyên (Báo lỗi Dark)
+    const isCtan = bgId === 'bg_ctan' || 
+                   tNames.includes("Tinh Tú Bản Nguyên (C'tan)") || 
+                   tNames.some((t: string) => t.toLowerCase().includes("c'tan") || t.toLowerCase().includes("ctan")) || 
+                   customSpecies.includes("c'tan") || customSpecies.includes("ctan") || customSpecies.includes("thần sao");
+
+    if (isCtan) {
+        const matureAge = 100000000;
+        const baseKm = 3000000; // 3 triệu km khởi đầu
+        const ctanMult = stageId >= 20 ? 5.0 : stageId >= 15 ? 3.0 : stageId >= 10 ? 2.0 : 1.0;
+        const totalKm = Math.round(baseKm * ctanMult);
+        const totalMeters = totalKm * 1000;
+        const totalTruong = Math.round((totalMeters / 3.3) * 10) / 10;
+
+        return {
+            category: 'ctan',
+            categoryLabel: "Thần Sao Tinh Tú Bản Nguyên (C'tan - Bá Chủ Thực Tại Vũ Trụ)",
+            name: "Thần Sao C'tan Chân Thân",
+            purity: 1.0,
+            purityLabel: 'Thực Thể Hằng Tinh Vũ Trụ Khởi Nguyên 100%',
+            age,
+            matureAge,
+            naturalBaseMeters: 3000000000,
+            cultivationMult: ctanMult,
+            totalMeters,
+            totalTruong,
+            displayStr: `~${totalKm.toLocaleString('vi-VN')} km (~${Math.round(totalTruong).toLocaleString('vi-VN')} trượng)`,
+            scaleComparison: 'Thực thể năng lượng bức xạ khổng lồ vài triệu km, kích thước ngang ngửa đại hằng tinh, nuốt chửng các vì sao',
+            combatFormDesc: `Khi hiển lộ chân thân Thần Sao C'tan, hóa thành khối plasma bức xạ tinh tú khổng lồ trải dài ${totalKm.toLocaleString('vi-VN')} km, bóp méo quy luật vật lý và nuốt chửng năng lượng chư thiên!`,
+            humanFormMeters,
+            humanFormDisplay,
+            customHeightStr: parsedH.display,
+            hasPhapTuong: true,
+            phapTuongDesc: "Bản thân Chân Thân Thần Sao C'tan chính là thực thể quy luật vũ trụ vĩ đại!"
+        };
+    }
+
+    // 1.2 Dực Tộc (Thiên Thần / Huyết Dực) - Cao tầm 2.5m (Báo lỗi Dark)
+    const isDucToc = ['bg_angel', 'bg_blood_angel'].includes(bgId) || 
+                     tNames.includes('Dực Tộc (Thiên Thần)') || 
+                     tNames.includes('Thánh Khiết Chi Thể') || 
+                     customSpecies.includes('dực tộc') || 
+                     customSpecies.includes('thiên thần') || 
+                     customSpecies.includes('angel');
+
+    if (isDucToc) {
+        const matureAge = 25;
+        const naturalBaseMeters = 2.5;
+        const totalMeters = 2.5;
+        const totalTruong = 0.76;
+
+        return {
+            category: 'duc_toc',
+            categoryLabel: 'Dực Tộc Thượng Giới (Thiên Thần / Huyết Dực Tộc)',
+            name: bgId === 'bg_blood_angel' ? 'Đọa Lạc Huyết Dực Chân Thân' : 'Thánh Khiết Dực Tộc Chân Thân',
+            purity: 1.0,
+            purityLabel: 'Dực Tộc Thuần Chủng 100%',
+            age,
+            matureAge,
+            naturalBaseMeters,
+            cultivationMult: 1.0,
+            totalMeters,
+            totalTruong,
+            displayStr: '0.76 trượng (~2.5 mét - Sải cánh 6 mét)',
+            scaleComparison: 'Thể trạng chiến binh Dực Tộc uy nghi 2.5m, sải cánh thánh quang/huyết dực che rợp chiến trường',
+            combatFormDesc: 'Hiển lộ chân thân Dực Tộc cao lớn 2.5m giương đôi cánh 6m tung hoành thương khung, phóng thích thánh quang hoặc huyết diễm quét sạch tà ác!',
+            humanFormMeters,
+            humanFormDisplay,
+            customHeightStr: parsedH.display,
+            hasPhapTuong: true,
+            phapTuongDesc: 'Thánh Quang Thiên Thần / Huyết Ma Dực Tướng rực rỡ sau lưng!'
+        };
+    }
+
+    // 1.3 Tinh Linh Tiên Tộc (Elf / Ám Tinh Linh) - Cao tầm 2.0m (Báo lỗi Dark)
+    const isElf = ['bg_elf', 'bg_dark_elf'].includes(bgId) || 
+                  tNames.includes('Tiên Tộc / Ám Tinh Linh') || 
+                  tNames.some((t: string) => t.toLowerCase().includes('elf') || t.toLowerCase().includes('tinh linh')) || 
+                  customSpecies.includes('elf') || 
+                  customSpecies.includes('tinh linh');
+
+    if (isElf) {
+        const matureAge = 30;
+        const naturalBaseMeters = 2.0;
+        const totalMeters = 2.0;
+        const totalTruong = 0.61;
+
+        return {
+            category: 'elf',
+            categoryLabel: 'Tinh Linh Tiên Tộc (High Elf / Dark Elf)',
+            name: (bgId === 'bg_elf' && state.v1082_ElfRace?.includes('Dark')) ? 'Ám Tinh Linh Chân Thân' : 'Tinh Linh Vương Tộc Chân Thân',
+            purity: 1.0,
+            purityLabel: 'Tinh Linh Thuần Chủng 100%',
+            age,
+            matureAge,
+            naturalBaseMeters,
+            cultivationMult: 1.0,
+            totalMeters,
+            totalTruong,
+            displayStr: '0.61 trượng (~2.0 mét)',
+            scaleComparison: 'Thể trạng Tinh Linh cao ráo thanh thoát 2.0m, khí chất tao nhã, câu thông thiên địa linh khí',
+            combatFormDesc: 'Hiển lộ chân thân Tinh Linh cao 2.0m, cử chỉ phiêu dật, hòa mình vào tự nhiên, thần thức và ngộ tính tăng vọt chấn áp chiến trường!',
+            humanFormMeters,
+            humanFormDisplay,
+            customHeightStr: parsedH.display,
+            hasPhapTuong: false
+        };
+    }
+
+    // Nhánh Thần Thú Thượng Cổ: Long, Phượng, Thao Thiết, Côn Bằng...
+    const isLongToc = ['bg_yeu_thuan_long', 'bg_long_toc', 'bg_vien_co_cu_long'].includes(bgId) || 
+                      tNames.includes('Chân Long Huyết Mạch') || 
+                      tNames.includes('Chân Long Hoàng Tộc') || 
+                      tNames.includes('Viễn Cổ Cự Long') || 
+                      tNames.includes('Nhục Thân Cự Long') || 
+                      customSpecies.includes('long') || customSpecies.includes('rồng');
+
+    const isPhuongToc = ['bg_yeu_thuan_phuong', 'bg_chan_thien_menh'].includes(bgId) || 
+                        tNames.includes('Phượng Hoàng') || 
+                        tNames.includes('Kim Ô') || 
+                        tNames.includes('Chu Tước') || 
+                        customSpecies.includes('phượng') || customSpecies.includes('kim ô');
+
+    const isThaoThietConBang = ['bg_taotie', 'bg_con_bang'].includes(bgId) || 
+                               tNames.includes('Thao Thiết') || 
+                               tNames.includes('Côn Bằng') || 
+                               customSpecies.includes('thao thiết') || customSpecies.includes('côn bằng');
+
+    if (isLongToc || isPhuongToc || isThaoThietConBang) {
+        const matureAge = isPhuongToc ? 80 : 100;
+        const ageRatio = Math.min(1.0, Math.max(0.01, age / matureAge));
+        // Kích thước trưởng thành tự nhiên khi chưa tu luyện (HOENGGG): Long 60 trượng (~198m), Phượng 45 trượng (~148.5m), Thao Thiết 55 trượng (~181.5m), con non < 1m
+        const matureBaseM = isLongToc ? 198.0 : isPhuongToc ? 148.5 : 181.5;
+        const birthBaseM = isLongToc ? 0.9 : isPhuongToc ? 0.6 : 0.85;
+        const naturalBaseMeters = birthBaseM + (matureBaseM - birthBaseM) * ageRatio;
+
+        const thanThuMultMap: Record<number, number> = {
+            1: 1.0, 2: 1.8, 3: 3.5, 4: 7.0, 5: 15.0, 6: 30.0, 7: 60.0, 8: 90.0, 9: 130.0, 10: 180.0,
+            15: 350.0, 18: 500.0, 20: 550.0
+        };
+        let mult = thanThuMultMap[stageId] || 1.0;
+        if (!thanThuMultMap[stageId]) {
+            const keys = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 18, 20];
+            for (let i = 0; i < keys.length - 1; i++) {
+                if (keys[i] <= stageId && stageId <= keys[i + 1]) {
+                    const t = (stageId - keys[i]) / (keys[i + 1] - keys[i]);
+                    mult = thanThuMultMap[keys[i]] + t * (thanThuMultMap[keys[i + 1]] - thanThuMultMap[keys[i]]);
+                    break;
+                }
+            }
+        }
+
+        const totalMeters = naturalBaseMeters * mult * purity;
+        const totalTruong = Math.round((totalMeters / 3.3) * 10) / 10;
+        const kmStr = totalMeters >= 1000 ? ` (~${(totalMeters / 1000).toFixed(1)} km)` : ` (~${Math.round(totalMeters)} m)`;
+        const isKimO = bgId === 'bg_chan_thien_menh' || tNames.includes('Kim Ô') || customSpecies.includes('kim ô');
+        const speciesTitle = isLongToc ? 'Thần Thú Chân Long' : isKimO ? 'Thần Thú Tam Túc Kim Ô' : isPhuongToc ? 'Thần Thú Phượng Hoàng' : 'Thượng Cổ Thần Thú (Thao Thiết / Côn Bằng)';
+
+        return {
+            category: 'than_thu',
+            categoryLabel: `Thượng Cổ Thần Thú (${speciesTitle})`,
+            name: isLongToc ? 'Chân Long Chân Thân' : isKimO ? 'Tam Túc Kim Ô Chân Thân' : isPhuongToc ? 'Thần Phượng Chân Thân' : 'Thượng Cổ Thần Thú Chân Thân',
+            purity,
+            purityLabel,
+            age,
+            matureAge,
+            naturalBaseMeters,
+            cultivationMult: mult,
+            totalMeters,
+            totalTruong,
+            displayStr: `${totalTruong.toLocaleString()} trượng${kmStr}`,
+            scaleComparison: stageId >= 18 ? 'Vạn trượng che trời lấp đất, nguy nga tựa dãy núi khổng lồ trải dài trăm dặm' : stageId >= 7 ? 'Ngàn trượng sơn mạch, uy áp thần thú trấn nhiếp vạn linh bát hoang' : stageId >= 4 ? 'Trăm trượng cự long/phượng hoàng tung hoành phong vân' : 'Thần thú thời kỳ ấu thể đang tích lũy linh khí sinh trưởng',
+            combatFormDesc: `Khi bộc phát chân thân, hiển lộ hình thái ${speciesTitle} dài ${totalTruong.toLocaleString()} trượng${kmStr}, vảy giáp rợp trời, long tức/hỏa diễm cuồn cuộn quét ngang vạn dặm!`,
+            humanFormMeters,
+            humanFormDisplay,
+            customHeightStr: parsedH.display,
+            hasPhapTuong: true,
+            phapTuongDesc: 'Chân Thân Thần Thú Thượng Cổ rực rỡ uy áp, đứng đầu muôn loài Yêu Giới.'
+        };
+    }
+
+    // Nhánh Linh Hồ / Cửu Vĩ Thiên Hồ / Thanh Khâu Hồ Tộc (V3.21 FIX - Báo lỗi lucifinil47)
+    const isHoToc = bgId === 'bg_ho_toc' || bgId === 'bg_yeu_thuan_ho' || 
+                    tNames.includes('Thanh Khâu Hồ Tộc') || tNames.includes('Huyễn Mộng Chân Thể') ||
+                    customSpecies.includes('hồ ly') || customSpecies.includes('hồ tộc') || customSpecies.includes('cáo') || customSpecies.includes('linh hồ');
+
+    if (isHoToc) {
+        const matureAge = 50;
+        const ageRatio = Math.min(1.0, Math.max(0.05, age / matureAge));
+        const matureBaseM = 12.0; // Hồ ly trưởng thành
+        const naturalBaseMeters = 0.5 + (matureBaseM - 0.5) * ageRatio;
+        const hoMultMap: Record<number, number> = {
+            1: 1.0, 2: 2.0, 3: 4.0, 4: 10.0, 5: 25.0, 6: 50.0, 7: 120.0, 8: 200.0, 9: 350.0, 10: 500.0,
+            15: 900.0, 18: 1200.0, 20: 1500.0
+        };
+        let mult = hoMultMap[stageId] || 1.0;
+        const totalMeters = naturalBaseMeters * mult * purity;
+        const totalTruong = Math.round((totalMeters / 3.3) * 10) / 10;
+        const kmStr = totalMeters >= 1000 ? ` (~${(totalMeters / 1000).toFixed(1)} km)` : ` (~${Math.round(totalMeters)} m)`;
+        const hoTitle = bgId === 'bg_ho_toc' ? 'Thanh Khâu Cửu Vĩ Thiên Hồ' : 'Cửu Vĩ Linh Hồ';
+
+        return {
+            category: 'ho_toc',
+            categoryLabel: `Thần Thú Hồ Tộc (${hoTitle})`,
+            name: bgId === 'bg_ho_toc' ? 'Thanh Khâu Cửu Vĩ Thiên Hồ Chân Thân' : 'Cửu Vĩ Linh Hồ Chân Thân',
+            purity,
+            purityLabel,
+            age,
+            matureAge,
+            naturalBaseMeters,
+            cultivationMult: mult,
+            totalMeters,
+            totalTruong,
+            displayStr: `${totalTruong.toLocaleString()} trượng${kmStr}`,
+            scaleComparison: stageId >= 18 ? 'Cửu vĩ che rợp nhật nguyệt, huyễn mộng trấn áp tam giới' : stageId >= 7 ? 'Thân ngàn trượng, chín đuôi hồ ly múa lượn rực rỡ tiên quang' : 'Linh hồ thanh tao, tiên khí và mị lực dạt dào',
+            combatFormDesc: `Khi bộc phát chân thân, hiển lộ hình thái ${hoTitle} cao ${totalTruong.toLocaleString()} trượng${kmStr}, chín đuôi hồ ly vẫy vùng thao túng huyễn thuật và yêu hỏa thiêu đốt địch nhân!`,
+            humanFormMeters,
+            humanFormDisplay,
+            customHeightStr: parsedH.display,
+            hasPhapTuong: true,
+            phapTuongDesc: 'Cửu Vĩ Huyễn Ảnh chấn nhiếp tâm trí vạn linh.'
+        };
+    }
+
+    // Nhánh Cự Thú Tự Nhiên: Hổ, Voi, Gấu, Mãng Xà, Cự Lang...
+    const isCuThu = customSpecies.includes('hổ') || customSpecies.includes('bạch hổ') || 
+                    customSpecies.includes('voi') || customSpecies.includes('gấu') || 
+                    customSpecies.includes('mãng xà') || customSpecies.includes('tê giác') || 
+                    customSpecies.includes('lang') || customSpecies.includes('báo') || 
+                    customSpecies.includes('sư tử');
+
+    if (isCuThu) {
+        const matureAge = 15;
+        const ageRatio = Math.min(1.0, Math.max(0.1, age / matureAge));
+        const naturalBaseMeters = 0.6 + (5.0 - 0.6) * ageRatio; // Sơ sinh 0.6m, trưởng thành 5m
+        
+        const cuThuMultMap: Record<number, number> = {
+            1: 1.0, 2: 2.5, 3: 6.0, 4: 15.0, 5: 35.0, 6: 70.0, 7: 150.0, 8: 250.0, 9: 400.0, 10: 600.0,
+            15: 1000.0, 18: 1300.0, 20: 1500.0
+        };
+        let mult = cuThuMultMap[stageId] || 1.0;
+        if (!cuThuMultMap[stageId]) {
+            const keys = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 18, 20];
+            for (let i = 0; i < keys.length - 1; i++) {
+                if (keys[i] <= stageId && stageId <= keys[i + 1]) {
+                    const t = (stageId - keys[i]) / (keys[i + 1] - keys[i]);
+                    mult = cuThuMultMap[keys[i]] + t * (cuThuMultMap[keys[i + 1]] - cuThuMultMap[keys[i]]);
+                    break;
+                }
+            }
+        }
+
+        const totalMeters = naturalBaseMeters * mult * purity;
+        const totalTruong = Math.round((totalMeters / 3.3) * 10) / 10;
+        const kmStr = totalMeters >= 1000 ? ` (~${(totalMeters / 1000).toFixed(1)} km)` : ` (~${Math.round(totalMeters)} m)`;
+
+        return {
+            category: 'cu_thu',
+            categoryLabel: 'Cự Thú Tự Nhiên (Hổ, Voi, Mãng Xà, Cự Lang)',
+            name: (customSpecies.includes('hổ') || customSpecies.includes('bạch hổ')) ? 'Bạch Hổ Cự Thú Chân Thân' : 'Cự Thú Man Hoang Chân Thân',
+            purity,
+            purityLabel,
+            age,
+            matureAge,
+            naturalBaseMeters,
+            cultivationMult: mult,
+            totalMeters,
+            totalTruong,
+            displayStr: `${totalTruong.toLocaleString()} trượng${kmStr}`,
+            scaleComparison: stageId >= 18 ? 'Cao hơn ngàn trượng sừng sững tựa ngọn sơn phong độc tôn' : stageId >= 7 ? 'Vài trăm trượng tựa ngọn đồi lớn chấn động một phương' : 'Cự thú oai phong dũng mãnh giữa đại ngàn hoang dã',
+            combatFormDesc: `Khi bộc phát chân thân, hóa hình cự thú cao lớn ${totalTruong.toLocaleString()} trượng${kmStr}, nanh vuốt sắc lẹm xé toạc chiến trường!`,
+            humanFormMeters,
+            humanFormDisplay,
+            customHeightStr: parsedH.display,
+            hasPhapTuong: false
+        };
+    }
+
+    // Nhánh Thủy Tộc / Ngư Tộc
+    if (bgId === 'bg_yeu_thuan_ngu' || customSpecies.includes('cá') || customSpecies.includes('ngư') || customSpecies.includes('kình')) {
+        const matureAge = 10;
+        const ageRatio = Math.min(1.0, Math.max(0.1, age / matureAge));
+        const naturalBaseMeters = 0.3 + (3.0 - 0.3) * ageRatio;
+        const nguMultMap: Record<number, number> = { 1: 1.0, 2: 2.0, 3: 5.0, 4: 15.0, 7: 100.0, 10: 400.0, 18: 1000.0, 20: 1200.0 };
+        const mult = nguMultMap[stageId] || (stageId >= 7 ? 100.0 : 5.0);
+        const totalMeters = naturalBaseMeters * mult * purity;
+        const totalTruong = Math.round((totalMeters / 3.3) * 10) / 10;
+        const kmStr = totalMeters >= 1000 ? ` (~${(totalMeters / 1000).toFixed(1)} km)` : ` (~${Math.round(totalMeters)} m)`;
+
+        return {
+            category: 'ngu_toc',
+            categoryLabel: 'Thủy Tộc Hải Thần (Linh Ngư / Cự Kình Biển Sâu)',
+            name: 'Hải Thần Ngư Tộc Chân Thân',
+            purity,
+            purityLabel,
+            age,
+            matureAge,
+            naturalBaseMeters,
+            cultivationMult: mult,
+            totalMeters,
+            totalTruong,
+            displayStr: `${totalTruong.toLocaleString()} trượng${kmStr}`,
+            scaleComparison: stageId >= 7 ? 'Cự kình biển sâu trăm trượng cuộn sóng thần nhấn chìm hải vực' : 'Linh ngư bơi lượn dưới đáy đại dương',
+            combatFormDesc: `Khi hiển lộ chân thân dưới nước, hóa thành linh ngư/cự kình dài ${totalTruong.toLocaleString()} trượng${kmStr} hô phong hoán vũ!`,
+            humanFormMeters,
+            humanFormDisplay,
+            customHeightStr: parsedH.display,
+            hasPhapTuong: false
+        };
+    }
+
+    // Nhánh Dị Chủng / Dã Thú Nhỏ: Chuột, Miêu, Thỏ, Linh Điểu, Côn Trùng...
+    // 1.8 Yêu Tu Nhân Tộc / Thái Cổ Ngự Yêu Sư / Tiên Thiên Đại Yêu (Báo lỗi Hoàng Đạt)
+    const isYeuTuHumanoid = (path === 'yeu_tu' || tNames.includes('Thái Cổ Ngự Yêu Sư') || tNames.includes('Tiên Thiên Đại Yêu') || /(thông trí|khai quang|yêu đan|hóa hình|yêu tướng|yêu vương|yêu hoàng|yêu đế|thái cổ yêu tổ)/i.test(String(state.cultivationLevel || ''))) && !isPureYeuTocBg(bgId) && !['bg_yeu_thuan_long', 'bg_yeu_thuan_phuong', 'bg_yeu_thuan_mieu', 'bg_yeu_thuan_ho', 'bg_yeu_thuan_dieu', 'bg_yeu_thuan_di_toc', 'bg_yeu_thuan_ngu'].includes(bgId);
+
+    if (isYeuTuHumanoid) {
+        const matureAge = 30;
+        const naturalBaseMeters = 2.0;
+        const ytMultMap: Record<number, number> = { 1: 1.5, 4: 15.0, 7: 80.0, 10: 400.0, 15: 1200.0, 18: 3000.0, 20: 5000.0 };
+        const mult = ytMultMap[stageId] || (stageId >= 7 ? 80.0 : 5.0);
+        const totalMeters = naturalBaseMeters * mult;
+        const totalTruong = Math.round((totalMeters / 3.3) * 10) / 10;
+        const kmStr = totalMeters >= 1000 ? ` (~${(totalMeters / 1000).toFixed(1)} km)` : ` (~${Math.round(totalMeters)} m)`;
+
+        return {
+            category: 'yeu_than',
+            categoryLabel: 'Thái Cổ Yêu Thần / Đại Yêu Viễn Cổ (Yêu Tu Bản Nguyên)',
+            name: tNames.includes('Thái Cổ Ngự Yêu Sư') ? 'Thái Cổ Yêu Thần Chân Thân' : 'Thái Cổ Yêu Hoàng Chân Thân',
+            purity: 1.0,
+            purityLabel: 'Huyết Mạch Yêu Thần Khởi Nguyên 100%',
+            age,
+            matureAge,
+            naturalBaseMeters,
+            cultivationMult: mult,
+            totalMeters,
+            totalTruong,
+            displayStr: `${totalTruong.toLocaleString()} trượng${kmStr}`,
+            scaleComparison: stageId >= 7 ? 'Sừng sững che trời lấp đất, khí huyết ngút ngàn, uy áp yêu thần chấn động càn khôn' : 'Cự thú trăm trượng uy dũng phi thường',
+            combatFormDesc: `Khi hiển hóa chân thân, bộc phát 100% thực lực bản nguyên (tăng gấp đôi so với khi ở Nhân Thể), yêu khí rợp trời, móng vuốt xé rách hư không, uy áp vô địch!`,
+            humanFormMeters,
+            humanFormDisplay,
+            customHeightStr: parsedH.display,
+            hasPhapTuong: true,
+            phapTuongDesc: 'Yêu Thần Pháp Thân ngưng tụ yêu lực cửu u chấn nhiếp chư thiên!'
+        };
+    }
+
+    const isDaThuNho = bgId === 'bg_yeu_thuan_mieu' || bgId === 'bg_yeu_thuan_dieu' || 
+                       customSpecies.includes('chuột') || customSpecies.includes('thỏ') || 
+                       customSpecies.includes('miêu') || customSpecies.includes('mèo') || 
+                       customSpecies.includes('chim') || customSpecies.includes('điểu') || 
+                       customSpecies.includes('thử') || customSpecies.includes('ong') || 
+                       customSpecies.includes('bọ');
+
+    if (isDaThuNho) {
+        const matureAge = 3;
+        const ageRatio = Math.min(1.0, Math.max(0.1, age / matureAge));
+        const naturalBaseMeters = 0.2 + (1.0 - 0.2) * ageRatio; // Sơ sinh 0.2m, trưởng thành 1m
+        
+        const daThuMultMap: Record<number, number> = {
+            1: 1.0, 2: 2.0, 3: 4.0, 4: 8.0, 5: 15.0, 6: 25.0, 7: 35.0, 8: 50.0, 9: 65.0, 10: 80.0,
+            15: 100.0, 18: 110.0, 20: 120.0
+        };
+        let mult = daThuMultMap[stageId] || 1.0;
+        if (!daThuMultMap[stageId]) {
+            const keys = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 18, 20];
+            for (let i = 0; i < keys.length - 1; i++) {
+                if (keys[i] <= stageId && stageId <= keys[i + 1]) {
+                    const t = (stageId - keys[i]) / (keys[i + 1] - keys[i]);
+                    mult = daThuMultMap[keys[i]] + t * (daThuMultMap[keys[i + 1]] - daThuMultMap[keys[i]]);
+                    break;
+                }
+            }
+        }
+
+        const totalMeters = naturalBaseMeters * mult * purity;
+        const totalTruong = Math.round((totalMeters / 3.3) * 10) / 10;
+
+        return {
+            category: 'da_thu_nho',
+            categoryLabel: 'Dị Chủng & Dã Thú Nhỏ (Chuột, Miêu, Thỏ, Linh Điểu)',
+            name: bgId.includes('mieu') ? 'Cửu Mệnh Linh Miêu Chân Thân' : bgId.includes('dieu') ? 'Thiên Linh Điểu Chân Thân' : 'Dị Chủng Linh Thú Chân Thân',
+            purity,
+            purityLabel,
+            age,
+            matureAge,
+            naturalBaseMeters,
+            cultivationMult: mult,
+            totalMeters,
+            totalTruong,
+            displayStr: `${totalTruong.toLocaleString()} trượng (~${Math.round(totalMeters)} mét)`,
+            scaleComparison: stageId >= 7 ? 'Cỡ cây cổ thụ ngàn năm hoặc một gian đình viện lớn, cực kỳ tinh xảo, linh hoạt và ẩn nấp' : 'Hình hài nhỏ gọn, nhanh như chớp giật',
+            combatFormDesc: `Khi bộc phát bản thể, giữ trọn kích thước tinh gọn ${totalTruong.toLocaleString()} trượng (~${Math.round(totalMeters)} m), né tránh ảo diệu, tốc độ bạt mạng và xuất quỷ nhập thần!`,
+            humanFormMeters,
+            humanFormDisplay,
+            customHeightStr: parsedH.display,
+            hasPhapTuong: false
+        };
+    }
+
+    // V2.2 (Báo lỗi Dark): Nhánh Ma Tộc / Mị Ma / Bán Ma - Khóa cứng không bị phán thành Nhân Tộc thuần chủng
+    const isMaTocOrSuccubus = ['bg_succubus', 'bg_19', 'bg_thi_am_tong', 'bg_hu_khong', 'bg_blood_angel'].includes(bgId) || 
+                              tNames.includes('Bán Mị Ma (Huyết Mạch Lai)') || 
+                              tNames.includes('Bán Ma (Huyết Mạch Lai)') || 
+                              tNames.includes('Hợp Hoan Mị Cốt') || 
+                              tNames.includes('Thiên Ma Thể') || 
+                              tNames.includes('Ma Tôn Chuyển Thế') || 
+                              path === 'ma_tu';
+
+    if (isMaTocOrSuccubus) {
+        const isBanMa = tNames.includes('Bán Mị Ma (Huyết Mạch Lai)') || tNames.includes('Bán Ma (Huyết Mạch Lai)');
+        return {
+            category: 'ma_toc',
+            categoryLabel: 'Ma Giới Chân Ma (Mị Ma / Cực Đạo Ma Thể / Hư Không Ma Tộc)',
+            name: (tNames.includes('Bán Mị Ma (Huyết Mạch Lai)') || bgId === 'bg_succubus') ? 'Mị Ma Chân Thân' : 'Ma Thần Bản Nguyên Chân Thân',
+            purity: isBanMa ? 0.5 : 1.0,
+            purityLabel: isBanMa ? 'Bán Ma Huyết Mạch (50% Ma Khí)' : 'Ma Tộc Thuần Chủng 100%',
+            age,
+            matureAge: 20,
+            naturalBaseMeters: 1.75,
+            cultivationMult: 1.0,
+            totalMeters: 1.75,
+            totalTruong: 0.53,
+            displayStr: '0.53 trượng (~1.75 mét)',
+            scaleComparison: 'Thể trạng Ma Tộc tinh xảo mị hoặc hoặc uy nghiêm ma đạo',
+            combatFormDesc: 'Bản thể Ma Tộc ngưng tụ ma khí hộ thể, đồng tử ma nhãn hoặc mị nhãn câu hồn, vận chuyển ma lực xé rách đạo pháp.',
+            humanFormMeters,
+            humanFormDisplay,
+            customHeightStr: parsedH.display,
+            hasPhapTuong: true,
+            phapTuongDesc: 'Chân Ma Pháp Tướng ngập tràn ma khí tựa Ma Thần viễn cổ!'
+        };
+    }
+
+    // Nhánh Thảo Mộc / Dị Thạch Thành Tinh
+    const isThaoThach = ['bg_21', 'bg_22', 'bg_23'].includes(bgId) || 
+                        tNames.includes('Thạch Thần Bất Diệt') || 
+                        tNames.includes('Bảo Vật Hóa Hình');
+    if (isThaoThach) {
+        const matureAge = 30;
+        const ageRatio = Math.min(1.0, Math.max(0.1, age / matureAge));
+        const naturalBaseMeters = 0.5 + (3.0 - 0.5) * ageRatio;
+        const ttMultMap: Record<number, number> = { 1: 1.0, 4: 10.0, 7: 100.0, 10: 500.0, 18: 1500.0, 20: 2000.0 };
+        const mult = ttMultMap[stageId] || (stageId >= 7 ? 100.0 : 5.0);
+        const totalMeters = naturalBaseMeters * mult;
+        const totalTruong = Math.round((totalMeters / 3.3) * 10) / 10;
+        const kmStr = totalMeters >= 1000 ? ` (~${(totalMeters / 1000).toFixed(1)} km)` : ` (~${Math.round(totalMeters)} m)`;
+
+        return {
+            category: 'thao_thach',
+            categoryLabel: 'Dị Thảo & Thạch Tinh Thành Tinh',
+            name: bgId === 'bg_21' ? 'Thạch Thần Bản Nguyên Chân Thân' : 'Cổ Thụ Thần Mộc Chân Thân',
+            purity: 1.0,
+            purityLabel: 'Linh Tinh Khởi Sinh 100%',
+            age,
+            matureAge,
+            naturalBaseMeters,
+            cultivationMult: mult,
+            totalMeters,
+            totalTruong,
+            displayStr: `${totalTruong.toLocaleString()} trượng${kmStr}`,
+            scaleComparison: stageId >= 7 ? 'Cổ thụ nghìn trượng cắm rễ vào đại địa, cự thạch chọc thủng tầng mây' : 'Linh mộc cự thạch nguyên bản',
+            combatFormDesc: `Khi bộc phát bản nguyên, hiển lộ chân thân thảo mộc/dị thạch khổng lồ ${totalTruong.toLocaleString()} trượng${kmStr} đè ép hư không!`,
+            humanFormMeters,
+            humanFormDisplay,
+            customHeightStr: parsedH.display,
+            hasPhapTuong: false
+        };
+    }
+
+    // Nhánh Nhân Tộc & Các Hệ Tu Khác (Pháp Tu, Kiếm Tu, Thể Tu Nhân Tộc...)
+    const hasPttdSkill = (state.journal?.skills || []).some((s: any) => s && /pháp thiên tượng địa/i.test(s.name || ''));
+    const canSummonPhapTuong = stageId >= 18 || hasPttdSkill;
+    const phapTuongTruong = canSummonPhapTuong ? Math.min(3300, Math.round(stageId * 165)) : 0;
+
+    const nhanTocTruong = Math.round((humanFormMeters / 3.3) * 100) / 100;
+    return {
+        category: 'nhan_toc',
+        categoryLabel: canSummonPhapTuong ? 'Nhân Tộc Đại Năng (Ngưng Tụ Pháp Tướng Hộ Thể)' : 'Nhân Tộc Phàm Thân',
+        name: canSummonPhapTuong ? 'Đại Đạo Pháp Tướng Hộ Thể' : 'Nhân Tộc Thể Phách',
+        purity: 1.0,
+        purityLabel: 'Nhân Tộc Thuần Chủng 100%',
+        age,
+        matureAge: 18,
+        naturalBaseMeters: baseH,
+        cultivationMult: humanMult,
+        totalMeters: humanFormMeters,
+        totalTruong: nhanTocTruong,
+        displayStr: canSummonPhapTuong 
+            ? `Nhục thân ${nhanTocTruong} trượng (~${humanFormDisplay}) | Pháp Tướng: ${phapTuongTruong.toLocaleString()} trượng (~${Math.round(phapTuongTruong * 3.3 / 1000)} km)`
+            : `${nhanTocTruong} trượng (~${humanFormDisplay})`,
+        scaleComparison: canSummonPhapTuong 
+            ? `Quy mô Pháp Tướng tối đa bằng 1/3 Chân Thân Thần Thú Yêu Tộc cùng cấp (${phapTuongTruong.toLocaleString()} trượng)`
+            : `Thể trạng nhân tộc ${humanFormDisplay}, vóc dáng thon gọn linh hoạt điều khiển vạn pháp`,
+        combatFormDesc: canSummonPhapTuong 
+            ? `Chiến đấu với thể trạng nhân tộc linh hoạt ${humanFormDisplay}, khi lâm trận có thể ngưng tụ Đại Đạo Pháp Tướng khổng lồ cao ${phapTuongTruong.toLocaleString()} trượng hộ thể phía sau!`
+            : `Nhục thân con người ${humanFormDisplay}, thi triển kiếm khí đạo pháp thanh thoát.`,
+        hasPhapTuong: canSummonPhapTuong,
+        phapTuongDesc: canSummonPhapTuong ? `Pháp Tướng Hộ Thể cao ${phapTuongTruong.toLocaleString()} trượng (khoảng 1/3 Chân Thân Yêu Thần).` : undefined,
+        humanFormMeters,
+        humanFormDisplay,
+        customHeightStr: parsedH.display
+    };
+};
+
+// =========================================================================
+// PHẦN III & IV (GDD): THIẾT KẾ ĐỊA HÌNH CỐ ĐỊNH & DÒNG THỜI GIAN NGUYÊN TÁC
+// =========================================================================
+

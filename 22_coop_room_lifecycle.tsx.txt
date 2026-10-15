@@ -1,0 +1,531 @@
+  const fetchCoopRooms = async (silent = false) => {
+      if (!silent) setIsLoadingRooms(true);
+      try {
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_4S')), 4000));
+          const snap = await Promise.race([
+              getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'coop_rooms')),
+              timeoutPromise
+          ]);
+          const rooms = [];
+          snap.forEach(doc => {
+              const d = doc.data();
+              if (d && typeof d === 'object') {
+                  if (!Array.isArray(d.players)) d.players = [];
+                  rooms.push(d);
+              }
+          });
+          // V2.90 FIX: Phòng thủ Array.isArray(r.players) chống TypeError văng trắng màn hình
+          const validRooms = rooms.filter(r => r && (r.status === 'waiting' || (Array.isArray(r.players) && r.players.some(p => p && p.uid === user?.uid)))).sort((a,b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+          setAvailableRooms(validRooms);
+      } catch(e) { console.error("Lỗi tải phòng Liên Giới:", e); }
+      if (!silent) setIsLoadingRooms(false);
+  };
+
+  // V5.37: Vòng lặp nhịp tim 5 giây quét Thiên Bảng (Chỉ chạy khi đang mở tab Nhập Giới)
+  useEffect(() => {
+      let intervalId;
+      if (menuTab === 'coop' && coopTab === 'join') {
+          fetchCoopRooms(true); // Lấy lần đầu khi vừa mở tab
+          intervalId = setInterval(() => {
+              fetchCoopRooms(true); // Tự động lấy lại mỗi 5s (chế độ im lặng)
+          }, 5000);
+      }
+      return () => {
+          if (intervalId) clearInterval(intervalId); // Tự động dọn dẹp khi chuyển tab/vào game
+      };
+  }, [menuTab, coopTab, user?.uid]);
+
+  const createCoopRoom = async () => {
+      if (checkSpam()) return;
+      let activeUser = user;
+      if (!activeUser) {
+          try {
+              const cred = await signInAnonymously(auth);
+              activeUser = cred.user;
+              setUser(activeUser);
+          } catch(e) {
+              return showAlert("Chưa thể kết nối Đám Mây Thiên Đạo. Vui lòng kiểm tra kết nối mạng!");
+          }
+      }
+      
+      let finalCode = (coopConfig.customCode || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (!finalCode) finalCode = Math.random().toString(36).substring(2, 8).toUpperCase(); 
+      
+      setDialog({ type: 'loading', message: `Đang mở cổng Liên Giới [${finalCode}]...` });
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', finalCode);
+          const snap = await getDoc(roomRef);
+          if (snap.exists()) {
+              closeDialog();
+              return showAlert(`Mã Liên Giới [${finalCode}] đã có người cai quản. Vui lòng chọn mã khác!`);
+          }
+          
+          const hostName = coopNickname.trim() || 'Đạo Hữu Vô Danh'; 
+          const roomData = {
+              id: finalCode, hostUid: user?.uid, maxPlayers: coopConfig.maxPlayers,
+              password: coopConfig.password.trim(), status: 'waiting', createdAt: Date.now(),
+              gameVersion: GAME_VERSION, worldLog: [], liveIntents: [], 
+              players: [{ uid: user?.uid, name: hostName, isReady: false, isHost: true }]
+          };
+          
+          await setDoc(roomRef, roomData);
+          addMyRoom(finalCode); // V5.18: Nhớ phòng vừa tạo
+          setCurrentCoopRoom(roomData);
+          
+          // V5.32: Gắn ấn ký Chủ Phòng vào nhân vật
+          setGameState(prev => ({ ...prev, coopRoomHost: finalCode }));
+          
+          setCoopTab('lobby');
+          closeDialog();
+      } catch (err) { closeDialog(); showAlert("Lỗi tạo phòng Liên Giới: " + err.message); }
+  };
+
+  const joinCoopRoom = async () => {
+      if (checkSpam()) return;
+      let activeUser = user;
+      if (!activeUser) {
+          try {
+              const cred = await signInAnonymously(auth);
+              activeUser = cred.user;
+              setUser(activeUser);
+          } catch(e) {
+              return showAlert("Chưa thể kết nối Đám Mây Thiên Đạo. Vui lòng kiểm tra kết nối mạng!");
+          }
+      }
+      const finalCode = (coopJoinCode || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (!finalCode) return showAlert("Vui lòng nhập Mã Thế Giới!");
+
+      setDialog({ type: 'loading', message: `Đang tìm kiếm Liên Giới [${finalCode}]...` });
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', finalCode);
+          const snap = await getDoc(roomRef);
+          if (!snap.exists()) { closeDialog(); return showAlert(`Không tìm thấy Thế Giới nào mang mã [${finalCode}]!`); }
+          
+          const roomData = snap.data();
+          if (!Array.isArray(roomData.players)) roomData.players = [];
+          if (roomData.hostUid === user?.uid && roomData.gameVersion !== GAME_VERSION) {
+              await setDoc(roomRef, { gameVersion: GAME_VERSION }, { merge: true });
+          } else if (roomData.gameVersion && roomData.gameVersion !== GAME_VERSION) {
+              console.warn(`Phiên bản phòng khác với phiên bản của bạn.`);
+          }
+
+          if (roomData.status === 'playing') {
+              addMyRoom(finalCode); // V5.18
+              setCurrentCoopRoom({ id: finalCode, ...roomData }); 
+              setCoopTab('reconnect'); 
+              closeDialog(); 
+              return;
+          }
+
+          if (roomData.players.length >= roomData.maxPlayers && !roomData.players.some(p => p.uid === user?.uid)) {
+              closeDialog(); return showAlert(`Thế Giới [${finalCode}] đã đầy (${roomData.maxPlayers}/${roomData.maxPlayers})!`);
+          }
+          
+          if (roomData.password && !roomData.players.some(p => p.uid === user?.uid)) {
+              closeDialog();
+              // V9.21: Đặc quyền Admin vào phòng có pass không cần hỏi
+              if (isAdminLoggedIn) {
+                  setDialog({ type: 'loading', message: `[Đặc Quyền Admin] Đang xuyên thủng kết giới tiến vào Liên Giới [${finalCode}]...` });
+                  try {
+                      const guestName = '[Admin] ' + (coopNickname.trim() || 'Giám Sát Viên');
+                      roomData.players.push({ uid: user?.uid, name: guestName, isReady: false, isHost: false });
+                      await setDoc(roomRef, { players: roomData.players }, { merge: true });
+                      addMyRoom(finalCode);
+                      setCurrentCoopRoom({ id: finalCode, ...roomData });
+                      setCoopTab('lobby');
+                      closeDialog();
+                  } catch (e) { closeDialog(); showAlert("Lỗi vào phòng: " + e.message); }
+                  return;
+              }
+
+              showPrompt(`Thế giới [${finalCode}] đang được phong tỏa bởi kết giới (Mật khẩu).\nVui lòng nhập mật khẩu để đi qua:`, async (pwdInput) => {
+                  if (!pwdInput) return;
+                  if (pwdInput !== roomData.password) return showAlert("Mật khẩu không chính xác! Ngươi đã bị kết giới đẩy lùi.");
+                  setDialog({ type: 'loading', message: `Mật khẩu chính xác! Đang tiến vào Liên Giới [${finalCode}]...` });
+                  try {
+                      const guestName = coopNickname.trim() || 'Khách Xuyên Không';
+                      roomData.players.push({ uid: user?.uid, name: guestName, isReady: false, isHost: false });
+                      await setDoc(roomRef, { players: roomData.players }, { merge: true });
+                      addMyRoom(finalCode); // V5.18
+                      setCurrentCoopRoom({ id: finalCode, ...roomData });
+                      setCoopTab('lobby');
+                      closeDialog();
+                  } catch (e) { closeDialog(); showAlert("Lỗi vào phòng: " + e.message); }
+              }, "Nhập mật khẩu phòng...", true);
+              return; 
+          }
+
+          if (!roomData.players.some(p => p.uid === user?.uid)) {
+              const guestName = coopNickname.trim() || 'Khách Xuyên Không'; 
+              roomData.players.push({ uid: user?.uid, name: guestName, isReady: false, isHost: false });
+              await setDoc(roomRef, { players: roomData.players }, { merge: true });
+          }
+          addMyRoom(finalCode); // V5.18
+          setCurrentCoopRoom({ id: finalCode, ...roomData });
+          setCoopTab('lobby');
+          closeDialog();
+      } catch (err) { closeDialog(); showAlert("Lỗi nhập giới: " + err.message); }
+  };
+
+  // V5.18: Hàm Tái Kết Nối từ "Phòng Của Bạn"
+  const handleRejoinMyRoom = async (roomId) => {
+      if (checkSpam() || !user) return;
+      setDialog({ type: 'loading', message: `Đang dò tìm tọa độ không gian Liên Giới [${roomId}]...` });
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', roomId);
+          const snap = await getDoc(roomRef);
+          if (!snap.exists()) {
+              closeDialog();
+              removeMyRoom(roomId); // Xóa khỏi danh sách nếu phòng đã bị hủy
+              return showAlert(`Dị giới [${roomId}] đã sụp đổ hoặc bị Chủ Phòng hủy diệt. Đã xóa khỏi thẻ ghi nhớ của bạn.`);
+          }
+          const roomData = snap.data();
+          setCurrentCoopRoom({ id: roomId, ...roomData });
+          setCoopTab(roomData.status === 'playing' ? 'reconnect' : 'lobby');
+          closeDialog();
+      } catch (e) { closeDialog(); showAlert("Lỗi tái kết nối: " + e.message); }
+  };
+
+  useEffect(() => {
+      if (menuTab !== 'coop' || (coopTab !== 'lobby' && coopTab !== 'reconnect') || !currentCoopRoom || !user) return;
+      const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+      const unsubscribe = onSnapshot(roomRef, (snap) => {
+          if (snap.exists()) {
+              const data = snap.data();
+              setCurrentCoopRoom({ id: snap.id, ...data });
+              
+              if (data.status === 'playing' && coopTab === 'lobby') {
+                  setGameState(prev => ({...prev, gameMode: 'coop'}));
+                  setMenuTab('create');
+              }
+          } else {
+              showAlert("Thế Giới này đã bị Chủ Phòng hủy diệt!");
+              setCoopTab('select'); setCurrentCoopRoom(null); removeMyRoom(currentCoopRoom.id); // V5.18
+          }
+      }, (err) => console.error("Lỗi đồng bộ phòng:", err));
+      return () => unsubscribe();
+  }, [menuTab, coopTab, currentCoopRoom?.id, user]);
+
+  const toggleCoopReady = async () => {
+      if (!currentCoopRoom || !user) return;
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+          const rSnap = await getDoc(roomRef);
+          if (rSnap.exists()) {
+              const newPlayers = rSnap.data().players.map(p => p.uid === user?.uid ? { ...p, isReady: !p.isReady } : p);
+              await setDoc(roomRef, { players: newPlayers }, { merge: true });
+          }
+      } catch (e) {}
+  };
+
+  const startCoopGame = async () => {
+      if (!currentCoopRoom || currentCoopRoom.hostUid !== user?.uid) return;
+      const allReady = (currentCoopRoom.players || []).every(p => p.isHost || p.isReady);
+      if (!allReady) return showAlert("Tất cả Đạo hữu khách mời phải [Chuẩn Bị] xong mới có thể mở cổng Luân Hồi!");
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+          await setDoc(roomRef, { status: 'playing' }, { merge: true });
+          showAlert("Cổng Đa Vũ Trụ đã mở! (Giai đoạn 3 sẽ điều hướng mọi người vào tạo nhân vật chung)");
+      } catch (e) {}
+  };
+
+  // V5.42: Xử phạt PVP và sửa logic thoát phòng
+  const leaveCoopRoom = async () => {
+      if (!currentCoopRoom || !user) return;
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+          const snap = await getDoc(roomRef);
+          if (snap.exists()) {
+              const data = snap.data();
+              let updateData = {};
+
+              // Phạt thoát PVP
+              if (data.pvpMatch && data.pvpMatch.status === 'playing') {
+                  const match = data.pvpMatch;
+                  const isP1 = match.p1.uid === user?.uid;
+                  const isP2 = match.p2.uid === user?.uid;
+                  
+                  if (isP1 || isP2) {
+                      let newP1 = { ...match.p1 };
+                      let newP2 = { ...match.p2 };
+                      let escaperName = isP1 ? newP1.name : newP2.name;
+                      let winnerName = isP1 ? newP2.name : newP1.name;
+
+                      if (isP1) newP1.hp = 0; else newP2.hp = 0;
+                      
+                      const escapeLog = { type: 'system', text: `🏃 ĐẠO TÂM VỠ NÁT! [${escaperName}] đã sợ hãi bỏ chạy khỏi Liên Giới (Offline). Xử thua lập tức! 🏆 Chiến thắng thuộc về [${winnerName}]!` };
+                      
+                      updateData.pvpMatch = { 
+                          ...match, p1: newP1, p2: newP2, status: 'finished', 
+                          currentTurnUid: null, logs: [...match.logs, escapeLog] 
+                      };
+                  }
+              }
+
+              if (data.status === 'playing') {
+                  updateData.players = data.players.map(p => p.uid === user?.uid ? { ...p, isOnline: false } : p);
+                  await setDoc(roomRef, updateData, { merge: true });
+              } else {
+                  if (data.hostUid === user?.uid) {
+                      await deleteDoc(roomRef);
+                      removeMyRoom(currentCoopRoom.id);
+                  } else {
+                      updateData.players = data.players.filter(p => p.uid !== user?.uid);
+                      await setDoc(roomRef, updateData, { merge: true });
+                      removeMyRoom(currentCoopRoom.id);
+                  }
+              }
+          }
+      } catch (e) {}
+      setCoopTab('select'); setCurrentCoopRoom(null); setIsArenaOpen(false);
+  };
+
+  // V5.19: Chức năng Hủy Diệt Thế Giới (Dành riêng cho Host)
+  const destroyCoopRoom = async () => {
+      if (!currentCoopRoom || currentCoopRoom.hostUid !== user?.uid) return;
+      showConfirm("CẢNH BÁO TỐI CAO!\nHành động này sẽ XÓA VĨNH VIỄN toàn bộ thế giới và nhân vật của tất cả mọi người trong phòng này. Bạn có chắc chắn muốn Hủy Diệt?", async () => {
+          try {
+              const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+              await deleteDoc(roomRef);
+              removeMyRoom(currentCoopRoom.id);
+              setCoopTab('select'); setCurrentCoopRoom(null);
+              showAlert("Thế giới đã bị hủy diệt thành cát bụi!");
+          } catch(e) {}
+      });
+  };
+
+  // V5.39: Thoát vĩnh viễn (Xóa data nhân vật khỏi phòng & gỡ thẻ)
+  const leaveCoopRoomPermanently = async () => {
+      if (!currentCoopRoom || !user) return;
+      if (currentCoopRoom.hostUid === user?.uid) {
+          showConfirm("Bạn là Chủ Phòng! Thoát vĩnh viễn sẽ HỦY DIỆT hoàn toàn thế giới này.\nNếu muốn giữ lại thế giới cho người khác chơi, hãy 'Chuyển Nhượng Chủ Phòng' cho họ trước.\n\nBạn có chắc chắn muốn Hủy Diệt thế giới?", async () => {
+              destroyCoopRoom(); 
+          });
+          return;
+      }
+
+      showConfirm("Hành động này sẽ XÓA VĨNH VIỄN nhân vật Liên Giới của bạn khỏi phòng này, đồng thời gỡ bỏ Lối Tắt ở Danh Sách.\n\nBạn không thể khôi phục lại nhân vật này. Xác nhận thoát?", async () => {
+          setDialog({ type: 'loading', message: 'Đang xóa bỏ nhân quả khỏi Đa Vũ Trụ...' });
+          try {
+              const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+              const snap = await getDoc(roomRef);
+              if (snap.exists()) {
+                  const rData = snap.data();
+                  const newPlayers = rData.players.filter(p => p.uid !== user?.uid);
+                  await setDoc(roomRef, { players: newPlayers }, { merge: true });
+              }
+              
+              // Tự động tìm và xóa thẻ Profile ở ngoài Danh Sách
+              const profileToDelete = profiles.find(p => p.coopRoomId === currentCoopRoom.id || p.gameState?.coopRoomHost === currentCoopRoom.id);
+              if (profileToDelete) {
+                  await deleteDoc(doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', profileToDelete.id));
+                  if (currentProfileId === profileToDelete.id) setCurrentProfileId(null);
+              }
+
+              removeMyRoom(currentCoopRoom.id);
+              setCoopTab('select');
+              setCurrentCoopRoom(null);
+              closeDialog();
+              showAlert("Đã cắt đứt nhân quả và rời khỏi thế giới vĩnh viễn!");
+          } catch(e) {
+              closeDialog();
+              showAlert("Lỗi khi thoát: " + e.message);
+          }
+      });
+  };
+
+  // V5.39: Chuyển nhượng quyền Chủ Phòng
+  const transferHost = (targetPlayer) => {
+      showConfirm(`Bạn muốn nhường quyền Chủ Phòng (Host) cho Đạo hữu [${targetPlayer.name || targetPlayer.characterName}]?\n\nSau khi chuyển, bạn sẽ trở thành Khách và mất quyền Hủy Diệt/Trục Xuất.`, async () => {
+          setDialog({ type: 'loading', message: 'Đang chuyển giao quyền lực Thiên Đạo...' });
+          try {
+              const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+              const newPlayers = (currentCoopRoom.players || []).map(p => {
+                  if (p.uid === targetPlayer.uid) return { ...p, isHost: true };
+                  if (p.uid === user?.uid) return { ...p, isHost: false };
+                  return p;
+              });
+              await setDoc(roomRef, { hostUid: targetPlayer.uid, players: newPlayers }, { merge: true });
+              closeDialog();
+              showAlert("Đã chuyển giao quyền Chủ Phòng thành công!");
+          } catch(e) {
+              closeDialog();
+              showAlert("Lỗi chuyển quyền: " + e.message);
+          }
+      });
+  };
+
+  const handleRefreshCoopData = async (e) => {
+          if (e) e.stopPropagation(); 
+          if (!currentCoopRoom || isRefreshingCoop) return;
+          setIsRefreshingCoop(true);
+          try {
+              const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+              const snap = await getDoc(roomRef);
+              if (snap.exists()) setCurrentCoopRoom({ id: snap.id, ...snap.data() });
+          } catch (error) { console.error("Lỗi làm mới:", error); }
+          setTimeout(() => setIsRefreshingCoop(false), 800); 
+  };
+
+  // V5.42: Vòng lặp Tự động làm mới Liên Giới Ký (Cố định 0.5 giây)
+  useEffect(() => {
+      let intervalId;
+      if (gameState.gameMode === 'coop' && currentCoopRoom) {
+          intervalId = setInterval(() => { handleRefreshCoopData(); }, 500); // Khóa cứng 500ms
+      }
+      return () => clearInterval(intervalId);
+  }, [gameState.gameMode, currentCoopRoom?.id]);
+
+  // V5.34: Tự Động Nhớ Mã Phòng, Chống Đẻ ID Mới & Bảo Tồn Liên Giới Ký
+  const handleLoadCoopProfile = async (p) => {
+      if (checkSpam()) return;
+      const tempState = safeDecompress(p.gameStateStr) || p.gameState || {};
+      const savedPwd = tempState.coopPassword || '';
+      
+      // V5.33: Tự trích xuất Mã Phòng đã lưu thay vì bắt gõ tay
+      const autoRoomId = p.coopRoomId || tempState.lastCoopRoomId || tempState.coopRoomHost;
+
+      const connectToRoom = async (roomId) => {
+          const finalCode = roomId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+          setDialog({ type: 'loading', message: `Đang dò tìm tọa độ Liên Giới [${finalCode}]...` });
+          try {
+              const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', finalCode);
+              const snap = await getDoc(roomRef);
+              
+              if (!snap.exists()) { 
+                  closeDialog(); 
+                  // V2.90 FIX: Tự động cho phép chuyển đổi sang Chơi Đơn (Chân Thực) nếu phòng không còn trên Đám Mây
+                  if (tempState.coopRoomHost === finalCode) {
+                      setTimeout(() => {
+                          showConfirm(`Liên Giới [${finalCode}] không còn tồn tại trên Đám Mây!\n\nNhận diện Ấn Ký Chủ Phòng. Bạn có muốn TÁI KIẾN TẠO lại thế giới này không?\n(Nếu chọn Hủy, nhân vật sẽ được chuyển sang Chơi Đơn Chân Thực).`, () => {
+                              setTimeout(() => {
+                                  showPrompt(`Thiết lập Mật khẩu kết giới cho phòng [${finalCode}]:`, async (roomPwd) => {
+                                      setDialog({ type: 'loading', message: `Đang tái tạo Đa Vũ Trụ [${finalCode}]...` });
+                                      try {
+                                          let activeUser = user;
+                                          if (!activeUser) {
+                                              try { const cred = await signInAnonymously(auth); activeUser = cred.user; setUser(activeUser); } catch(e){}
+                                          }
+                                          const newRoomData = {
+                                              id: finalCode, hostUid: activeUser?.uid, maxPlayers: 4, password: roomPwd || '', status: 'playing', createdAt: Date.now(), gameVersion: GAME_VERSION, liveIntents: [],
+                                              worldLog: p.coopWorldLogBackup || [],
+                                              players: [{ uid: activeUser?.uid, name: p.name, characterName: p.name, password: savedPwd, isReady: true, isHost: true, isOnline: true, lastActive: Date.now(), gameStateStr: p.gameStateStr }]
+                                          };
+                                          await setDoc(roomRef, newRoomData);
+                                          addMyRoom(finalCode); setCurrentCoopRoom(newRoomData);
+                                          
+                                          const profileToLoad = { id: p.id, gameStateStr: p.gameStateStr, name: p.name, gameMode: 'coop', coopRoomId: finalCode };
+                                          closeDialog(); executeLoadProfile(profileToLoad);
+                                      } catch (e) { closeDialog(); showAlert("Lỗi tái tạo: " + e.message); }
+                                  }, "Nhập mật khẩu phòng (Tùy chọn)...", false);
+                              }, 300);
+                          }, () => {
+                              const convertedProfile = { ...p, gameMode: 'chan_thuc', gameState: { ...tempState, gameMode: 'chan_thuc' } };
+                              executeLoadProfile(convertedProfile);
+                          });
+                      }, 300);
+                      return;
+                  }
+                  setTimeout(() => {
+                      showConfirm(`Liên Giới [${finalCode}] đã giải tán hoặc không còn tồn tại trên Đám Mây!\n\nBạn có muốn chuyển nhân vật [${p.name}] sang Chế Độ Chân Thực (Chơi Đơn) để tiếp tục tu luyện không?`, () => {
+                          const convertedProfile = { 
+                              ...p, 
+                              gameMode: 'chan_thuc', 
+                              gameState: { ...tempState, gameMode: 'chan_thuc' } 
+                          };
+                          executeLoadProfile(convertedProfile);
+                      });
+                  }, 300);
+                  return; 
+              }
+              
+              const rData = snap.data();
+              const playerInRoom = rData.players.find(x => x.characterName === p.name && x.uid === user?.uid);
+              
+              if (!playerInRoom) { 
+                  closeDialog(); 
+                  setTimeout(() => {
+                      showPrompt(`Nhân vật [${p.name}] chưa có mặt trong phòng (Có thể Chủ phòng vừa tái tạo vũ trụ).\nVui lòng nhập MẬT KHẨU PHÒNG để xin Nhập Giới:`, async (guestRoomPwd) => {
+                          if (rData.password && guestRoomPwd !== rData.password) return showAlert("Mật khẩu phòng không chính xác! Bị kết giới đẩy lùi.");
+                          if (rData.players.length >= rData.maxPlayers) return showAlert(`Thế giới đã đạt giới hạn tối đa (${rData.maxPlayers} người)!`);
+                          setDialog({ type: 'loading', message: `Đang kết nối lại nhân vật vào thế giới [${finalCode}]...` });
+                          try {
+                              const newPlayer = { uid: user?.uid, name: p.name, characterName: p.name, password: savedPwd, isReady: true, isHost: false, isOnline: true, lastActive: Date.now(), gameStateStr: p.gameStateStr };
+                              const newPlayers = [...rData.players, newPlayer];
+                              
+                              // V5.34: Hợp nhất (Merge) Liên Giới Ký của Khách vào Phòng
+                              let mergedLog = [...(rData.worldLog || [])];
+                              const guestLog = p.coopWorldLogBackup || [];
+                              guestLog.forEach(gLog => {
+                                  if (!mergedLog.find(rLog => rLog.timestamp === gLog.timestamp && rLog.uid === gLog.uid && rLog.text === gLog.text)) {
+                                      mergedLog.push(gLog);
+                                  }
+                              });
+                              mergedLog.sort((a, b) => a.timestamp - b.timestamp);
+                              if (mergedLog.length > 100) mergedLog = mergedLog.slice(-100);
+
+                              await setDoc(roomRef, { players: newPlayers, worldLog: mergedLog }, { merge: true });
+                              setCurrentCoopRoom({ id: finalCode, ...rData, players: newPlayers, worldLog: mergedLog });
+                              addMyRoom(finalCode);
+                              
+                              const profileToLoad = { id: p.id, gameStateStr: p.gameStateStr, name: p.name, gameMode: 'coop', coopRoomId: finalCode };
+                              closeDialog(); executeLoadProfile(profileToLoad);
+                          } catch (e) { closeDialog(); showAlert("Lỗi kết nối lại: " + e.message); }
+                      }, "Nhập mật khẩu phòng (Nếu có)...", true);
+                  }, 300);
+                  return; 
+              }
+
+              // V5.44 FIX: Rút ngắn thời gian nhận diện kẹt mạng xuống 10s để Đạo hữu F5 dễ dàng vào lại
+              if (playerInRoom.isOnline && playerInRoom.uid !== user?.uid && Date.now() - (playerInRoom.lastActive || 0) < 10000 && !isAdminLoggedIn) { 
+                  closeDialog(); return showAlert("Nhân vật này ĐANG ONLINE trên một thiết bị khác!"); 
+              }
+
+              closeDialog();
+              
+              const doReconnectProcess = async () => {
+                  setDialog({ type: 'loading', message: isAdminLoggedIn ? `[Đặc Quyền Admin] Đang cưỡng chế đoạt xá nhập thể...` : `Mật khẩu chính xác! Đang nhập thể...` });
+                  try {
+                      const newPlayers = rData.players.map(x => x.characterName === p.name ? { ...x, isOnline: true, lastActive: Date.now() } : x);
+                      await setDoc(roomRef, { players: newPlayers }, { merge: true });
+                      setCurrentCoopRoom({ id: finalCode, ...rData, players: newPlayers });
+                      addMyRoom(finalCode);
+                      
+                      const profileToLoad = { id: p.id, gameStateStr: playerInRoom.gameStateStr, name: p.name, gameMode: 'coop', coopRoomId: finalCode };
+                      closeDialog(); executeLoadProfile(profileToLoad);
+                  } catch (e) { closeDialog(); showAlert("Lỗi nhập thể: " + e.message); }
+              };
+
+              if (isAdminLoggedIn) {
+                  setTimeout(() => doReconnectProcess(), 300);
+                  return;
+              }
+
+              setTimeout(() => {
+                  showPrompt(`Trận pháp [${finalCode}] đã kết nối!\nVui lòng nhập MẬT KHẨU NHÂN VẬT [${p.name}]:`, async (pwd) => {
+                      if (pwd !== playerInRoom.password) return showAlert("Mật khẩu không chính xác! Bị kết giới đánh bật ra ngoài.");
+                      await doReconnectProcess();
+                  }, "Nhập mật khẩu khôi phục...", true);
+              }, 300);
+          } catch (e) { closeDialog(); showAlert("Lỗi kết nối: " + e.message); }
+      };
+
+      if (autoRoomId) {
+          connectToRoom(autoRoomId);
+      } else {
+          showPrompt(`Nhân vật [${p.name}] đang lưu lạc trong Đa Vũ Trụ.\nVui lòng nhập MÃ PHÒNG (Room Code) để kết nối:`, (inputCode) => {
+              if (inputCode) connectToRoom(inputCode);
+          });
+      }
+  };
+  // ================= KẾT THÚC CÁC HÀM LIÊN GIỚI =================
+
+  // ================= V2.81: GỠ BỎ TOÀN BỘ LOGIC TIỂU THẾ GIỚI THEO ĐẶC QUYỀN CHỦ TOẠ DARK =================
+  const [isInnerWorldModalOpen, setIsInnerWorldModalOpen] = useState(false);
+  const [innerWorldTab, setInnerWorldTab] = useState<'overview' | 'herbs' | 'beasts' | 'faith' | 'events'>('overview');
+// ================= V6.22: HỖN ĐỘN THÁP LOGIC =================
+  
+  // ================= V2.91: TỬU QUÁN STATE & HANDLERS =================
+  const [isTavernModalOpen, setIsTavernModalOpen] = useState(false);
+  const [tavernTab, setTavernTab] = useState<'overview' | 'ingredients' | 'wines' | 'farm' | 'staff' | 'news' | 'finance'>('overview');
+

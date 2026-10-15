@@ -1,0 +1,639 @@
+const myFirebaseConfig = {
+  apiKey: "ĐIỀN_API_KEY_CỦA_ANH",
+  authDomain: "ĐIỀN_AUTH_DOMAIN",
+  projectId: "ĐIỀN_PROJECT_ID",
+  storageBucket: "ĐIỀN_STORAGE_BUCKET",
+  messagingSenderId: "ĐIỀN_SENDER_ID",
+  appId: "ĐIỀN_APP_ID"
+};
+
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'tu-tien-game';
+// V1.61 FIX: ARENA APP ID DÙNG CHUẨN APPID SANDBOX ĐỂ ĐẢM BẢO QUYỀN GHI FIRESTORE
+const ARENA_APP_ID = appId;
+
+// V11.21 FIX: ĐỘNG CƠ CHUYỂN ĐỔI MODEL AI THÔNG MINH (KHOAN DUNG HƠN)
+const originalFetch = window.fetch;
+const AI_MODELS = [
+    { name: 'gemini-2.5-flash', cooldownUntil: 0 },
+    { name: 'gemini-2.0-flash', cooldownUntil: 0 },
+    { name: 'gemini-1.5-flash', cooldownUntil: 0 }
+];
+
+window.fetch = async (url, options) => {
+    // Chỉ đánh chặn các API gọi đến Google Gemini
+    if (typeof url === 'string' && url.includes('generativelanguage.googleapis.com')) {
+        const now = Date.now();
+        let lastError = null;
+        let originalPayload = null;
+
+        if (options && options.body) {
+            try { originalPayload = JSON.parse(options.body); } catch(e){}
+        }
+
+        for (let i = 0; i < AI_MODELS.length; i++) {
+            let model = AI_MODELS[i];
+            
+            // Model đang kiệt sức (bị giới hạn), bỏ qua để dùng Model thấp hơn
+            if (now < model.cooldownUntil) continue; 
+
+            const smartUrl = url.replace(/models\/[^:]+:/, `models/${model.name}:`);
+            let currentOptions = options;
+
+            if (originalPayload) {
+                let currentPayload = { ...originalPayload };
+                
+                // Tắt bộ lọc an toàn để chống lỗi 403 (Vi phạm thiên lý) do bối cảnh Dark Fantasy máu me
+                currentPayload.safetySettings = [
+                    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                ];
+
+                // V1.29.5 & V2.85: Gỡ bỏ hoàn toàn thinkingConfig và hạ trần maxOutputTokens <= 8192 để tránh HTTP 400
+                if (currentPayload.generationConfig) {
+                    if (currentPayload.generationConfig.thinkingConfig) {
+                        delete currentPayload.generationConfig.thinkingConfig;
+                    }
+                    if (currentPayload.generationConfig.maxOutputTokens && currentPayload.generationConfig.maxOutputTokens > 8192) {
+                        currentPayload.generationConfig.maxOutputTokens = 8192;
+                    }
+                }
+
+                currentOptions = { ...options, body: JSON.stringify(currentPayload) };
+            }
+
+            try {
+                const response = await originalFetch(smartUrl, currentOptions);
+                if (!response.ok) {
+                    // V1.29.5: Mở rộng luân chuyển khi gặp 429, 5xx, 403, 404 và cả 400 (do model không hỗ trợ param/quota)
+                    if (response.status === 429 || response.status >= 500 || response.status === 403 || response.status === 404 || response.status === 400) {
+                        model.cooldownUntil = now + 60000; 
+                        lastError = new Error(`HTTP ${response.status}: Model ${model.name} gặp sự cố.`);
+                        console.warn(`[Đại Đạo Luân Chuyển] ${model.name} thất bại (Mã: ${response.status}). Chuyển xuống Model dự phòng tiếp theo...`);
+                        continue; 
+                    } else {
+                        throw new Error(`Thiên Đạo từ chối (Mã ${response.status}): Lời nói của ngươi vi phạm thiên lý hoặc quá dài, hãy nói lại!`);
+                    }
+                }
+                return response; // Thành công thì trả về luôn cho game
+            } catch (error) {
+                if (error.name === 'AbortError') throw error; // Không bắt lỗi người dùng chủ động ngắt
+                lastError = error;
+            }
+        }
+        throw lastError || new Error("Toàn bộ Đám Mây Đa Vũ Trụ đều sụp đổ!");
+    }
+    
+    // Các lệnh fetch khác (như Firebase) chạy bình thường không can thiệp
+    return originalFetch(url, options); 
+};
+
+// FIX BẢO VỆ LÕI
+const parseAIStat = (val) => {
+  if (val === undefined || val === null) return 0;
+  if (typeof val === 'number') {
+      if (isNaN(val) || !isFinite(val)) return 0;
+      return Math.min(1e15, Math.max(-1e15, val)); // V12.04 FIX: Tăng giới hạn lên 1 Triệu Tỷ (1e15)
+  }
+  const strVal = String(val).replace(/[^0-9.-]+/g, ''); 
+  const parsed = parseFloat(strVal);
+  if (isNaN(parsed) || !isFinite(parsed)) return 0;
+  return Math.min(1e15, Math.max(-1e15, parsed)); // V12.04 FIX
+};
+
+const formatLocationDisplay = (loc, universe, timelineId) => {
+    if (!loc) return '';
+    const activeGraph = getActiveWorldGraph(timelineId);
+    const node = activeGraph[loc] || Object.values(activeGraph).find(n => n.name === loc);
+    if (node) {
+        const reg = (node.regionName || node.region || '').trim();
+        return (reg && reg !== 'undefined' && reg !== 'null') ? `${node.name} (${reg})` : node.name;
+    }
+    return String(loc).replace(/\s*\((?:undefined|null)\)/gi, '').trim();
+};
+
+const formatLargeNumber = (num) => {
+  if (num === undefined || num === null || isNaN(num) || !isFinite(num)) return '0';
+  const absNum = Math.abs(num);
+  if (absNum < 1000) return Math.floor(num).toLocaleString('vi-VN');
+
+  let formatted = '';
+  if (absNum >= 1e18) {
+    const tyTy = (absNum / 1e18).toFixed(2);
+    formatted = `${tyTy} Tỷ Tỷ`;
+  } else if (absNum >= 1e15) {
+    const trTy = (absNum / 1e15).toFixed(2);
+    formatted = `${trTy} Triệu Tỷ`;
+  } else if (absNum >= 1e12) {
+    const nghinTy = (absNum / 1e12).toFixed(2);
+    formatted = `${nghinTy} Nghìn Tỷ`;
+  } else if (absNum >= 1e9) {
+    const ty = Math.floor(absNum / 1e9);
+    const tr = Math.floor((absNum % 1e9) / 1e8);
+    formatted = tr > 0 ? `${ty}Tỷ ${tr}` : `${ty}Tỷ`;
+  } else if (absNum >= 1e6) {
+    const tr = Math.floor(absNum / 1e6);
+    const k = Math.floor((absNum % 1e6) / 1e5);
+    formatted = k > 0 ? `${tr}Tr ${k}` : `${tr}Tr`;
+  } else if (absNum >= 1e3) {
+    const k = Math.floor(absNum / 1e3);
+    const h = Math.floor((absNum % 1e3) / 1e2);
+    formatted = h > 0 ? `${k}N ${h}` : `${k}N`;
+  }
+  return num < 0 ? `-${formatted}` : formatted;
+};
+
+// V4.2: Hàm định dạng thời gian cho Hiệu ứng trạng thái
+const formatEffTime = (m) => {
+    if (!m || m <= 0) return "0 phút";
+    if (m > 50000000) return "Vĩnh viễn"; // V9.84: Nhận diện thời gian vô hạn của Tâm Pháp
+    if (m < 60) return `${Math.floor(m)} phút`;
+    if (m < 1440) return `${Math.floor(m/60)} giờ`;
+    if (m < 43200) return `${Math.floor(m/1440)} ngày`;
+    if (m < 518400) return `${Math.floor(m/43200)} tháng`;
+    return `${Math.floor(m/518400)} năm`;
+};
+
+// V6.32: Hàm lấy Mốc Thời Gian Thực cho Bảng Cần Mẫn (Chương)
+const getCurrentWeekStr = () => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    const weekNo = Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
+    return `${d.getUTCFullYear()}-W${weekNo}`;
+};
+const getCurrentMonthStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2, '0')}`;
+};
+const safeDecompress = (str) => {
+    if (!str) return null;
+    if (typeof str === 'object') return str;
+    if (typeof str === 'string' && str.trim().startsWith('{')) {
+        try { return JSON.parse(str.trim()); } catch(e) {}
+    }
+    try {
+        const decodedBase64 = LZString.decompressFromBase64(str);
+        if (decodedBase64) return JSON.parse(decodedBase64);
+    } catch(e) {}
+    try {
+        const decodedURI = LZString.decompressFromEncodedURIComponent(str);
+        if (decodedURI) return JSON.parse(decodedURI);
+    } catch(e) {}
+    try {
+        const decodedUTF16 = LZString.decompressFromUTF16(str);
+        if (decodedUTF16) return JSON.parse(decodedUTF16);
+    } catch(e) {}
+    return null;
+};
+
+const safeDecompressLogs = (str) => {
+    if (!str) return [];
+    try {
+        const decodedBase64 = LZString.decompressFromBase64(str);
+        if (decodedBase64) return JSON.parse(decodedBase64);
+    } catch(e) {}
+    try {
+        const decodedURI = LZString.decompressFromEncodedURIComponent(str);
+        if (decodedURI) return JSON.parse(decodedURI);
+    } catch(e) {}
+    try {
+        const decodedUTF16 = LZString.decompressFromUTF16(str);
+        if (decodedUTF16) return JSON.parse(decodedUTF16);
+    } catch(e) {}
+    return [];
+};
+
+// V1.24.1: Tự động sửa lỗi Hài Cốt / Xác Chết chiếm đoạt danh phận Đạo Lữ của Althea hoặc NPC khác
+const sanitizeNpcRelationships = (npcs: any[], playerGender: string = 'Nam') => {
+    if (!Array.isArray(npcs) || npcs.length === 0) return;
+    const isCorpseOrSkeleton = (nameStr: string) => /(hài cốt|xác chết|bộ xương|di cốt|tàn cốt|thi thể|vô danh cổ tu|vô danh|cổ tu)/i.test(nameStr || '');
+    const isSpouseRelation = (relStr: string) => /(thê tử|phu quân|đạo lữ|hồng nhan|tỳ thiếp|người tình|thê thiếp|vợ|chồng|ái nhân|bạn đời)/i.test(relStr || '');
+
+    // 1. Dọn dẹp lỗi chuỗi danh phận, giới tính danh phận
+    npcs.forEach((npc: any) => {
+        if (npc.name) {
+            npc.name = String(npc.name).replace(/(?:\s*\(\s*ĐÃ CHẾT\s*\))+/ig, '').trim();
+        }
+        if (npc.relationType) {
+            npc.relationType = String(npc.relationType).replace(/(?:\s*\((?:Phàm nhân|Chính đạo|Ma đạo|Trung lập|Không rõ|Thuộc hạ|Trung thành tuyệt đối|Tà tu|Tán tu|Yêu tộc|Ma tộc)\))+\s*$/ig, '').trim();
+            if (/(thê tử|vợ)/i.test(npc.relationType) && playerGender === 'Nữ') npc.relationType = 'Phu quân';
+            else if (/(phu quân|chồng)/i.test(npc.relationType) && playerGender === 'Nam') npc.relationType = 'Thê tử';
+            if (npc.gender === 'Nữ' && String(npc.relationType).toLowerCase() === 'phu quân') npc.relationType = 'Thê tử';
+            if (npc.gender === 'Nam' && String(npc.relationType).toLowerCase() === 'thê tử') npc.relationType = 'Phu quân';
+            if (playerGender === 'Nam' && String(npc.name).includes('Vọng Thư') && String(npc.relationType).toLowerCase() === 'phu quân') {
+                npc.relationType = 'Thê tử';
+                if (!npc.gender) npc.gender = 'Nữ';
+            }
+        }
+        if (npc.role) {
+            npc.role = String(npc.role).replace(/(?:\s*\((?:Phàm nhân|Chính đạo|Ma đạo|Trung lập|Không rõ|Thuộc hạ|Trung thành tuyệt đối|Tà tu|Tán tu|Yêu tộc|Ma tộc)\))+\s*$/ig, '').trim();
+        }
+    });
+
+    // 2. Xử lý triệt để Hài cốt / Xác chết / Vô Danh Cổ Tu bị gán nhầm danh phận Đạo Lữ (Điển hình: Vô Danh Cổ Tu cướp danh phận của Althea)
+    npcs.forEach((npc: any) => {
+        if (npc.isDead || isCorpseOrSkeleton(npc.name)) {
+            if (isSpouseRelation(npc.relationType)) {
+                const summaryText = (String(npc.historySummary || '') + ' ' + String(npc.state || '')).toLowerCase();
+                
+                let rightfulPartner = npcs.find((other: any) => 
+                    !other.isDead && !isCorpseOrSkeleton(other.name) && 
+                    (summaryText.includes(String(other.name || '').toLowerCase()) || 
+                     (other.aliases || []).some((al: string) => summaryText.includes(String(al).toLowerCase())) ||
+                     (String(other.name || '').toLowerCase().includes('althea') && (summaryText.includes('song tu') || summaryText.includes('truyền lực')))
+                    )
+                );
+
+                if (!rightfulPartner && isCorpseOrSkeleton(npc.name)) {
+                    rightfulPartner = npcs.find((other: any) => 
+                        !other.isDead && String(other.name || '').toLowerCase().includes('althea')
+                    );
+                }
+
+                if (rightfulPartner) {
+                    rightfulPartner.relationType = npc.relationType || 'Đạo Lữ Đồng Hành';
+                    if (!rightfulPartner.affinity || Number(rightfulPartner.affinity) < 80) rightfulPartner.affinity = 100;
+                    if (summaryText.includes('song tu') || summaryText.includes('truyền lực')) {
+                        rightfulPartner.historySummary = npc.historySummary;
+                        rightfulPartner.state = npc.state;
+                    }
+                }
+
+                npc.relationType = "Âm Dương Cách Biệt";
+                npc.state = "Đã an táng / Hoàng Tuyền";
+                if (summaryText.includes('song tu') || summaryText.includes('truyền lực')) {
+                    npc.historySummary = "Hài cốt cổ tu tiền bối, đã được an táng chu đáo nơi nghĩa địa/rừng sâu.";
+                }
+            }
+        }
+    });
+};
+
+const filterRestrictedNames = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    const nameMap = {
+        "Tanya Von Degurechaff": "Tania Degureha",
+        "Demonbane": "Demonveil",
+        "Rimuru Tempest": "Rimura Tempes",
+        "Tamamo no Mae": "Tamane no Mei",
+        "Shuten Dōji": "Shūten Dōga",
+        "Shuten Doji": "Shūten Dōga",
+        "Ibaraki Dōji": "Ibara Dōga",
+        "Ibaraki Doji": "Ibara Dōga",
+        "Orsted": "Orset",
+        "Hitogami": "Hitokami",
+        "Gurren Lagann": "Guren Ragna",
+        "Yoriichi Tsugikuni": "Yoritsuki Tsugikane",
+        "Albedo": "Arbedo",
+        "Momonga-sama": "Momonka",
+        "Ainz": "Ains",
+        "Tokisaki Kurumi": "Tokizaki Kurumi",
+        "Anna Nishikinomiya": "Anna Nishinomiya",
+        "Gasai Yuno": "Kasai Yuna",
+        "Yuki": "Yuuki",
+        "Seryu Ubiquitous": "Seiryu Ubikata",
+        "Katsura Kotonoha": "Kazura Kotonoe",
+        "Ayano Aishi": "Ayana Aishiro",
+        "Inuyasha": "Inukage",
+        "Sesshomaru": "Setsumaru",
+        "David Martinez": "Daigo Marten",
+        "Shiori": "Shion",
+        "Aries Mu": "Aries Muu",
+        "Gemini Saga": "Gemini Sagan",
+        "Gemini Kanon": "Gemini Kanen",
+        "Cancer Deathmask": "Cancer Deathmark",
+        "Leo Aiolia": "Leo Aiora",
+        "Virgo Shaka": "Virgo Shakai",
+        "Libra Dohko": "Libra Douka",
+        "Scorpio Milo": "Scorpio Miro",
+        "Sagittarius Aiolos": "Sagittarius Aioros",
+        "Capricorn Shura": "Capricorn Shiran",
+        "Aquarius Camus": "Aquarius Kamis",
+        "Pisces Aphrodite": "Pisces Aphrodis",
+        "Jesus": "Yeshua",
+        "Thích Ca Mâu Ni": "Siddha Gautan",
+        "Thich Ca Mau Ni": "Siddha Gautan",
+        "Aizen Sosuke": "Aizen Soushi",
+        "Griffith": "Griffis",
+        "Femto": "Femtor",
+        "Void": "Voide",
+        "Slan": "Slarn",
+        "Ubik": "Ubek",
+        "Conrad": "Konrad",
+        "Jeanne d'Arc Alter": "Jeanne Altera",
+        "Jeanne d'Arc": "Jeanne Aria",
+        "Ulquiorra Cifer": "Ulkiora Cifer",
+        "Zaraki Kenpachi": "Zaraki Kenpachiro",
+        "Guts": "Gattsu",
+        "Ikaros": "Ikarosu",
+        "Alpha": "Alphia",
+        "Nymph": "Nympha",
+        "Beta": "Betia",
+        "Astraea": "Astreia",
+        "Delta": "Deltia",
+        "Urahara Kisuke": "Urabara Kisuke",
+        "Kuchiki Byakuya": "Kuchiya Byaku",
+        "Skull Knight": "Skull Kaiser",
+        "Kurosaki Ichigo": "Kurosagi Ichiro",
+        "Hyosube Ichibei": "Hyosube Ichibe",
+        "Yamamoto Genryusai": "Yamamori Genryusen",
+        "Jibril": "Jibriel",
+        "Jerusalem": "Jerusalem",
+        "Seireitei": "Seireiden",
+        "Abraham": "Abrahan",
+        "Isaac": "Isak",
+        "Jacob": "Yakobu",
+        "Maria": "Marian",
+        "Tịnh Phạn": "Tịnh Phạm",
+        "Yhwach": "Yhwark",
+        "Oberon": "Oberan",
+        "Vortigern": "Vortigan",
+        "Heretic Sultan": "Heretik Sultan",
+        "Wyald": "Wyaldor",
+        "Elijah": "Eliyah",
+        "Satou Kazuma": "Sato Kazuma",
+        "Aqua": "Akua",
+        "Darkness": "Darknes",
+        "Lalatina Ford Dustiness": "Laratina Ford Dustenis",
+        "Megumin": "Megumine",
+        "Goblin Slayer": "Goblin Hunter",
+        "Keyaru": "Keyaro"
+    };
+    let processed = text;
+    Object.keys(nameMap).forEach(oldName => {
+        const newName = nameMap[oldName];
+        const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escapeRegExp(oldName), 'gi');
+        processed = processed.replace(regex, (match) => {
+            const firstChar = match.charAt(0);
+            if (firstChar === firstChar.toUpperCase() && firstChar !== firstChar.toLowerCase()) {
+                return newName.charAt(0).toUpperCase() + newName.slice(1);
+            } else {
+                return newName.charAt(0).toLowerCase() + newName.slice(1);
+            }
+        });
+    });
+    return processed;
+};
+
+const applyWordAliases = (text, aliasesText, isEnabled = true) => {
+    if (!text || typeof text !== 'string') return text;
+    let processedText = filterRestrictedNames(text);
+    if (!isEnabled || !aliasesText || typeof aliasesText !== 'string') return processedText;
+    try {
+        const lines = aliasesText.split('\n');
+        lines.forEach(line => {
+            const parts = line.split('-');
+            if (parts.length >= 2) {
+                const originalPart = parts[0].trim();
+                const replacement = parts.slice(1).join('-').trim();
+                if (originalPart && replacement) {
+                    let wordsToReplace = [];
+                    // Hỗ trợ cả định dạng (từ 1, từ 2) lẫn từ 1, từ 2 không cần ngoặc đơn
+                    const cleanOriginal = (originalPart.startsWith('(') && originalPart.endsWith(')'))
+                        ? originalPart.slice(1, -1)
+                        : originalPart;
+                    wordsToReplace = cleanOriginal.split(',').map(w => w.trim().replace(/^\(|\)$/g, '')).filter(w => w);
+                    
+                    // Sắp xếp từ dài nhất lên trước để tránh việc từ ngắn nuốt từ dài (VD: "cậu ta" trước "cậu")
+                    wordsToReplace.sort((a, b) => b.length - a.length);
+
+                    wordsToReplace.forEach(word => {
+                        if (!word) return;
+                        const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const regex = new RegExp(escapeRegExp(word), 'gi'); // Dùng 'gi' để tìm cả chữ hoa lẫn chữ thường
+                        
+                        processedText = processedText.replace(regex, (match) => {
+                            const firstChar = match.charAt(0);
+                            // Kiểm tra xem chữ cái đầu tiên của từ bị thay thế (trên nội dung) đang là viết hoa hay viết thường
+                            if (firstChar === firstChar.toUpperCase() && firstChar !== firstChar.toLowerCase()) {
+                                // Tự động viết hoa chữ cái đầu cho từ thay thế
+                                return replacement.charAt(0).toUpperCase() + replacement.slice(1);
+                            } else {
+                                // Chuyển từ thay thế về chữ thường (nếu từ gốc đang là chữ thường)
+                                return replacement.charAt(0).toLowerCase() + replacement.slice(1);
+                            }
+                        });
+                    });
+                }
+            }
+        });
+        return processedText;
+    } catch(e) {
+        return text;
+    }
+};
+
+// V11.08: Đã gỡ bỏ hàm generateAntiCheatToken
+
+const getStonesBreakdown = (amount) => {
+  const val = Math.floor(Number(amount) || 0);
+  let remaining = val;
+  const cuc = Math.floor(remaining / 1000000); remaining %= 1000000;
+  const thuong = Math.floor(remaining / 10000); remaining %= 10000;
+  const trung = Math.floor(remaining / 100); remaining %= 100;
+  const ha = remaining;
+  return { cuc, thuong, trung, ha, total: val };
+};
+
+const sanitizeInventoryAndStones = (inventory, currentStones) => {
+  let newStones = Number(currentStones) || 0;
+  const newInventory = [];
+  
+  const removeAccents = (str) => String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  
+  (inventory || []).forEach(item => {
+    if (!item || !item.name) return;
+    // V2.80 FIX (GÓP Ý VŨ ĐỨC): Tiêu hủy vĩnh viễn túi trữ vật ma Mặt Đất / Góc Phòng tồn dư
+    if (item.savedId === 'ground' || (item.type === 'spatial' && (String(item.name).includes('Mặt Đất') || String(item.name).includes('Góc Phòng')))) {
+        return;
+    }
+    
+    let cleanName = String(item.name).trim();
+            let extractedQty = 0;
+            const nameQtyMatch = cleanName.match(/(.*)\s+[xX]\s*(\d+)\s*$/);
+            if (nameQtyMatch) {
+                cleanName = nameQtyMatch[1].trim();
+                extractedQty = parseInt(nameQtyMatch[2], 10);
+            }
+
+            if (cleanName.toLowerCase().replace(/\s+/g, '').startsWith('ngọctứhồn')) {
+                cleanName = 'Ngọc Tứ Hồn';
+            }
+
+            const finalItemQty = Math.max(Number(item.quantity) || 1, extractedQty || 1);
+
+            const nameNoMark = removeAccents(cleanName);
+    const descNoMark = removeAccents(item.desc || '');
+    const nameStr = cleanName.toLowerCase();
+    
+    const isCurrency = (
+        nameNoMark.includes('linh thach') || 
+        nameNoMark.includes('kim te') || 
+        nameNoMark.match(/^(ha|trung|thuong|cuc)\s*pham$/) ||
+        (nameNoMark.includes('ha pham') && descNoMark.includes('linh thach')) ||
+        (nameNoMark.includes('trung pham') && descNoMark.includes('linh thach'))
+    ) && 
+    !nameNoMark.includes('quang') && 
+    !nameNoMark.includes('mo ') && 
+    !nameNoMark.includes('ban do') && 
+    !nameNoMark.includes('tinh tuy') &&
+    !nameNoMark.includes('manh');
+                   
+    if (isCurrency) {
+                  let multiplier = 1;
+                  if (nameNoMark.includes('cuc')) multiplier = 1000000;
+                  else if (nameNoMark.includes('thuong')) multiplier = 10000;
+                  else if (nameNoMark.includes('trung')) multiplier = 100;
+                  
+                  const match = nameStr.match(/^(\d+)\s*/);
+                  const qtyFromName = match ? parseInt(match[1], 10) : 0;
+                  const finalQty = Math.max(finalItemQty, qtyFromName);
+                  
+                  newStones += finalQty * multiplier;
+                } else {
+                  if (finalItemQty > 0) {
+                    const existIdx = newInventory.findIndex(i => i.name === cleanName && i.containerId === item.containerId && i.type === item.type && i.rarity === item.rarity && i.desc === item.desc && !i.durability && !i.attackBonus);
+                    if (existIdx >= 0 && item.type !== 'equip') {
+                        newInventory[existIdx].quantity += finalItemQty;
+                    } else {
+                        newInventory.push({ ...item, name: cleanName, quantity: finalItemQty });
+                    }
+                  }
+                }
+              });
+              return { inventory: newInventory, spiritStones: newStones };
+            };
+
+const getFoodFreshnessLimit = (name) => {
+    const n = String(name).toLowerCase();
+    if (/(đan|tửu|rượu|cao|tinh huyết|linh dịch|bình|lọ|trữ|ma dược|potion)/.test(n)) return 3600; 
+    if (/(lương khô|khô|hạt|đậu|mứt|trà)/.test(n)) return 90; 
+    if (/(thịt|cá|cơm|bánh|canh|thức ăn|đồ ăn|nướng|cháo|mì|phở|rau)/.test(n)) return 3; 
+    if (/(thảo|linh thảo|quả|trái|sâm|hoa|nấm)/.test(n)) return 30; 
+    return 15; 
+};
+
+// V4.3: Hàm tạo tên hư hỏng sáng tạo dựa trên đặc tính đồ vật
+const generateSpoiledName = (name) => {
+    const n = String(name).toLowerCase();
+    let adj = "hư hỏng";
+    if (/(thịt|cá|huyết|xác|canh|cháo|nướng)/.test(n)) {
+        const adjs = ["ôi thiu", "bốc mùi thối", "rữa nát", "đầy dòi bọ", "chảy nước vàng"];
+        adj = adjs[Math.floor(Math.random() * adjs.length)];
+    } else if (/(bánh|cơm|mì|lương khô|đậu|hạt)/.test(n)) {
+        const adjs = ["mốc meo xanh rờn", "ôi chua", "cứng như đá", "nổi mốc trắng", "bị mọt ăn rỗng"];
+        adj = adjs[Math.floor(Math.random() * adjs.length)];
+    } else if (/(đan|dược|dịch|hoàn|tán|tửu|cao|ma dược|potion)/.test(n)) {
+        const adjs = ["tiêu tán dược tính", "phế thải", "đóng cặn độc", "biến chất đục ngầu", "tỏa hắc khí"];
+        adj = adjs[Math.floor(Math.random() * adjs.length)];
+    } else if (/(thảo|quả|sâm|hoa|nấm|táo|linh chi|trái)/.test(n)) {
+        const adjs = ["héo rũ", "thối rữa", "chảy nước đen", "mất hết linh khí", "nhũn nát"];
+        adj = adjs[Math.floor(Math.random() * adjs.length)];
+    } else {
+        const adjs = ["biến chất", "mục nát", "đã hư hại", "nổi mốc meo"];
+        adj = adjs[Math.floor(Math.random() * adjs.length)];
+    }
+    const cleanName = String(name).replace(/\s*\([^)]*\)\s*/g, '').trim();
+    return `${cleanName} (${adj})`;
+};
+
+// V4.83: HỆ THỐNG TRỌNG LƯỢNG CHÂN THỰC (KG)
+const getItemUnitWeight = (item) => {
+    if (!item || typeof item !== 'object') return 0;
+    const name = String(item.name || '').toLowerCase();
+    const nNoMark = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    // V8.40 FIX: Linh thạch là tiền tệ, sẽ tự động hóa thành số dư nên không chiếm dung lượng vật lý trong lúc tính toán
+    if ((nNoMark.includes('linh thach') || nNoMark.includes('kim te') || nNoMark.match(/^(ha|trung|thuong|cuc)\s*pham$/)) && !nNoMark.includes('quang') && !nNoMark.includes('mo ') && !nNoMark.includes('ban do') && !nNoMark.includes('tinh tuy') && !nNoMark.includes('manh')) {
+        return 0; 
+    }
+    
+    // Rất nhẹ (10g - 50g): Giấy tờ, bùa chú, đan dược, linh thảo
+    if (name.match(/(đan|dịch|thuốc|bùa|phù|giấy|thư|ngọc giản|tơ|lông|chỉ)/)) return 0.05;
+    if (name.match(/(cỏ|thảo|lá|hoa|quả|trái|sâm|nấm|tủy|phấn)/)) return 0.1;
+    
+    // Nhẹ (100g - 200g): Đồ ăn nhỏ, trang sức, hồn tinh
+    if (name.match(/(bánh|thịt|cơm|nhẫn|túi|vòng|trâm|ngọc bội|hồn tinh|yêu đan)/)) return 0.2;
+
+    if (item.type === 'equip') {
+        // Vũ khí hạng nặng (15kg - 50kg+)
+        if (name.match(/(trọng kiếm|búa|rìu|kích|chùy|cự|đỉnh|lò|chuông|bia|cột|trụ)/)) return 30.0; 
+        // Phòng cụ nặng
+        if (name.match(/(giáp|khiên|thuẫn|áo thiếc|xích)/)) return 8.0;
+        // Vũ khí thường (Cầm tay)
+        if (name.match(/(kiếm|đao|thương|cung|trượng|côn|roi|quạt)/)) return 3.0; 
+        // Y phục nhẹ
+        if (name.match(/(áo|quần|đạo bào|giày|mũ|hài|khố|choàng|khăn)/)) return 0.5; 
+        return 2.0;
+    }
+    
+    // Vật liệu thô (Đá, sắt, quặng, gỗ)
+    if (name.match(/(đá|thạch|quặng|sắt|đồng|kim loại|thép|gỗ|thiết|khối|ngọc thạch)/)) return 15.0;
+
+    if (item.type === 'demon_soul') return 0.1;
+    if (['spatial', 'sealed_spatial', 'soul_spatial'].includes(item.type)) return 0.1;
+    if (item.type === 'food') return 0.5;
+    
+    return 0.5; // Mặc định cho các thứ khác
+};
+const getItemTotalWeight = (item) => getItemUnitWeight(item) * (Number(item.quantity) || 1);
+
+const renderSpiritStones = (amount) => {
+  const val = Number(amount) || 0;
+  if (val < 0) return <span className="text-red-500 font-bold bg-red-900/30 px-2 py-0.5 rounded border border-red-500/50 animate-pulse">NỢ {Math.abs(val).toLocaleString('vi-VN')} LT</span>;
+  
+  const { cuc, thuong, trung, ha, total } = getStonesBreakdown(amount);
+  if (total === 0) return <span className="text-gray-400 font-bold">0 Hạ</span>;
+  
+  return (
+      <div className="flex gap-2 flex-wrap justify-end font-mono text-[13px]">
+          {cuc > 0 && <span className="text-red-500 font-bold bg-red-900/10 px-2 py-0.5 rounded border border-red-900/30">{cuc.toLocaleString('vi-VN')} Cực</span>}
+          {thuong > 0 && <span className="text-purple-400 font-bold bg-purple-900/10 px-2 py-0.5 rounded border border-purple-900/30">{thuong.toLocaleString('vi-VN')} Thượng</span>}
+          {trung > 0 && <span className="text-blue-400 font-bold bg-blue-900/10 px-2 py-0.5 rounded border border-blue-900/30">{trung.toLocaleString('vi-VN')} Trung</span>}
+          {ha > 0 && <span className="text-gray-400 font-bold bg-gray-800/30 px-2 py-0.5 rounded border border-gray-700/50">{ha.toLocaleString('vi-VN')} Hạ</span>}
+      </div>
+  );
+};
+
+const renderMortalCoins = (amount, onShowAlert) => {
+    const val = Number(amount) || 0;
+    if (val < 0) return <span className="text-red-500 font-bold bg-red-900/30 px-2 py-0.5 rounded border border-red-500/50 animate-pulse">NỢ {Math.abs(val).toLocaleString('vi-VN')} Văn</span>;
+    if (val === 0) return <span className="text-gray-400 font-bold bg-gray-800/30 px-2 py-0.5 rounded border border-gray-700/50">0 Văn</span>;
+    
+    const quan = Math.floor(val / 1000000);
+    const van = val % 1000000;
+    
+    return (
+        <div className="flex gap-2 flex-wrap justify-end font-mono text-[13px]" onClick={(e) => { e.stopPropagation(); if(onShowAlert) onShowAlert(`Tổng số tiền phàm tục: ${val.toLocaleString('vi-VN')} Văn tiền.\n\n*Hệ thống quy đổi: 1.000.000 Văn = 1 Quan.`); }}>
+            {quan > 0 && <span className="text-amber-500 font-bold bg-amber-900/10 px-2 py-0.5 rounded border border-amber-900/30 hover:bg-amber-900/20 cursor-pointer">{formatLargeNumber(quan)} Quan</span>}
+            {van > 0 && <span className="text-orange-300 font-bold bg-orange-900/20 px-2 py-0.5 rounded border border-orange-800/50 hover:bg-orange-900/30 cursor-pointer">{van.toLocaleString('vi-VN')} Văn</span>}
+        </div>
+    );
+};
+
+const ITEM_RARITY_COLORS: Record<string, string> = {
+    'Xám': 'text-slate-400 border-slate-700/50 bg-slate-900/20',
+    'Trắng': 'text-gray-300 border-gray-600/50 bg-gray-900/20',
+    'Xanh lá': 'text-emerald-400 border-emerald-500/50 bg-emerald-900/20',
+    'Xanh lam': 'text-sky-400 border-sky-400/50 bg-sky-900/20',
+    'Xanh': 'text-sky-400 border-sky-400/50 bg-sky-900/20',
+    'Tím': 'text-purple-400 border-purple-500/50 bg-purple-900/20 shadow-[0_0_10px_rgba(168,85,247,0.2)]',
+    'Vàng': 'text-yellow-400 border-yellow-500/50 bg-yellow-900/20 shadow-[0_0_15px_rgba(234,179,8,0.3)]',
+    'Cam': 'text-orange-400 border-orange-500/50 bg-orange-900/20 shadow-[0_0_15px_rgba(249,115,22,0.3)]',
+    'Đỏ': 'text-red-500 border-red-500/50 bg-red-900/20 shadow-[0_0_20px_rgba(239,68,68,0.4)] animate-pulse',
+    'Thất Thải': 'text-pink-400 border-pink-500/60 bg-pink-900/20 shadow-[0_0_20px_rgba(236,72,153,0.4)]',
+    'Hỗn Độn': 'text-amber-400 border-amber-500/60 bg-amber-900/20 shadow-[0_0_20px_rgba(251,191,36,0.4)]'
+};
+
+const getRarityStyle = (rarity) => {
+    return ITEM_RARITY_COLORS[rarity] || 'text-[var(--text-main)] border-[var(--border-main)] bg-[var(--bg-surface)]';
+};
+
+// V3.37, V3.38 & V10.82: CÂN BẰNG ĐA ĐẠO VÀ NHẬN DIỆN ĐỒNG BỘ CẢNH GIỚI

@@ -1,0 +1,263 @@
+      {isAutoPlayModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[var(--bg-body)]/95 p-2 md:p-4 animate-in fade-in duration-300">
+          <div className="bg-[var(--bg-surface)] w-full max-w-5xl h-[95vh] rounded-2xl flex flex-col border border-emerald-500/30 shadow-[0_0_50px_rgba(16,185,129,0.15)] relative overflow-hidden">
+            <div className="p-4 md:p-5 border-b border-emerald-900/50 flex justify-between items-center bg-[var(--bg-body)] shrink-0">
+               <div className="flex items-center gap-3">
+                   <div className="bg-emerald-900/30 p-2 rounded-lg border border-emerald-500/50"><Bot className="text-emerald-500" size={24} /></div>
+                   <div>
+                       <h3 className="text-lg md:text-xl font-bold text-emerald-400 uppercase tracking-widest">Nguyên Thần Ký Thác</h3>
+                       <p className="text-[10px] md:text-xs text-emerald-500/60">Giao phó quyền điều khiển cho Bản Sao AI tự động cày cuốc.</p>
+                   </div>
+               </div>
+               <button onClick={() => setIsAutoPlayModalOpen(false)} className="p-2 hover:bg-emerald-900/30 rounded-lg text-gray-500 hover:text-emerald-400 transition-colors"><X size={24}/></button>
+            </div>
+            
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-[var(--bg-body)]">
+                {/* CỘT TRÁI: BẢNG ĐIỀU KHIỂN & MA TRẬN BIẾN SỐ */}
+                <div className="w-full md:w-5/12 p-4 md:p-6 border-b md:border-b-0 md:border-r border-emerald-900/30 overflow-y-auto custom-scrollbar flex flex-col gap-5">
+                    
+                    {/* Ý Định */}
+                    <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-gray-800">
+                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Brain size={14} className="text-teal-500"/> Ý Định (Mục Tiêu):</label>
+                        <textarea 
+                            value={autoPlayConfig.goal} 
+                            onChange={e => setAutoPlayConfig(prev => ({...prev, goal: e.target.value}))} 
+                            disabled={autoPlayState.isRunning}
+                            placeholder="VD: Cứ cắm đầu bế quan tu luyện lên Kim Đan. Hết tiền thì đi săn yêu thú hoặc đào mỏ..." 
+                            className="w-full h-24 bg-[var(--bg-body)] border border-gray-700 rounded-lg p-3 text-sm text-gray-300 focus:outline-none focus:border-emerald-500 disabled:opacity-50 resize-none custom-scrollbar"
+                        ></textarea>
+                        <p className="text-[10px] text-gray-500 mt-2 italic">* Nếu gặp sinh tử, Nguyên Thần sẽ tự động ưu tiên bỏ chạy/hồi máu thay vì làm mục tiêu này.</p>
+                    </div>
+
+                    <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-gray-800">
+                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Tự động ngắt sau (Chương):</label>
+                        <div className="flex items-center gap-3">
+                            <input type="range" min="1" max="2000" value={autoPlayConfig.maxChapters} onChange={e => setAutoPlayConfig(prev => ({...prev, maxChapters: Math.max(1, Math.min(2000, Number(e.target.value)))}))} disabled={autoPlayState.isRunning} className="flex-1 accent-emerald-500 h-1.5 bg-gray-800 rounded-lg appearance-none disabled:opacity-50 cursor-pointer" />
+                            <input 
+                                type="number" 
+                                min="1" 
+                                max="2000" 
+                                value={autoPlayConfig.maxChapters} 
+                                onChange={e => setAutoPlayConfig(prev => ({...prev, maxChapters: Math.max(1, Math.min(2000, parseInt(e.target.value) || 1))}))} 
+                                disabled={autoPlayState.isRunning} 
+                                className="w-20 bg-[var(--bg-body)] text-emerald-400 border border-gray-700 rounded px-2 py-1.5 text-sm font-bold font-mono text-center focus:outline-none focus:border-emerald-500 disabled:opacity-50 shadow-inner" 
+                                title="Nhập số chương (Tối đa 2000)"
+                            />
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-2 italic">* Giới hạn tối đa 2000 chương. Có thể kéo thanh trượt hoặc nhấp vào ô bên phải để nhập số trực tiếp.</p>
+                    </div>
+
+                    {/* Ma Trận Biến Số Dừng (Soul Sentinel) */}
+                    <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-gray-800 flex-1">
+                        <label className="block text-xs font-bold text-red-400 uppercase tracking-widest mb-4 flex items-center gap-2"><ShieldAlert size={14}/> Ma Trận Cảnh Báo (Dừng Auto)</label>
+                        <div className="space-y-4">
+                            {[
+                                { key: 'pauseOnLowHp', label: 'Báo Động Huyết Quang', desc: 'Dừng khi HP rớt xuống < 25%', color: 'red' },
+                                { key: 'pauseOnTribulation', label: 'Thiên Kiếp Giáng Lâm', desc: 'Dừng khi sấm sét xuất hiện để tự gồng', color: 'yellow' },
+                                { key: 'pauseOnBottleneck', label: 'Kẹt Bình Cảnh', desc: 'Dừng khi Tiến độ 100% Viên Mãn', color: 'purple' },
+                                { key: 'pauseOnNemesis', label: 'Tử Địch / Thiên Mệnh', desc: 'Dừng khi gặp kẻ có thù hận > 80 hoặc TMCT', color: 'orange' },
+                                { key: 'pauseOnEpicLoot', label: 'Dị Bảo Xuất Thế', desc: 'Dừng khi nhặt được pháp bảo Cam/Đỏ', color: 'emerald' }
+                            ].map(toggle => (
+                                <div key={toggle.key} className={`flex justify-between items-center bg-[var(--bg-body)] p-3 rounded-lg border transition-colors ${autoPlayConfig[toggle.key] ? `border-${toggle.color}-500/30` : 'border-gray-800 opacity-60'}`}>
+                                    <div>
+                                        <div className={`text-xs font-bold ${autoPlayConfig[toggle.key] ? `text-${toggle.color}-400` : 'text-gray-500'} mb-1`}>{toggle.label}</div>
+                                        <div className="text-[9px] text-gray-500">{toggle.desc}</div>
+                                    </div>
+                                    <button 
+                                        onClick={() => !autoPlayState.isRunning && setAutoPlayConfig(p => ({...p, [toggle.key]: !p[toggle.key]}))} 
+                                        disabled={autoPlayState.isRunning}
+                                        className={`w-9 h-5 rounded-full relative transition-colors shrink-0 disabled:opacity-50 ${autoPlayConfig[toggle.key] ? `bg-${toggle.color}-500` : 'bg-gray-700'}`}
+                                    >
+                                        <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${autoPlayConfig[toggle.key] ? 'translate-x-4' : ''}`}></div>
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Nút Action */}
+                    <div className="shrink-0 pt-2">
+                        {autoPlayState.isRunning ? (
+                            <button onClick={() => {
+                                setAutoPlayState(prev => ({ ...prev, isRunning: false, logs: [...prev.logs, { time: new Date().toLocaleTimeString('vi-VN'), text: `🛑 Đã cưỡng chế đoạt lại thân xác!`, type: 'error' }] }));
+                            }} className="w-full bg-red-800 hover:bg-red-600 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.4)] text-base uppercase tracking-widest transition-transform hover:scale-[1.02] flex justify-center items-center gap-2 border border-red-500">
+                                <X size={20}/> Ngắt Auto & Tỉnh Dậy
+                            </button>
+                        ) : (
+                            <button onClick={() => {
+                                if (!autoPlayConfig.goal.trim()) return showAlert("Hãy nhập Ý Định để Nguyên Thần biết đường tu luyện!");
+                                // V10.89: Lượt đầu tiên chỉ delay 5 giây để khởi động nhanh
+                                setAutoPlayState({ isRunning: true, startChapter: gameState.chapterCount, lastCooldownChapter: gameState.chapterCount, logs: [{ time: new Date().toLocaleTimeString('vi-VN'), text: `🚀 KÍCH HOẠT NGUYÊN THẦN KÝ THÁC. Đạo tâm: [${gameState.daoHeart.split('-')[0].trim()}]`, type: 'system' }], isThinking: false, countdown: 5, retryCount: 0, lastAction: '', duplicateCount: 0 });
+                                setIsAutoPlayModalOpen(false); // Thu nhỏ modal để ra ngoài xem truyện
+                            }} className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.4)] text-base uppercase tracking-widest transition-transform hover:scale-[1.02] flex justify-center items-center gap-2 border border-emerald-500">
+                                <Play size={20}/> Bắt Đầu Chạy (Chạy Ngầm)
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* CỘT PHẢI: TERMINAL HACKER MÀU XANH */}
+                <div className="w-full md:w-7/12 p-4 md:p-6 flex flex-col bg-[var(--bg-body)] relative font-mono">
+                    <div className="absolute top-0 right-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] pointer-events-none"></div>
+                    
+                    <div className="flex justify-between items-center border-b border-green-900/50 pb-3 mb-4 shrink-0 relative z-10">
+                        <span className="text-xs text-green-500 font-bold uppercase tracking-widest flex items-center gap-2"><Monitor size={14}/> Console Mạng Lưới Tư Duy</span>
+                        <div className="flex gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-red-500/80"></span>
+                            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></span>
+                            <span className="w-2.5 h-2.5 rounded-full bg-green-500/80"></span>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 relative z-10 pr-2">
+                        {autoPlayState.logs.length === 0 ? (
+                            <div className="text-green-900/50 italic text-sm mt-10">C.O.R.E // Standby mode...</div>
+                        ) : (
+                            autoPlayState.logs.map((l, i) => (
+                                <div key={i} className={`text-sm leading-relaxed ${l.type === 'error' ? 'text-red-400' : l.type === 'system' ? 'text-yellow-400 font-bold' : l.type === 'thought' ? 'text-green-600 italic' : l.type === 'action' ? 'text-green-300 font-bold' : 'text-green-500/80'}`}>
+                                    <span className="text-[10px] text-gray-600 mr-2">[{l.time}]</span>
+                                    {l.text}
+                                </div>
+                            ))
+                        )}
+                        {autoPlayState.isThinking && (
+                            <div className="text-green-500 font-bold text-sm mt-2 flex items-center gap-2">
+                                <span className="animate-pulse">_</span> Đang giải mã nhân quả & tính toán bước đi tiếp theo...
+                            </div>
+                        )}
+                        <div ref={autoPlayLogsEndRef} />
+                    </div>
+                </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* V11.88: HITBOX SETTINGS MODAL (ADMIN ONLY) */}
+      {isHitboxModalOpen && isAdminLoggedIn && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[var(--bg-overlay)] p-4 animate-in fade-in duration-200">
+            <div className="bg-[var(--bg-panel)] w-full max-w-sm rounded-2xl flex flex-col border border-blue-500/50 shadow-[0_0_30px_rgba(59,130,246,0.3)] relative overflow-hidden">
+                <div className="p-4 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-body)]">
+                    <h3 className="text-lg font-bold text-blue-400 flex items-center gap-2 uppercase tracking-widest"><Maximize size={20}/> Hitbox Settings</h3>
+                    <button onClick={() => setIsHitboxModalOpen(false)} className="text-[var(--text-muted)] hover:text-red-500"><X size={20}/></button>
+                </div>
+                <div className="p-6 flex flex-col items-center gap-6 bg-[var(--bg-body)]">
+                    <p className="text-xs text-[var(--text-muted)] text-center">Điều chỉnh thông số (px) để mở rộng hoặc thu hẹp vùng bấm của các nút Icon trên Header.</p>
+                    
+                    {/* V11.88 FIX: Điều chỉnh độ cao Header */}
+                    <div className="w-full bg-[var(--bg-body)] p-4 rounded-xl border border-teal-900/50 flex flex-col gap-3 mt-2 shadow-inner">
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs font-bold text-teal-400 uppercase tracking-widest">Độ cao thanh Header:</span>
+                            <span className="text-sm font-mono font-bold text-teal-300 bg-teal-900/30 px-2 py-0.5 rounded border border-teal-500/30">{hitboxConfig.headerPadding || 14}px</span>
+                        </div>
+                        <input type="range" min="4" max="50" value={hitboxConfig.headerPadding || 14} onChange={e => setHitboxConfig(p => ({...p, headerPadding: Number(e.target.value)}))} className="w-full accent-teal-500 h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer" />
+                    </div>
+
+                    {/* Bố cục hình chữ thập (Cross Layout) */}
+                    <div className="flex flex-col items-center gap-2 mt-2">
+                        <label className="text-xs font-bold text-blue-400">TOP (Lên)</label>
+                        <input type="number" value={hitboxConfig.top} onChange={e => setHitboxConfig(p => ({...p, top: Number(e.target.value)}))} className="w-24 bg-[var(--bg-body)] border border-blue-500/30 text-center rounded-lg p-2 text-white font-mono focus:border-blue-500 outline-none" />
+                    </div>
+                    <div className="flex justify-center gap-8 w-full">
+                         <div className="flex flex-col items-center gap-2">
+                            <label className="text-xs font-bold text-blue-400">LEFT (Trái)</label>
+                            <input type="number" value={hitboxConfig.left} onChange={e => setHitboxConfig(p => ({...p, left: Number(e.target.value)}))} className="w-24 bg-[var(--bg-body)] border border-blue-500/30 text-center rounded-lg p-2 text-white font-mono focus:border-blue-500 outline-none" />
+                        </div>
+                        <div className="flex flex-col items-center gap-2">
+                            <label className="text-xs font-bold text-blue-400">RIGHT (Phải)</label>
+                            <input type="number" value={hitboxConfig.right} onChange={e => setHitboxConfig(p => ({...p, right: Number(e.target.value)}))} className="w-24 bg-[var(--bg-body)] border border-blue-500/30 text-center rounded-lg p-2 text-white font-mono focus:border-blue-500 outline-none" />
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-center gap-2">
+                        <label className="text-xs font-bold text-blue-400">BOTTOM (Xuống)</label>
+                        <input type="number" value={hitboxConfig.bottom} onChange={e => setHitboxConfig(p => ({...p, bottom: Number(e.target.value)}))} className="w-24 bg-[var(--bg-body)] border border-blue-500/30 text-center rounded-lg p-2 text-white font-mono focus:border-blue-500 outline-none" />
+                    </div>
+
+                    {/* Nút bật tắt màu đỏ */}
+                    <div className="w-full border-t border-[var(--border-main)] pt-5 mt-2 flex justify-between items-center">
+                        <span className="text-sm font-bold text-red-400 flex items-center gap-2"><Eye size={16}/> Hiển thị vùng đỏ (Debug)</span>
+                        <button onClick={() => setHitboxConfig(p => ({...p, showRed: !p.showRed}))} className={`w-11 h-6 rounded-full relative transition-colors ${hitboxConfig.showRed ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)]' : 'bg-gray-600'}`}>
+                            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${hitboxConfig.showRed ? 'translate-x-5' : ''}`}></div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
+    
+
+      {/* V12.42: APPEARANCE MODAL (TỰ PHÁC HỌA DUNG MẠO) */}
+      {isAppearanceModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--bg-overlay)] p-4 animate-in fade-in zoom-in-95">
+          <div className="bg-[var(--bg-panel)] w-full max-w-lg rounded-2xl flex flex-col border border-purple-500/50 shadow-2xl relative overflow-hidden">
+            <div className="p-4 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-body)] shrink-0">
+              <h3 className="text-lg font-bold text-purple-400 uppercase tracking-widest flex items-center gap-2"><User size={20}/> Tự Phác Họa Dung Mạo</h3>
+              <button onClick={() => setIsAppearanceModalOpen(false)} className="text-[var(--text-muted)] hover:text-red-500"><X size={20}/></button>
+            </div>
+            <div className="p-5 flex flex-col gap-4 bg-[var(--bg-body)]">
+              <div className="text-sm text-red-500 bg-red-900/10 p-3 rounded-lg border border-red-900/50 leading-relaxed font-bold shadow-sm">
+                ⚠️ Hãy viết cẩn thận, không thể thay đổi trong quá trình chơi. Cố tình viết mô tả không tương thích xuất thân và khí vận. Hậu quả tự chịu ! 
+              </div>
+              <div className="relative">
+                <textarea 
+                  maxLength={200} 
+                  value={tempAppearance} 
+                  onChange={(e) => setTempAppearance(e.target.value)} 
+                  className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-xl p-4 pb-8 text-base text-[var(--text-main)] focus:outline-none focus:border-purple-500 custom-scrollbar resize-none" 
+                  placeholder="Miêu tả dung mạo, trang phục... (Tối đa 200 ký tự)" 
+                  rows={5}
+                />
+                <div className="absolute bottom-3 right-4 text-[10px] text-[var(--text-muted)] font-mono pointer-events-none">
+                  {tempAppearance.length}/200
+                </div>
+              </div>
+              <div className="flex gap-3 mt-2">
+                <button onClick={() => setIsAppearanceModalOpen(false)} className="flex-1 py-3.5 rounded-xl border border-[var(--border-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] font-bold text-[var(--text-main)] transition-colors">Hủy Bỏ</button>
+                <button onClick={() => {
+                  setGameState(prev => ({...prev, customAppearance: tempAppearance}));
+                  setIsAppearanceModalOpen(false);
+                }} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-3.5 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-transform hover:scale-105">Xác Nhận</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* V2.1: PERSONALITY MODAL (TỰ PHÁC HỌA TÍNH CÁCH / PERSONA - BÁO LỖI ETHAN195) */}
+      {isPersonalityModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--bg-overlay)] p-4 animate-in fade-in zoom-in-95">
+          <div className="bg-[var(--bg-panel)] w-full max-w-lg rounded-2xl flex flex-col border border-purple-500/50 shadow-2xl relative overflow-hidden">
+            <div className="p-4 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-body)] shrink-0">
+              <h3 className="text-lg font-bold text-purple-400 uppercase tracking-widest flex items-center gap-2"><Brain size={20}/> Miêu Tả Tính Cách Nhân Vật</h3>
+              <button onClick={() => setIsPersonalityModalOpen(false)} className="text-[var(--text-muted)] hover:text-red-500"><X size={20}/></button>
+            </div>
+            <div className="p-5 flex flex-col gap-4 bg-[var(--bg-body)]">
+              <div className="text-sm text-purple-400 bg-purple-900/10 p-3 rounded-lg border border-purple-900/50 leading-relaxed font-bold shadow-sm">
+                ✨ Khắc họa phong cách nói năng, tâm lý, thói quen và cách đối nhân xử thế độc bản. AI sẽ bám sát 100% persona này kết hợp cùng Đạo Tâm đã chọn.
+              </div>
+              <div className="relative">
+                <textarea 
+                  maxLength={300} 
+                  value={tempPersonality} 
+                  onChange={(e) => setTempPersonality(e.target.value)} 
+                  className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-xl p-4 pb-8 text-base text-[var(--text-main)] focus:outline-none focus:border-purple-500 custom-scrollbar resize-none" 
+                  placeholder="Ví dụ: Ngoài mặt lạnh lùng ít nói nhưng bên trong hay tự lẩm bẩm châm chọc, trọng tình nghĩa, thích cẩu đạo tích lũy... (Tối đa 300 ký tự)" 
+                  rows={5}
+                />
+                <div className="absolute bottom-3 right-4 text-[10px] text-[var(--text-muted)] font-mono pointer-events-none">
+                  {tempPersonality.length}/300
+                </div>
+              </div>
+              <div className="flex gap-3 mt-2">
+                <button onClick={() => setIsPersonalityModalOpen(false)} className="flex-1 py-3.5 rounded-xl border border-[var(--border-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] font-bold text-[var(--text-main)] transition-colors">Hủy Bỏ</button>
+                <button onClick={() => {
+                  setGameState(prev => ({...prev, customPersonality: tempPersonality.trim()}));
+                  setIsPersonalityModalOpen(false);
+                }} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-3.5 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-transform hover:scale-105">Xác Nhận</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+

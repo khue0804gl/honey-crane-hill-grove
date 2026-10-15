@@ -1,0 +1,924 @@
+      {/* JOURNAL MODAL (TÓM TẮT V4.5) */}
+      {isJournalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] p-2 md:p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--bg-panel)] w-full max-w-4xl h-[90vh] rounded-2xl flex flex-col border border-[var(--border-main)] shadow-2xl relative overflow-hidden">
+            <div className="p-4 md:p-5 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-surface)] shrink-0">
+               <div className="flex items-center gap-3">
+                   <ScrollText className="text-yellow-500" size={24} />
+                   <div>
+                       <h3 className="text-lg md:text-xl font-bold text-yellow-500 uppercase tracking-widest">Nhật Ký Tu Đạo</h3>
+                       <p className="text-[10px] md:text-xs text-[var(--text-muted)]">Tóm tắt các sự kiện quan trọng qua từng chương</p>
+                   </div>
+               </div>
+               <div className="flex items-center gap-3">
+                   <div className="flex gap-1 bg-[var(--bg-body)] rounded border border-[var(--border-main)] p-0.5">
+                      <button onClick={() => setJournalFontSize(Math.max(12, journalFontSize - 2))} className="px-2 py-0.5 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] rounded" title="Thu nhỏ chữ">A-</button>
+                      <button onClick={() => setJournalFontSize(Math.min(28, journalFontSize + 2))} className="px-2 py-0.5 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] rounded" title="Phóng to chữ">A+</button>
+                   </div>
+                   <button onClick={() => setIsJournalOpen(false)} className="p-2 bg-[var(--bg-body)] hover:bg-[var(--bg-hover)] border border-[var(--border-main)] rounded text-[var(--text-muted)]"><X size={20}/></button>
+               </div>
+            </div>
+            
+            {/* V2.53 BÁO LỖI MINHLEGEND: THANH ĐIỀU HƯỚNG 5 TAB SỔ TAY LỤC KÝ TOÀN DIỆN */}
+            <div className="flex border-b border-[var(--border-main)] bg-[var(--bg-body)] px-4 pt-2 gap-2 shrink-0 overflow-x-auto custom-scrollbar">
+                <button 
+                    onClick={() => setJournalTab('summary')}
+                    className={`flex items-center gap-2 px-3 py-2 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${journalTab === 'summary' ? 'border-yellow-500 text-yellow-500 bg-[var(--bg-surface)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+                >
+                    <ScrollText size={16} /> Tóm Tắt ({(gameState.summaries || []).length})
+                </button>
+                <button 
+                    onClick={() => setJournalTab('npcs')}
+                    className={`flex items-center gap-2 px-3 py-2 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${journalTab === 'npcs' ? 'border-rose-500 text-rose-400 bg-[var(--bg-surface)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+                >
+                    <Users size={16} /> Nhân Duyên ({(gameState.journal?.npcs || []).length})
+                </button>
+                <button 
+                    onClick={() => setJournalTab('skills')}
+                    className={`flex items-center gap-2 px-3 py-2 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${journalTab === 'skills' ? 'border-purple-500 text-purple-400 bg-[var(--bg-surface)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+                >
+                    <Sparkles size={16} /> Công Pháp ({(gameState.journal?.skills || []).length})
+                </button>
+                <button 
+                    onClick={() => setJournalTab('causal')}
+                    className={`flex items-center gap-2 px-3 py-2 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${journalTab === 'causal' ? 'border-blue-500 text-blue-400 bg-[var(--bg-surface)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+                >
+                    <Eye size={16} /> Duyên Khởi ({(gameState.causalTracks || []).length})
+                </button>
+                <button 
+                    onClick={() => setJournalTab('graveyard')}
+                    className={`flex items-center gap-2 px-3 py-2 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${journalTab === 'graveyard' ? 'border-red-500 text-red-400 bg-[var(--bg-surface)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+                >
+                    <Skull size={16} /> Vong Linh ({(gameState.journal?.graveyard || []).length})
+                </button>
+            </div>
+
+            {/* V1.24.6: THANH TÌM KIẾM THÔNG MINH NHẬT KÝ TU ĐẠO */}
+            <div className="p-3 md:px-5 md:py-2 bg-[var(--bg-surface)] border-b border-[var(--border-main)] flex items-center gap-2 shrink-0">
+                <div className="relative flex-1">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                    <input 
+                        type="text" 
+                        placeholder={
+                            journalTab === 'summary' ? "Tìm kiếm tóm tắt hành trình, tiêu đề, sự kiện..." :
+                            journalTab === 'npcs' ? "Tìm kiếm nhân vật, danh xưng, môn phái, cảnh giới..." :
+                            journalTab === 'skills' ? "Tìm kiếm tuyệt học công pháp, hệ phái, phẩm giai..." :
+                            journalTab === 'causal' ? "Tìm kiếm dấu vết, manh mối, thế lực truy tìm..." :
+                            "Tìm kiếm tên vong linh trong Bia Mộ Ký Ức..."
+                        }
+                        value={journalSearch} 
+                        onChange={e => setJournalSearch(e.target.value)} 
+                        className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg pl-9 pr-8 py-1.5 text-xs text-[var(--text-main)] focus:outline-none focus:border-yellow-500"
+                    />
+                    {journalSearch && (
+                        <button onClick={() => setJournalSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] p-0.5">
+                            <X size={14} />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[var(--bg-body)] space-y-4">
+                {journalTab === 'summary' && (
+                    <>
+                    {(() => {
+                        const allSums = gameState.summaries || [];
+                        const fSums = journalSearch.trim() ? allSums.filter(s => `${s.title || ''} ${s.content || ''}`.toLowerCase().includes(journalSearch.toLowerCase())) : allSums;
+                        if (allSums.length === 0) return <div className="text-center py-10 text-[var(--text-muted)] italic">Chưa có ghi chép tóm tắt nào.</div>;
+                        if (fSums.length === 0) return <div className="text-center py-10 text-[var(--text-muted)] italic">Không tìm thấy tóm tắt nào phù hợp với từ khóa "{journalSearch}".</div>;
+                        return fSums.map((sum, i) => (
+                            <div key={i} className="p-5 rounded-xl border border-[var(--border-main)] bg-[var(--bg-surface)] hover:border-yellow-500/50 transition-colors">
+                                <div className="flex justify-between items-start mb-3 border-b border-[var(--border-main)] pb-2">
+                                    <h4 className="font-bold text-yellow-500 text-lg">{sum.title || `Chương ${sum.chapter}`}</h4>
+                                    <span className="text-xs font-mono text-[var(--text-muted)] bg-[var(--bg-body)] px-2 py-1 rounded border border-[var(--border-main)]">{sum.timeLabel || `Chương ${sum.chapter}`}</span>
+                                </div>
+                                <div className="text-[var(--text-main)] leading-relaxed whitespace-pre-wrap" style={{ fontSize: `${journalFontSize}px` }}>
+                                    {sum.content}
+                                </div>
+                            </div>
+                        ));
+                    })()}
+                    </>
+                )}
+
+                {/* V2.53 BÁO LỖI MINHLEGEND: TAB HỒNG TRẦN LỤC (NHÂN DUYÊN NPC) */}
+                {journalTab === 'npcs' && (
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center text-xs text-[var(--text-muted)] bg-[var(--bg-surface)] p-3 rounded-xl border border-[var(--border-main)]">
+                            <span>Tổng số nhân duyên ghi chép: <b className="text-teal-400 font-mono">{(gameState.journal?.npcs || []).length}</b></span>
+                            <span className="text-[11px] italic">Bấm vào bất kỳ nhân vật nào để xem chi tiết căn cơ & quan hệ</span>
+                        </div>
+                        {(() => {
+                            let npcs = [...(gameState.journal?.npcs || [])];
+                            if (journalSearch.trim()) {
+                                const q = journalSearch.toLowerCase().trim();
+                                npcs = npcs.filter((n: any) => `${n.name || ''} ${n.role || ''} ${n.sect || ''} ${n.level || ''}`.toLowerCase().includes(q));
+                            }
+                            if (npcs.length === 0) {
+                                return (
+                                    <div className="text-center py-12 text-[var(--text-muted)] italic flex flex-col items-center gap-2">
+                                        <Users size={36} className="opacity-30 text-rose-400"/>
+                                        {journalSearch.trim() ? `Không tìm thấy nhân vật nào khớp với "${journalSearch}".` : 'Chưa có nhân duyên nào được khắc ghi vào Hồng Trần Lục.'}
+                                    </div>
+                                );
+                            }
+                            return (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {npcs.map((npc: any, idx: number) => {
+                                        const rel = getRelationStatus(npc, gameState.corruption);
+                                        return (
+                                            <div 
+                                                key={idx} 
+                                                onClick={() => showNPCInfo(npc)} 
+                                                className={`cursor-pointer p-3.5 rounded-xl border ${npc.isDead ? 'border-gray-700/50 bg-gray-900/30 opacity-70' : rel.border + ' bg-[var(--bg-surface)]'} hover:border-teal-500 hover:scale-[1.01] transition-all flex justify-between items-center group`}
+                                            >
+                                                <div className="overflow-hidden pr-2">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className={`font-bold text-sm ${npc.isDead ? 'line-through text-gray-500' : 'text-[var(--text-bold)]'}`}>
+                                                            {npc.isPinned && <span className="text-yellow-500 mr-1" title="Đã Ghim Đồng Hành">📌</span>}
+                                                            {npc.name}
+                                                        </span>
+                                                        {!npc.isDead && (
+                                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-950/40 text-amber-300 border border-amber-600/40">
+                                                                {npc.level || 'Phàm Nhân'}
+                                                            </span>
+                                                        )}
+                                                        {npc.isPlayer && (
+                                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-teal-900/40 text-teal-400 border border-teal-500/50">
+                                                                Tiên Hữu
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className={`text-xs mt-1 flex items-center gap-1.5 ${npc.isDead ? 'text-gray-500' : rel.color}`}>
+                                                        {npc.isDead ? <Skull size={12}/> : rel.icon}
+                                                        <span className="truncate">{npc.isDead ? 'Đã tử vong' : (rel.desc || npc.relation || 'Bằng Hữu')}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-[10px] text-teal-400 bg-teal-950/30 border border-teal-500/30 px-2 py-1 rounded group-hover:bg-teal-600 group-hover:text-white transition-colors whitespace-nowrap shrink-0">
+                                                    Xem Chi Tiết
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
+
+                {/* V2.53 BÁO LỖI MINHLEGEND: TAB TUYỆT HỌC CÔNG PHÁP */}
+                {journalTab === 'skills' && (
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center text-xs text-[var(--text-muted)] bg-[var(--bg-surface)] p-3 rounded-xl border border-[var(--border-main)]">
+                            <span>Tổng số tuyệt học lĩnh ngộ: <b className="text-purple-400 font-mono">{(gameState.journal?.skills || []).length}</b> môn</span>
+                            <span className="text-[11px] italic">Công pháp đã ngưng tụ vào tâm khảm bản thân</span>
+                        </div>
+                        {(() => {
+                            let skills = [...(gameState.journal?.skills || [])];
+                            if (journalSearch.trim()) {
+                                const q = journalSearch.toLowerCase().trim();
+                                skills = skills.filter((s: any) => `${s.name || ''} ${s.type || ''} ${s.tier || ''} ${s.desc || ''}`.toLowerCase().includes(q));
+                            }
+                            if (skills.length === 0) {
+                                return (
+                                    <div className="text-center py-12 text-[var(--text-muted)] italic flex flex-col items-center gap-2">
+                                        <Sparkles size={36} className="opacity-30 text-purple-400"/>
+                                        {journalSearch.trim() ? `Không tìm thấy công pháp nào khớp với "${journalSearch}".` : 'Chưa lĩnh ngộ công pháp nào. Hãy tầm sư học đạo hoặc thấu hiểu từ bí tịch!'}
+                                    </div>
+                                );
+                            }
+                            return (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {skills.map((s: any, idx: number) => (
+                                        <div key={idx} className="p-3.5 rounded-xl border border-[var(--border-main)] bg-[var(--bg-surface)] hover:border-purple-500/60 transition-colors flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex justify-between items-start mb-1.5">
+                                                    <span className="font-bold text-sm text-purple-400 flex items-center gap-1.5">
+                                                        <Sparkles size={14}/> {s.name}
+                                                    </span>
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-950/40 text-purple-300 border border-purple-500/40">
+                                                        {s.tier || s.type || 'Công Pháp'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-[var(--text-muted)] leading-relaxed mt-1">{s.desc || 'Công pháp tu luyện thượng thừa.'}</p>
+                                            </div>
+                                            {s.proficiency !== undefined && (
+                                                <div className="mt-2.5 pt-2 border-t border-[var(--border-main)] flex justify-between items-center text-[10px] font-mono text-[var(--text-muted)]">
+                                                    <span>Độ Thuần Thục</span>
+                                                    <span className="text-teal-400 font-bold">{s.proficiency || 0}%</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
+
+                {journalTab === 'causal' && (
+                    <div className="space-y-4">
+                        <div className="text-xs text-blue-400/80 bg-blue-950/20 p-4 rounded-xl border border-blue-900/30 leading-relaxed">
+                            <span className="font-bold text-blue-400">Quy Luật Duyên Khởi:</span> Mọi hành vi trong cõi Cửu Châu đều gieo xuống nhân duyên. Kẻ thù, cấm vệ hoặc thế lực giang hồ có thể dựa vào dấu vết này để điều tra, truy sát hoặc báo thù. Có thể xóa sạch manh mối bằng thủ đoạn tiêu hủy hiện trường (hóa thi, ngụy trang, xóa ký ức) hoặc để thời gian làm phai mờ.
+                        </div>
+                        {(() => {
+                            const allTracks = gameState.causalTracks || [];
+                            const fTracks = journalSearch.trim() 
+                                ? allTracks.filter((t: any) => `${t.action || ''} ${t.target || ''} ${t.type || ''}`.toLowerCase().includes(journalSearch.toLowerCase())) 
+                                : allTracks;
+                            if (allTracks.length === 0) {
+                                return (
+                                    <div className="text-center py-10 text-[var(--text-muted)] italic flex flex-col items-center gap-3">
+                                        <Eye size={40} className="opacity-20 text-blue-400" />
+                                        Ngươi hành sự kín kẽ, không để lại bất kỳ dấu vết hay manh mối nào trong giang hồ.
+                                    </div>
+                                );
+                            }
+                            if (fTracks.length === 0) {
+                                return <div className="text-center py-10 text-[var(--text-muted)] italic">Không tìm thấy dấu vết nhân quả nào phù hợp với từ khóa "{journalSearch}".</div>;
+                            }
+                            return (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {fTracks.map((t: any, idx: number) => (
+                                    <div key={idx} className="p-4 rounded-xl border border-blue-900/30 bg-[var(--bg-surface)] hover:border-blue-500/50 transition-colors flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex justify-between items-start mb-2">
+                                                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${t.type === 'gratitude' ? 'bg-emerald-950/30 text-emerald-400 border-emerald-900/50' : 'bg-red-950/30 text-red-400 border-red-900/50'}`}>
+                                                    {t.type === 'gratitude' ? 'Ân Tình' : t.type === 'blood_scent' ? 'Mùi Máu' : t.type === 'sect_token' ? 'Tín Vật' : 'Nhân Chứng'}
+                                                </span>
+                                                <span className="text-xs font-mono text-[var(--text-muted)]">Năm {t.year || 1}</span>
+                                            </div>
+                                            <div className="font-bold text-sm text-[var(--text-bold)] mb-1">"{t.action}"</div>
+                                            <div className="text-xs text-[var(--text-muted)]">Kẻ lần theo manh mối: <span className="text-yellow-500 font-semibold">{t.target}</span></div>
+                                        </div>
+                                        <div className="mt-3 pt-2 border-t border-[var(--border-main)] text-[10px] text-[var(--text-muted)] italic">
+                                            Trạng thái: Đang bị lần theo. Hãy dùng hành vi tự nhiên để xóa sạch!
+                                        </div>
+                                    </div>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
+
+                {journalTab === 'graveyard' && (
+                    <div className="space-y-4">
+                        <div className="text-xs text-red-400/80 bg-red-950/20 p-4 rounded-xl border border-red-900/30 leading-relaxed">
+                            <span className="font-bold text-red-400">Vô Ngã Tiêu Tàn:</span> Những kẻ đã ngã xuống trong dòng chảy sinh mệnh. Thân xác tan vào cát bụi, linh lực quy hoàn thiên địa. Tuyệt đối không còn thân thể hay ý chí tồn tại nơi dương thế.
+                        </div>
+                        {(() => {
+                            const allDeadNames = Array.from(new Set([
+                                ...(gameState.journal?.graveyard || []).map((g: any) => typeof g === 'object' && g !== null ? String(g.name || '') : String(g || '')).filter(Boolean),
+                                ...((gameState.journal?.npcs || []).filter((n: any) => n.isDead).map((n: any) => n.name))
+                            ]));
+                            if (allDeadNames.length === 0) {
+                                return (
+                                    <div className="text-center py-10 text-[var(--text-muted)] italic flex flex-col items-center gap-3">
+                                        <Skull size={40} className="opacity-20 text-red-400" />
+                                        Chưa có ghi nhận vong linh nào ngã xuống trong hành trình.
+                                    </div>
+                                );
+                            }
+                            const fDeadNames = journalSearch.trim()
+                                ? allDeadNames.filter((dName: string) => {
+                                    const npcObj = (gameState.journal?.npcs || []).find((n: any) => String(n.name || '').trim().toLowerCase() === dName.trim().toLowerCase()) || (gameState.journal?.npcs || []).find((n: any) => String(n.name || '').toLowerCase().includes(dName.toLowerCase()));
+                                    const combinedStr = `${dName} ${npcObj?.name || ''} ${npcObj?.sect || ''} ${npcObj?.level || ''}`.toLowerCase();
+                                    return combinedStr.includes(journalSearch.toLowerCase());
+                                })
+                                : allDeadNames;
+                            if (fDeadNames.length === 0) {
+                                return <div className="text-center py-10 text-[var(--text-muted)] italic">Không tìm thấy vong linh nào phù hợp với từ khóa "{journalSearch}".</div>;
+                            }
+                            return (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {fDeadNames.map((deadName: string, idx: number) => {
+                                    const npcObj = (gameState.journal?.npcs || []).find((n: any) => String(n.name || '').trim().toLowerCase() === deadName.trim().toLowerCase()) || (gameState.journal?.npcs || []).find((n: any) => String(n.name || '').toLowerCase().includes(deadName.toLowerCase()));
+                                    return (
+                                        <div 
+                                            key={idx} 
+                                            className="rounded-xl border border-red-900/40 bg-[var(--bg-surface)] hover:border-red-500/50 transition-all overflow-hidden shadow-sm"
+                                        >
+                                            <div 
+                                                onClick={() => setSelectedGraveyardNpc(selectedGraveyardNpc === deadName ? null : deadName)}
+                                                className="p-4 flex items-center justify-between cursor-pointer group"
+                                                title="Nhấp để mở rộng ký ức bia mộ"
+                                            >
+                                                <div className="flex items-center gap-2.5">
+                                                    <Skull size={18} className="text-red-500/70 group-hover:text-red-400 transition-colors" />
+                                                    <div>
+                                                        <div className="font-bold text-sm text-[var(--text-main)] group-hover:text-red-400 transition-colors">{npcObj?.name || deadName}</div>
+                                                        <div className="text-[10px] text-red-400/70 font-mono">Hoàng Tuyền / Đã Chết {npcObj?.level ? `(${npcObj.level})` : ''}</div>
+                                                    </div>
+                                                </div>
+                                                <span className="text-[11px] text-[var(--text-muted)] group-hover:text-red-400 transition-colors flex items-center gap-1 font-bold">
+                                                    {selectedGraveyardNpc === deadName ? 'Thu gọn ▲' : 'Văn Bia 🪦'}
+                                                </span>
+                                            </div>
+                                            {selectedGraveyardNpc === deadName && (
+                                                <div className="px-4 pb-4 pt-2 border-t border-red-900/30 bg-[var(--bg-body)]/60 text-xs space-y-2 animate-in fade-in duration-200">
+                                                    <div className="flex justify-between border-b border-[var(--border-main)] pb-1.5 text-[11px]">
+                                                        <span className="text-[var(--text-muted)]">Cảnh giới khi mất:</span>
+                                                        <span className="font-bold text-yellow-500">{npcObj?.level || 'Phàm Trần'}</span>
+                                                    </div>
+                                                    <div className="flex justify-between border-b border-[var(--border-main)] pb-1.5 text-[11px]">
+                                                        <span className="text-[var(--text-muted)]">Tông môn / Thế lực:</span>
+                                                        <span className="font-bold text-cyan-400">{npcObj?.sect || 'Tán tu giang hồ'}</span>
+                                                    </div>
+                                                    <div className="text-[11px] leading-relaxed text-[var(--text-main)] bg-[var(--bg-surface)] p-2.5 rounded-lg border border-[var(--border-main)]">
+                                                        <div className="font-bold text-red-400/80 mb-1">Trạng thái cuối cùng:</div>
+                                                        {npcObj?.state || 'Thân xác tan thành cát bụi, linh lực quy hoàn thiên địa.'}
+                                                    </div>
+                                                    <div className="text-[10px] italic text-[var(--text-muted)] text-center pt-1">
+                                                        🌿 Vô Ngã Tiêu Tàn — Duyên tàn thù dứt, không còn vướng bận thất tình lục dục nơi dương gian.
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                    })}
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DEATH NOTE MODAL (SỔ TỬ THẦN - V4.69 & V1.28.6: MỞ RỘNG TRỰC TIẾP, CHUẨN HÓA THEME) */}
+      {isDeathNoteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] p-2 md:p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--bg-panel)] w-full max-w-4xl h-[90vh] rounded-2xl flex flex-col border border-[var(--border-main)] shadow-2xl relative overflow-hidden">
+            <div className="p-4 md:p-5 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-surface)] shrink-0">
+              <div className="flex items-center gap-3">
+                   <div className="bg-red-900/30 p-2 rounded-full border border-red-900/50"><Skull className="text-red-500" size={24} /></div>
+                   <div>
+                       <h3 className="text-lg md:text-xl font-bold text-red-500 uppercase tracking-widest">Sổ Tử Thần</h3>
+                       <p className="text-[10px] md:text-xs text-red-400/70">Ghi chép lại những vong hồn đã ngã xuống dưới bước chân tu đạo.</p>
+                   </div>
+               </div>
+               <button onClick={() => setIsDeathNoteOpen(false)} className="p-2 bg-[var(--bg-body)] hover:bg-red-900/40 border border-[var(--border-main)] rounded text-red-400 transition-colors"><X size={20}/></button>
+            </div>
+            
+            {/* V1.25.0: THANH TÌM KIẾM VONG HỒN TRONG SỔ TỬ THẦN */}
+            <div className="p-3 md:px-5 md:py-2.5 bg-[var(--bg-surface)] border-b border-red-900/30 flex items-center gap-2 shrink-0">
+                <div className="relative flex-1">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-red-400/50" />
+                    <input 
+                        type="text" 
+                        placeholder="Tìm kiếm danh tính vong hồn, địa điểm tử nạn, nguyên nhân..." 
+                        value={deathNoteSearch} 
+                        onChange={e => setDeathNoteSearch(e.target.value)} 
+                        className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg pl-9 pr-8 py-1.5 text-xs text-[var(--text-main)] focus:outline-none focus:border-red-500"
+                    />
+                    {deathNoteSearch && (
+                        <button onClick={() => setDeathNoteSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-red-300 p-0.5" title="Xóa tìm kiếm">
+                            <X size={14} />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[var(--bg-body)] space-y-4">
+                <div className="text-sm text-red-400/80 bg-red-950/20 p-4 rounded-xl border border-red-900/30 leading-relaxed mb-6">
+                    <span className="font-bold text-red-500">Quy luật Luân Hồi (V1.28.6):</span> Toàn bộ những kẻ đã ngã xuống trong cõi Cửu Châu đều được ghi nhận vào Sổ Tử Thần. <span className="font-bold text-orange-500">Sợi dây Nhân Quả vẫn ngầm lưu chuyển</span> theo quy luật Duyên Khởi & Vô Ngã của Thiên Đạo.
+                </div>
+
+                {(() => {
+                    const allDead = (gameState.journal?.npcs || []).filter(npc => npc.isDead)
+                        .sort((a,b) => (b.deathAge || 0) - (a.deathAge || 0));
+
+                    const filteredDead = deathNoteSearch.trim()
+                        ? allDead.filter(npc => `${npc.name || ''} ${npc.deathLocation || ''} ${npc.deathReason || ''}`.toLowerCase().includes(deathNoteSearch.toLowerCase()))
+                        : allDead;
+
+                    if (allDead.length === 0) return <div className="text-center py-10 text-red-500/50 italic flex flex-col items-center gap-3"><Skull size={48} className="opacity-20"/> Chưa có vong hồn nào được ghi nhận vào Sổ Tử Thần.</div>;
+                    if (filteredDead.length === 0) return <div className="text-center py-10 text-red-500/50 italic">Không tìm thấy vong hồn nào phù hợp với từ khóa "{deathNoteSearch}".</div>;
+                    const deadNpcs = filteredDead;
+                    
+                    return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {deadNpcs.map((npc, i) => {
+                                const isExpanded = selectedDeathNoteNpc === npc.name;
+                                return (
+                                <div 
+                                   key={i} 
+                                   className="rounded-xl border border-red-900/30 bg-[var(--bg-surface)] hover:border-red-500/50 transition-all overflow-hidden shadow-sm"
+                                >
+                                    <div 
+                                       onClick={() => setSelectedDeathNoteNpc(isExpanded ? null : npc.name)}
+                                       className="p-4 cursor-pointer group flex justify-between items-start"
+                                       title="Nhấp để mở rộng hồ sơ tử vong"
+                                    >
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1.5">
+                                                <Skull size={16} className="text-red-500/70 group-hover:text-red-400 transition-colors"/>
+                                                <span className="font-bold text-sm text-[var(--text-main)] group-hover:text-red-400 transition-colors">{npc.name}</span>
+                                            </div>
+                                            <div className="text-xs text-red-400/70 mb-1 flex items-center gap-1.5"><Clock size={12}/> {npc.deathTimeStr || 'Không xác định'}</div>
+                                            <div className="text-xs text-red-400/70 flex items-center gap-1.5 truncate"><Map size={12}/> {npc.deathLocation || 'Vùng đất vô danh'}</div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] text-[var(--text-muted)] group-hover:text-red-400 font-bold transition-colors">
+                                                {isExpanded ? 'Thu gọn ▲' : 'Chi tiết ▼'}
+                                            </span>
+                                            <button onClick={(e) => { e.stopPropagation(); removeNpcFromJournal(e, npc.name); }} className="text-red-900/50 hover:text-red-500 p-1 transition-colors" title="Xóa nhân quả vĩnh viễn"><Trash2 size={14}/></button>
+                                        </div>
+                                    </div>
+                                    {isExpanded && (
+                                        <div className="px-4 pb-4 pt-2 border-t border-red-900/30 bg-[var(--bg-body)]/60 text-xs space-y-2 animate-in fade-in duration-200">
+                                            <div className="flex justify-between border-b border-[var(--border-main)] pb-1.5 text-[11px]">
+                                                <span className="text-[var(--text-muted)]">Phe phái trước khi mất:</span>
+                                                <span className="font-bold text-amber-400">{npc.alignment || 'Không rõ'}</span>
+                                            </div>
+                                            <div className="flex justify-between border-b border-[var(--border-main)] pb-1.5 text-[11px]">
+                                                <span className="text-[var(--text-muted)]">Mối quan hệ cũ:</span>
+                                                <span className="font-bold text-cyan-400">{npc.relationType || 'Người dưng'}</span>
+                                            </div>
+                                            <div className="text-[11px] leading-relaxed text-[var(--text-main)] bg-[var(--bg-surface)] p-2.5 rounded-lg border border-[var(--border-main)]">
+                                                <div className="font-bold text-red-400/80 mb-1">Nguyên nhân tử nạn:</div>
+                                                "{npc.deathReason || 'Chết không rõ nguyên nhân.'}"
+                                            </div>
+                                            <div className="text-[10px] italic text-[var(--text-muted)] text-center pt-1">
+                                                🌿 Duyên diệt nghiệp dứt — Hồn quy thiên địa, không còn oán niệm.
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )})}
+                        </div>
+                    );
+                })()}
+            </div>
+          </div>
+        </div>
+      )}
+        {/* V4.73: COMPANION INVENTORY MODAL (CHUYỂN NỘI BỘ & LƯU TÚI CHÍNH) */}
+      {companionInventoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] p-2 md:p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--bg-panel)] w-full max-w-4xl h-[85vh] rounded-2xl flex flex-col border border-[var(--border-main)] shadow-2xl relative overflow-hidden">
+            <div className="p-4 md:p-5 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-surface)] shrink-0">
+               <div className="flex items-center gap-3">
+                   <div className="bg-orange-900/30 p-2 rounded-full border border-orange-900/50"><Backpack className="text-orange-500" size={24} /></div>
+                   <div>
+                       <h3 className="text-lg md:text-xl font-bold text-orange-500 uppercase tracking-widest">Hành Trang: {companionInventoryModal === '__CLONE_SYSTEM__' ? 'KHO ĐỒ PHÂN THÂN' : companionInventoryModal}</h3>
+                       <p className="text-[10px] md:text-xs text-[var(--text-muted)]">{companionInventoryModal === '__CLONE_SYSTEM__' ? 'Không gian chung vô hạn cho tất cả hệ thống phân thân.' : 'Túi đang mở sẽ mặc định là túi chính (ưu tiên cất đồ).'}</p>
+                   </div>
+               </div>
+               <button onClick={() => setCompanionInventoryModal(null)} className="p-2 bg-transparent hover:bg-orange-900/20 border border-transparent hover:border-orange-900/50 rounded text-orange-500/70 hover:text-orange-500 transition-colors"><X size={20}/></button>
+            </div>
+            
+            {(() => {
+                let safeContainers = [];
+                let safeInv = [];
+                let compName = "";
+                let isGlobalCloneSystem = companionInventoryModal === '__CLONE_SYSTEM__';
+                
+                if (isGlobalCloneSystem) {
+                    compName = "Kho Đồ Phân Thân";
+                    safeContainers = [{ id: 'shared_clone_inv', name: 'Không Gian Vô Hạn', capacity: 9999999 }];
+                    safeInv = gameState.cloneInventory || [];
+                } else {
+                    const comp = gameState.companions.find(c => c.name === companionInventoryModal);
+                    if (!comp) return <div className="p-10 text-center text-[var(--text-muted)]">Tùy tùng không tồn tại hoặc đã chết.</div>;
+                    
+                    if (comp.isFused) return (
+                        <div className="p-10 flex flex-col items-center justify-center text-red-500/80">
+                            <Lock size={60} className="mb-4 opacity-50"/>
+                            <p className="text-xl font-bold uppercase tracking-widest">Hành Trang Bị Phong Ấn</p>
+                            <p className="text-sm mt-2 text-[var(--text-main)] italic text-center">Linh hồn và nhục thân của {comp.name} hiện đang bị dung hợp bên trong Đan Điền của bạn. Mọi không gian trữ vật mang theo đều tạm thời bị Không Gian loạn lưu phong tỏa. Hãy tách dung hợp để lấy đồ!</p>
+                        </div>
+                    );
+
+                    safeContainers = comp.containers || [];
+                    safeInv = comp.inventory || [];
+                    compName = comp.name;
+                }
+                
+                let displayInv = safeInv.filter(i => i.containerId === activeCompContainerId);
+                if (compInvFilter !== 'all') {
+                    if (compInvFilter === 'misc') displayInv = displayInv.filter(i => !['equip', 'food'].includes(i.type));
+                    else displayInv = displayInv.filter(i => i.type === compInvFilter);
+                }
+                if (compInvSearch) displayInv = displayInv.filter(i => String(i.name).toLowerCase().includes(compInvSearch.toLowerCase()));
+
+                return (
+                    <div className="flex-1 flex flex-col overflow-hidden p-4 md:p-6 bg-[var(--bg-body)]">
+                        {!isGlobalCloneSystem && (
+                            <div className="mb-4 bg-[var(--bg-surface)] border border-[var(--border-main)] rounded-xl p-3 shadow-inner">
+                                <div className="text-[10px] font-bold text-teal-400 uppercase tracking-widest mb-2 flex items-center gap-2 border-b border-[var(--border-main)] pb-2">
+                                    <Shield size={14}/> Nhục Thân Trang Bị
+                                </div>
+                                <div className="grid grid-cols-6 gap-2">
+                                    {[
+                                        { key: 'weapon', icon: Axe, color: 'text-red-400', label: 'Vũ Khí' },
+                                        { key: 'armor', icon: Shield, color: 'text-blue-400', label: 'Pháp Y' },
+                                        { key: 'head', icon: Crown, color: 'text-yellow-400', label: 'Hộ Đầu' },
+                                        { key: 'boots', icon: Wind, color: 'text-emerald-400', label: 'Hài Ngoa' },
+                                        { key: 'artifact', icon: Sparkles, color: 'text-purple-400', label: 'Pháp Bảo' },
+                                        { key: 'accessory', icon: Gem, color: 'text-pink-400', label: 'Trang Sức' }
+                                    ].map(slot => {
+                                        const compObj = gameState.companions.find(c => c.name === companionInventoryModal);
+                                        const item = compObj?.equipped?.[slot.key];
+                                        return (
+                                            <div key={slot.key} className="flex flex-col items-center gap-1">
+                                                <div 
+                                                    onClick={() => {
+                                                        if (!item) return;
+                                                        setGameState(prev => {
+                                                            const newComps = [...prev.companions];
+                                                            const cIdx = newComps.findIndex(c => c.name === companionInventoryModal);
+                                                            if (cIdx < 0) return prev;
+                                                            const eqItem = newComps[cIdx].equipped[slot.key];
+                                                            if (!eqItem) return prev;
+                                                            const targetCid = newComps[cIdx].mainContainerId || (newComps[cIdx].containers && newComps[cIdx].containers.length > 0 ? newComps[cIdx].containers[0].id : 'default');
+                                                            const existMsg = newComps[cIdx].inventory.findIndex(i => i.name === eqItem.name && i.containerId === targetCid && !i.attackBonus && !i.defenseBonus);
+                                                            if (existMsg >= 0) newComps[cIdx].inventory[existMsg].quantity += 1;
+                                                            else newComps[cIdx].inventory.push({ ...eqItem, quantity: 1, containerId: targetCid });
+                                                            newComps[cIdx].equipped[slot.key] = null;
+                                                            return { ...prev, companions: newComps };
+                                                        });
+                                                        setStoryLog(prev => {
+                                                            const newLog = [...prev, { type: 'system', text: `[Hệ Thống] Tùy tùng ${companionInventoryModal} đã tháo gỡ [${item.name}].`, chapter: gameState.chapterCount }];
+                                                            return newLog.length > 50 ? newLog.slice(-50) : newLog;
+                                                        });
+                                                    }}
+                                                    className={`w-full aspect-square rounded border flex items-center justify-center transition-colors ${item ? `${RARITY_COLORS[item.rarity]?.bg || 'bg-gray-800'} ${RARITY_COLORS[item.rarity]?.border || 'border-gray-600'} cursor-pointer hover:border-red-500` : 'bg-[var(--bg-body)] border-[var(--border-main)] border-dashed opacity-50'}`}
+                                                    title={item ? `Tháo gỡ ${item.name}` : slot.label}
+                                                >
+                                                    {item ? <slot.icon size={14} className={RARITY_COLORS[item.rarity]?.text || 'text-white'}/> : <slot.icon size={14} className="text-gray-600"/>}
+                                                </div>
+                                                <span className="text-[8px] text-[var(--text-muted)] truncate w-full text-center">{item ? item.name : slot.label}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                            <select 
+                                value={activeCompContainerId} 
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setActiveCompContainerId(val);
+                                    if (!isGlobalCloneSystem) {
+                                        setGameState(prev => {
+                                            const newComps = [...prev.companions];
+                                            const idx = newComps.findIndex(x => x.name === compName);
+                                            if (idx >= 0) newComps[idx].mainContainerId = val;
+                                            return {...prev, companions: newComps};
+                                        });
+                                    }
+                                    setSelectedCompInvItem(null);
+                                }}
+                                className="flex-1 w-full bg-[var(--bg-item)] border border-[var(--border-main)] text-orange-400 font-bold px-3 py-2.5 rounded-lg focus:outline-none focus:border-orange-500 shadow-sm transition-colors text-sm"
+                            >
+                                {safeContainers.length === 0 && <option value="default" disabled>Không có Không gian lưu trữ</option>}
+                                {safeContainers.map(c => {
+                                    const currentWeight = safeInv.filter(i => i.containerId === c.id).reduce((sum, i) => sum + getItemTotalWeight(i), 0);
+                                    return <option key={c.id} value={c.id}>◫ {c.name} ({currentWeight.toFixed(1)}/{(c.capacity||30)} kg)</option>;
+                                })}
+                            </select>
+                            
+                            {/* V4.73: Tháo túi rớt vào Túi Chính của Tùy tùng */}
+                            {!isGlobalCloneSystem && safeContainers.length > 0 && (
+                                <button onClick={() => {
+                                    const cToTake = safeContainers.find(x => x.id === activeCompContainerId);
+                                    if (!cToTake) return;
+                                    
+                                    setGameState(prev => {
+                                        const newComps = [...prev.companions];
+                                        const cIdx = newComps.findIndex(x => x.name === compName);
+                                        newComps[cIdx].containers = newComps[cIdx].containers.filter(x => x.id !== cToTake.id);
+                                        
+                                        // Tìm túi fallback (túi chính hiện tại hoặc túi đầu tiên còn lại)
+                                        let fallbackCid = newComps[cIdx].containers.length > 0 ? newComps[cIdx].containers[0].id : null;
+                                        
+                                        if (fallbackCid) {
+                                            // Dồn đồ bên trong sang túi fallback
+                                            newComps[cIdx].inventory = newComps[cIdx].inventory.map(item => item.containerId === cToTake.id ? {...item, containerId: fallbackCid} : item);
+                                            
+                                            // Biến cái túi vừa tháo thành vật phẩm rớt vào túi fallback
+                                            const bagItemName = cToTake.id === 'default' ? 'Túi vải thô' : cToTake.name;
+                                            const bagItemDesc = cToTake.id === 'default' ? 'Túi đựng đồ cơ bản.' : cToTake.desc;
+                                            const bagItemCap = cToTake.id === 'default' ? 30 : cToTake.capacity;
+                                            
+                                            const bagItem = { name: bagItemName, quantity: 1, type: 'spatial', capacity: bagItemCap, rarity: cToTake.rarity || 'Trắng', desc: bagItemDesc, containerId: fallbackCid };
+                                            const existBag = newComps[cIdx].inventory.find(i => i.name === bagItem.name && i.containerId === fallbackCid);
+                                            if (existBag) existBag.quantity += 1; else newComps[cIdx].inventory.push(bagItem);
+                                            
+                                            newComps[cIdx].mainContainerId = fallbackCid;
+                                            setActiveCompContainerId(fallbackCid);
+                                        } else {
+                                            // Nếu hết sạch túi, đồ trả về NVC (để tránh mất)
+                                            const newInv = [...prev.inventory];
+                                            const itemsToTransfer = newComps[cIdx].inventory.filter(i => i.containerId === cToTake.id);
+                                            newComps[cIdx].inventory = newComps[cIdx].inventory.filter(i => i.containerId !== cToTake.id);
+                                            
+                                            itemsToTransfer.forEach(item => {
+                                                const exist = newInv.find(x => x.name === item.name && x.containerId === prev.containers[0].id);
+                                                if (exist) exist.quantity += item.quantity; else newInv.push({...item, containerId: prev.containers[0].id});
+                                            });
+                                            
+                                            // Chuyển luôn cái túi cuối cùng về NVC
+                                            const bagItemName = cToTake.id === 'default' ? 'Túi vải thô' : cToTake.name;
+                                            const bagItem = { name: bagItemName, quantity: 1, type: 'spatial', capacity: cToTake.capacity || 30, rarity: cToTake.rarity || 'Trắng', containerId: prev.containers[0].id };
+                                            const existBag = newInv.find(i => i.name === bagItem.name && i.containerId === prev.containers[0].id);
+                                            if (existBag) existBag.quantity += 1; else newInv.push(bagItem);
+                                            
+                                            newComps[cIdx].mainContainerId = null;
+                                            setActiveCompContainerId('default');
+                                            return {...prev, companions: newComps, inventory: newInv};
+                                        }
+                                        return {...prev, companions: newComps};
+                                    });
+                                    setStoryLog(prev => {
+                                        const newLog = [...prev, { type: 'system', text: `[Hệ Thống] Đã tháo không gian [${cToTake.name}] của ${compName}. Túi đã được chuyển thành vật phẩm cất vào hành trang của họ.`, chapter: gameState.chapterCount }];
+                                        return newLog.length > 50 ? newLog.slice(-50) : newLog;
+                                    });
+                                    setSelectedCompInvItem(null);
+                                }} className="px-4 py-2 bg-orange-900/20 text-orange-400 hover:bg-orange-500 hover:text-white border border-orange-800/50 rounded-lg font-bold transition-colors shrink-0 flex justify-center items-center">
+                                    Tháo Túi Này
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                           <div className="relative flex-1">
+                              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                              <input type="text" placeholder="Tìm vật phẩm..." value={compInvSearch} onChange={e => setCompInvSearch(e.target.value)} className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg pl-9 pr-8 py-2 text-sm text-[var(--text-main)] focus:border-orange-500 focus:outline-none" />
+                              {compInvSearch && (
+                                 <button onClick={() => setCompInvSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] p-0.5" title="Xóa tìm kiếm">
+                                    <X size={14} />
+                                 </button>
+                              )}
+                           </div>
+                           <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1 sm:pb-0 shrink-0">
+                              <button onClick={() => setCompInvFilter('all')} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border transition-colors ${compInvFilter === 'all' ? 'bg-orange-600 border-orange-500 text-white' : 'bg-[var(--bg-surface)] border-[var(--border-main)] text-[var(--text-muted)] hover:text-[var(--text-bold)]'}`}>Tất cả</button>
+                              <button onClick={() => setCompInvFilter('equip')} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border transition-colors flex items-center gap-1 ${compInvFilter === 'equip' ? 'bg-orange-600 border-orange-500 text-white' : 'bg-[var(--bg-surface)] border-[var(--border-main)] text-[var(--text-muted)] hover:text-orange-400'}`}><Axe size={12}/> Trang bị</button>
+                              <button onClick={() => setCompInvFilter('food')} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border transition-colors flex items-center gap-1 ${compInvFilter === 'food' ? 'bg-orange-600 border-orange-500 text-white' : 'bg-[var(--bg-surface)] border-[var(--border-main)] text-[var(--text-muted)] hover:text-orange-400'}`}><FlaskRound size={12}/> Đan/Thực</button>
+                              <button onClick={() => setCompInvFilter('misc')} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border transition-colors flex items-center gap-1 ${compInvFilter === 'misc' ? 'bg-orange-600 border-orange-500 text-white' : 'bg-[var(--bg-surface)] border-[var(--border-main)] text-[var(--text-muted)] hover:text-orange-400'}`}><Package size={12}/> Khác</button>
+                           </div>
+                        </div>
+
+                        {/* Danh Sách Vật Phẩm Tùy Tùng */}
+                        <div className="flex-1 bg-[var(--bg-body)] border border-[var(--border-main)] rounded-xl p-3 overflow-y-auto custom-scrollbar mb-4 min-h-[160px] max-h-[250px]">
+                            {displayInv.length === 0 ? (
+                               <div className="h-full flex flex-col items-center justify-center text-[var(--text-muted)] opacity-50 py-10">
+                                   <Package size={48} className="mb-3"/>
+                                   <p className="text-base italic">Không gian này trống rỗng.</p>
+                               </div>
+                            ) : (
+                               <div className="flex flex-col gap-1">
+                                  {displayInv.map((item, idx) => {
+                                     const isSelected = selectedCompInvItem?.name === item.name;
+                                     const cVisual = getItemColor(item);
+                                     const cRarity = resolveItemRarity(item);
+                                     return (
+                                     <div key={idx} onClick={() => { setSelectedCompInvItem(item); setCompMoveAmount(item.quantity); }} className={`cursor-pointer px-3 py-2 flex items-center transition-all rounded select-none ${isSelected ? 'bg-orange-900/20 border-l-2 border-orange-500 shadow-sm' : `hover:bg-[var(--bg-hover)] border-l-2 ${cVisual.border?.split(' ')[0] || 'border-transparent'}`}`}>
+                                         <div className="flex-1 flex justify-between items-center w-full overflow-hidden">
+                                             <div className="flex items-center gap-2 overflow-hidden w-full">
+                                                 <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${cVisual.bg || 'bg-gray-800/30'}`}>
+                                                    {getItemTypeIcon(item, 13, cVisual.iconColor || 'text-gray-300')}
+                                                 </div>
+                                                 <span className={`text-sm font-bold truncate leading-6 ${cVisual.text || 'text-gray-200'}`}>{item.name}</span>
+                                                 <span className={`text-[10px] px-1.5 py-0.2 rounded border font-mono uppercase tracking-wider shrink-0 ${cVisual.bg || 'bg-gray-800/30'} ${cVisual.border || 'border-gray-600/40'} ${cVisual.text || 'text-gray-300'}`}>
+                                                    {cRarity}
+                                                 </span>
+                                             </div>
+                                             <span className="text-xs font-mono font-bold text-[var(--text-muted)] shrink-0 pl-3">x{item.quantity}</span>
+                                         </div>
+                                     </div>
+                                  )})}
+                               </div>
+                            )}
+                        </div>
+
+                        {/* Bảng Chi Tiết Vật Phẩm Của Tùy Tùng */}
+                        {selectedCompInvItem ? (
+                           <div className="bg-[var(--bg-surface)] border border-[var(--border-main)] rounded-xl p-4 relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                              <div className={`absolute top-0 right-0 w-32 h-full bg-gradient-to-l opacity-20 pointer-events-none ${RARITY_COLORS[selectedCompInvItem.rarity]?.bg?.replace('/10', '/100') || 'from-gray-500'}`}></div>
+                              
+                              <div className="flex justify-between items-start mb-2 relative z-10">
+                                 <div>
+                                    <h4 className={`text-lg font-bold ${RARITY_COLORS[selectedCompInvItem.rarity]?.text || 'text-[var(--text-main)]'}`}>{selectedCompInvItem.name}</h4>
+                                    <div className="text-xs text-[var(--text-muted)] mt-1 flex items-center gap-2">
+                                       <span className="border border-[var(--border-main)] px-1.5 py-0.5 rounded bg-[var(--bg-body)]">{selectedCompInvItem.tier || 'Phàm Khí'}</span>
+                                       <span className="border border-[var(--border-main)] px-1.5 py-0.5 rounded bg-[var(--bg-body)]">{selectedCompInvItem.rarity || 'Trắng'}</span>
+                                       {selectedCompInvItem.subLevel && <span className="border border-red-900/50 px-1.5 py-0.5 rounded bg-red-900/20 text-red-400 font-bold">Cấp {selectedCompInvItem.subLevel}</span>}
+                                       <span className="font-mono text-orange-400">⚖️ {getItemTotalWeight(selectedCompInvItem).toFixed(2)} kg</span>
+                                    </div>
+                                 </div>
+                                 <button onClick={() => setSelectedCompInvItem(null)} className="p-1 hover:bg-[var(--bg-body)] rounded text-[var(--text-muted)]"><X size={16}/></button>
+                              </div>
+
+                              <div className="text-sm text-[var(--text-main)] italic leading-relaxed mb-4 relative z-10">"{selectedCompInvItem.desc}"</div>
+                              
+                              {selectedCompInvItem.perks && selectedCompInvItem.perks.length > 0 && (
+                                 <div className="mb-4 relative z-10">
+                                    <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] mb-1 block">Đặc tính:</span>
+                                    <div className="flex flex-wrap gap-1.5">
+                                       {selectedCompInvItem.perks.map((p, i) => <span key={i} className="bg-[var(--bg-body)] border border-[var(--border-main)] px-2 py-1 rounded text-xs font-bold text-[var(--text-main)] shadow-sm">{String(p)}</span>)}
+                                    </div>
+                                 </div>
+                              )}
+
+                              {selectedCompInvItem.quantity > 1 && (
+                                  <div className="flex items-center gap-2 mb-3 bg-[var(--bg-body)] p-2 rounded-lg border border-[var(--border-main)] relative z-10">
+                                      <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] whitespace-nowrap">Số lượng:</span>
+                                      <input type="range" min="1" max={selectedCompInvItem.quantity} value={compMoveAmount} onChange={e => setCompMoveAmount(Number(e.target.value))} className="flex-1 accent-orange-500 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                                      <input type="number" min="1" max={selectedCompInvItem.quantity} value={compMoveAmount} onChange={e => setCompMoveAmount(Math.min(selectedCompInvItem.quantity, Math.max(1, parseInt(e.target.value)||1)))} className="w-14 bg-[var(--bg-surface)] text-[var(--text-main)] border border-[var(--border-main)] rounded px-1.5 py-1 text-xs font-bold text-center focus:outline-none focus:border-orange-500" />
+                                  </div>
+                              )}
+
+                              <div className="flex gap-2 relative z-10 border-t border-[var(--border-main)] pt-3">
+                                 {!isGlobalCloneSystem && selectedCompInvItem.type === 'equip' && (
+                                     <button onClick={() => {
+                                         const getEquipSlotCustom = (item) => {
+                                             if (item.equipSlot && ['weapon', 'armor', 'head', 'boots', 'accessory', 'artifact'].includes(item.equipSlot)) return item.equipSlot;
+                                             const textToMatch = String(item.name + " " + (item.desc || "")).toLowerCase();
+                                             if (/(kiếm|đao|thương|kích|côn|búa|rìu|cung|trượng|xích|roi|chùy|súng|pháo|ám khí)/.test(textToMatch)) return 'weapon';
+                                             if (/(áo|giáp|bào|pháp\s*y|y\s*phục|tơ|khiên|thuẫn|quần|(?:^|\s)y(?:\s|$))/.test(textToMatch)) return 'armor';
+                                             if (/(mũ|quán|trâm|nón|miện|khăn|cài|vương miện|scouter|máy đo)/.test(textToMatch)) return 'head';
+                                             if (/(giày|hài|ngoa|ủng)/.test(textToMatch)) return 'boots';
+                                             if (/(nhẫn|ngọc|bội|liên|vòng|phù|chuyền|xuyến|lệnh bài)/.test(textToMatch) && !textToMatch.includes('hỏa phù')) return 'accessory';
+                                             return 'artifact';
+                                         };
+                                         const slot = getEquipSlotCustom(selectedCompInvItem);
+                                         
+                                         setGameState(prev => {
+                                             const newComps = [...prev.companions];
+                                             const cIdx = newComps.findIndex(x => x.name === compName);
+                                             if (cIdx < 0) return prev;
+                                             
+                                             if (!newComps[cIdx].equipped) newComps[cIdx].equipped = { weapon: null, armor: null, head: null, boots: null, artifact: null, accessory: null };
+                                             
+                                             const itemIdx = newComps[cIdx].inventory.findIndex(x => x.name === selectedCompInvItem.name && x.containerId === selectedCompInvItem.containerId);
+                                             if (itemIdx >= 0) {
+                                                 newComps[cIdx].inventory[itemIdx].quantity -= 1;
+                                                 if (newComps[cIdx].inventory[itemIdx].quantity <= 0) newComps[cIdx].inventory.splice(itemIdx, 1);
+                                             }
+                                             
+                                             if (newComps[cIdx].equipped[slot]) {
+                                                 const oldItem = newComps[cIdx].equipped[slot];
+                                                 const existIdx = newComps[cIdx].inventory.findIndex(i => i.name === oldItem.name && i.containerId === (selectedCompInvItem.containerId || 'default') && !i.attackBonus);
+                                                 if (existIdx >= 0) newComps[cIdx].inventory[existIdx].quantity += 1;
+                                                 else newComps[cIdx].inventory.push({ ...oldItem, quantity: 1, containerId: selectedCompInvItem.containerId || 'default' });
+                                             }
+                                             
+                                             let enrichedItem = { ...selectedCompInvItem };
+                                             enrichedItem.equipSlot = slot;
+                                             if (enrichedItem.durability !== undefined && enrichedItem.maxDurability) {
+                                                 const duraCost = Math.max(1, Math.floor(enrichedItem.maxDurability * 0.01));
+                                                 enrichedItem.durability = Math.max(0, enrichedItem.durability - duraCost);
+                                             }
+                                             
+                                             newComps[cIdx].equipped[slot] = enrichedItem;
+                                             return { ...prev, companions: newComps };
+                                         });
+                                         setStoryLog(prev => {
+                                             const newLog = [...prev, { type: 'system', text: `[Hệ Thống] Phân thân ${compName} đã trang bị [${selectedCompInvItem.name}].`, chapter: gameState.chapterCount }];
+                                             return newLog.length > 50 ? newLog.slice(-50) : newLog;
+                                         });
+                                         setSelectedCompInvItem(null);
+                                     }} className="flex-1 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-bold text-xs py-2 shadow-lg transition-transform hover:scale-105">
+                                         Đeo Bộ Phận
+                                     </button>
+                                 )}
+                                 {/* Nút Lấy Về NVC */}
+                                 <button onClick={() => {
+                                     setGameState(prev => {
+                                         if (isGlobalCloneSystem) {
+                                            const newCloneInv = [...(prev.cloneInventory || [])];
+                                            const itemIdx = newCloneInv.findIndex(x => x.name === selectedCompInvItem.name && x.containerId === selectedCompInvItem.containerId);
+                                            if (itemIdx >= 0) {
+                                                const itemToTake = { ...newCloneInv[itemIdx], quantity: compMoveAmount };
+                                                newCloneInv[itemIdx].quantity -= compMoveAmount;
+                                                if (newCloneInv[itemIdx].quantity <= 0) newCloneInv.splice(itemIdx, 1);
+                                                
+                                                const newInv = [...prev.inventory];
+                                                const targetCid = prev.containers[0].id; 
+                                                const exist = newInv.find(x => x.name === itemToTake.name && x.containerId === targetCid);
+                                                if (exist) exist.quantity += compMoveAmount;
+                                                else newInv.push({...itemToTake, containerId: targetCid});
+                                                
+                                                return {...prev, cloneInventory: newCloneInv, inventory: newInv};
+                                            }
+                                            return prev;
+                                         }
+
+                                         const newComps = [...prev.companions];
+                                         const cIdx = newComps.findIndex(x => x.name === compName);
+                                         const itemIdx = newComps[cIdx].inventory.findIndex(x => x.name === selectedCompInvItem.name && x.containerId === selectedCompInvItem.containerId);
+                                         
+                                         if (itemIdx >= 0) {
+                                             const itemToTake = { ...newComps[cIdx].inventory[itemIdx], quantity: compMoveAmount };
+                                             newComps[cIdx].inventory[itemIdx].quantity -= compMoveAmount;
+                                             if (newComps[cIdx].inventory[itemIdx].quantity <= 0) newComps[cIdx].inventory.splice(itemIdx, 1);
+                                             
+                                             const newInv = [...prev.inventory];
+                                             const targetCid = prev.containers[0].id; 
+                                             const exist = newInv.find(x => x.name === itemToTake.name && x.containerId === targetCid);
+                                             if (exist) exist.quantity += compMoveAmount;
+                                             else newInv.push({...itemToTake, containerId: targetCid});
+                                             
+                                             return {...prev, companions: newComps, inventory: newInv};
+                                         }
+                                         return prev;
+                                     });
+                                     setStoryLog(prev => {
+                                         const newLog = [...prev, { type: 'system', text: `[Hệ Thống] Đã lấy lại [${selectedCompInvItem.name} x${compMoveAmount}] từ ${compName}.`, chapter: gameState.chapterCount }];
+                                         return newLog.length > 50 ? newLog.slice(-50) : newLog;
+                                     });
+                                     setSelectedCompInvItem(null);
+                                 }} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white rounded-lg font-bold text-xs py-2 shadow-lg transition-transform hover:scale-105">
+                                     Chuyển về Bản Thể
+                                 </button>
+                                 
+                                 {/* V4.73: Nút Chuyển Túi Nội Bộ Của Tùy Tùng */}
+                                 {safeContainers.length > 1 && selectedCompInvItem.type !== 'spatial' && selectedCompInvItem.type !== 'sealed_spatial' && (
+                                     <select 
+                                         className="flex-1 bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg text-xs px-1 font-bold text-orange-400 focus:outline-none focus:border-orange-500 cursor-pointer"
+                                         value=""
+                                         onChange={(e) => {
+                                             const targetCid = e.target.value;
+                                             if (!targetCid) return;
+                                             setGameState(prev => {
+                                                 const newComps = [...prev.companions];
+                                                 const cIdx = newComps.findIndex(x => x.name === compName);
+                                                 const itemIdx = newComps[cIdx].inventory.findIndex(x => x.name === selectedCompInvItem.name && x.containerId === selectedCompInvItem.containerId);
+                                                 
+                                                 if (itemIdx >= 0) {
+                                                     const targetBag = safeContainers.find(c => c.id === targetCid);
+                                                     const currWeight = newComps[cIdx].inventory.filter(i => i.containerId === targetCid).reduce((sum, i) => sum + getItemTotalWeight(i), 0);
+                                                     if (currWeight + (getItemUnitWeight(selectedCompInvItem) * compMoveAmount) > (targetBag.capacity || 30)) {
+                                                         showAlert(`Túi [${targetBag.name}] đã đầy, không thể chứa thêm!`);
+                                                         return prev;
+                                                     }
+                                                     
+                                                     const itemToMove = { ...newComps[cIdx].inventory[itemIdx], quantity: compMoveAmount, containerId: targetCid };
+                                                     newComps[cIdx].inventory[itemIdx].quantity -= compMoveAmount;
+                                                     if (newComps[cIdx].inventory[itemIdx].quantity <= 0) newComps[cIdx].inventory.splice(itemIdx, 1);
+                                                     
+                                                     const existDest = newComps[cIdx].inventory.find(x => x.name === itemToMove.name && x.containerId === targetCid);
+                                                     if (existDest) existDest.quantity += compMoveAmount;
+                                                     else newComps[cIdx].inventory.push(itemToMove);
+                                                 }
+                                                 return {...prev, companions: newComps};
+                                             });
+                                             setSelectedCompInvItem(null);
+                                         }}
+                                     >
+                                         <option value="" disabled>Đổi túi...</option>
+                                         {safeContainers.filter(c => c.id !== selectedCompInvItem.containerId).map(c => (
+                                             <option key={c.id} value={c.id}>Sang: {c.name}</option>
+                                         ))}
+                                     </select>
+                                 )}
+
+                                 <button onClick={() => {
+                                     setGameState(prev => {
+                                         if (isGlobalCloneSystem) {
+                                            const newCloneInv = [...(prev.cloneInventory || [])];
+                                            const itemIdx = newCloneInv.findIndex(x => x.name === selectedCompInvItem.name && x.containerId === selectedCompInvItem.containerId);
+                                            if (itemIdx >= 0) {
+                                                newCloneInv[itemIdx].quantity -= compMoveAmount;
+                                                if (newCloneInv[itemIdx].quantity <= 0) newCloneInv.splice(itemIdx, 1);
+                                            }
+                                            return {...prev, cloneInventory: newCloneInv};
+                                         }
+
+                                         const newComps = [...prev.companions];
+                                         const cIdx = newComps.findIndex(x => x.name === compName);
+                                         const itemIdx = newComps[cIdx].inventory.findIndex(x => x.name === selectedCompInvItem.name && x.containerId === selectedCompInvItem.containerId);
+                                         if (itemIdx >= 0) {
+                                             newComps[cIdx].inventory[itemIdx].quantity -= compMoveAmount;
+                                             if (newComps[cIdx].inventory[itemIdx].quantity <= 0) newComps[cIdx].inventory.splice(itemIdx, 1);
+                                         }
+                                         return {...prev, companions: newComps};
+                                     });
+                                     setStoryLog(prev => {
+                                         const newLog = [...prev, { type: 'system', text: `[Hệ Thống] Đã vứt bỏ [${selectedCompInvItem.name} x${compMoveAmount}] từ túi của ${compName}.`, chapter: gameState.chapterCount }];
+                                         return newLog.length > 50 ? newLog.slice(-50) : newLog;
+                                     });
+                                     setSelectedCompInvItem(null);
+                                 }} className="px-4 py-2 bg-red-900/20 text-red-500 hover:bg-red-600 hover:text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-colors border border-red-900/30 shrink-0">
+                                    <Trash2 size={14}/> Vứt
+                                 </button>
+                              </div>
+                           </div>
+                        ) : (
+                           <div className="bg-[var(--bg-surface)] border border-[var(--border-main)] border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center opacity-50">
+                              <MousePointerClick size={24} className="mb-2 text-[var(--text-muted)]"/>
+                              <p className="text-xs text-[var(--text-muted)]">Chọn một vật phẩm ở trên<br/>để xem chi tiết và thu hồi.</p>
+                           </div>
+                        )}
+                    </div>
+                );
+            })()}
+          </div>
+        </div>
+      )}
+

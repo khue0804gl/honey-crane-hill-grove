@@ -1,0 +1,2374 @@
+export type TerrainType = 'thanh_tran' | 'tong_mon' | 'thon_lang' | 'dich_tram' | 'quan_ai' | 'miu_co' | 'song_ho' | 'rung_ram' | 'nui_cao' | 'sa_mac' | 'dam_lay' | 'bang_nguyen' | 'phe_tich' | 'dong_co' | 'ke_nut_khong_gian' | 'hoang_dia_co_khi' | 'chien_hao_luu_huynh' | 'ma_vuc_chuan';
+
+export type FogLevel = 0 | 1 | 2; // 0: Vô Tri (Sương Mù), 1: Manh Mối (Nghe Đồn ?), 2: Đã Khắc Họa
+
+export interface InTransitState {
+  fromNodeId: string;
+  fromName: string;
+  toNodeId: string;
+  toName: string;
+  startCoords: { x: number; y: number; z?: number };
+  targetCoords: { x: number; y: number; z?: number };
+  totalDistanceLi: number;
+  traveledLi: number;
+  travelMethod: 'walk' | 'mount' | 'fly' | 'teleport';
+  campName: string;
+  campDescription: string;
+  isCamped?: boolean;
+}
+
+export interface GridCellData {
+  x: number;
+  y: number;
+  z: number;
+  id: string;
+  name: string;
+  region: "DongThang" | "TayNguu" | "NamThiem" | "BacCau" | "TrungCuc" | "NgoaiCanhDLC";
+  regionName: string;
+  terrain: TerrainType;
+  terrainName: string;
+  rulingFaction: string;
+  aura: number;
+  integrity: number;
+  pollution: number;
+  facilities: string[];
+  resources: string[];
+  npcIds: string[];
+  description: string;
+  isRiftPortal?: boolean;
+  targetRiftZ?: number;
+  dlcCorruption?: 'none' | 'co_khi' | 'quang_am' | 'hong_hoang';
+}
+
+export interface LocationNode {
+  id: string;
+  name: string;
+  region: "DongThang" | "TayNguu" | "NamThiem" | "BacCau" | "TrungCuc" | "NgoaiCanhDLC";
+  regionName: string;
+  coordinates: { x: number; y: number; z: number };
+  tier: "HaViDien" | "TrungViDien" | "ThuongViDien";
+  rulingFaction: string;
+  auraDensity: number;
+  description: string;
+  facilities: string[];
+  connectedPaths: {
+    targetId: string;
+    distanceLi: number;
+    dangerLevel: 1 | 2 | 3 | 4 | 5;
+  }[];
+  fixedNpcIds: string[];
+  requiredLevelId?: number;
+  requiredLevelName?: string;
+  requiredTraits?: string[];
+  dangerHazards?: string[];
+  requiredDLC?: string;
+  isStoryDiscovered?: boolean;
+  rumorHint?: string;
+}
+
+// Thuật toán sinh ô lưới tọa độ động theo không gian 3 chiều, DLC & Hạt Giống Thế Giới (mapSeed)
+export const generateWorldGridCell = (x: number, y: number, z: number, activeDLCs: string[] = [], mapSeed: number = 0): GridCellData => {
+  // 1. Kiểm tra nếu trùng với điểm nút cố định lớn trên đồ thị Cửu Châu (Base + Active DLC)
+  let fixedNode = Object.values(FIXED_WORLD_GRAPH).find(n => n.coordinates.x === x && n.coordinates.y === y && n.coordinates.z === z);
+  if (!fixedNode && activeDLCs && activeDLCs.length > 0) {
+    fixedNode = Object.values(DLC_WORLD_GRAPH).find(n => {
+      if (n.coordinates.x === x && n.coordinates.y === y && n.coordinates.z === z) {
+        const needed = n.requiredDLC || (n.id.includes('hong_hoang') ? 'dlc_hong_hoang' : n.id.includes('cyberpunk') || n.id.includes('khoa_ky') ? 'dlc_cyberpunk' : 'dlc_dark_fantasy');
+        return activeDLCs.includes(needed);
+      }
+      return false;
+    });
+  }
+  if (fixedNode) {
+    let terrain: TerrainType = 'thanh_tran';
+    let terrainName = 'Thành Trấn';
+    if (fixedNode.facilities.includes('KiemTrang') || fixedNode.rulingFaction.includes('Kiếm Tông')) {
+      terrain = 'tong_mon'; terrainName = 'Kiếm Tông Sơn Môn';
+    } else if (fixedNode.facilities.includes('ThuVien')) {
+      terrain = 'tong_mon'; terrainName = 'Nho Đạo Học Viện';
+    } else if (fixedNode.facilities.includes('XaLoiThap')) {
+      terrain = 'tong_mon'; terrainName = 'Phật Tự Cổ Tự';
+    } else if (fixedNode.facilities.includes('PhanTich')) {
+      terrain = 'sa_mac'; terrainName = 'Sa Mạc Cổ Mộ';
+    } else if (fixedNode.facilities.includes('DocPhong')) {
+      terrain = 'dam_lay'; terrainName = 'Đầm Lầy U Cốc';
+    } else if (fixedNode.facilities.includes('BangTuyetDong')) {
+      terrain = 'bang_nguyen'; terrainName = 'Băng Nguyên Tuyệt Lĩnh';
+    } else if (fixedNode.facilities.includes('LuyenThiTrang')) {
+      terrain = 'phe_tich'; terrainName = 'Bãi Tha Ma Luyện Thi';
+    }
+
+    return {
+      x, y, z,
+      id: fixedNode.id,
+      name: fixedNode.name,
+      region: fixedNode.region,
+      regionName: fixedNode.regionName,
+      terrain,
+      terrainName,
+      rulingFaction: fixedNode.rulingFaction,
+      aura: fixedNode.auraDensity,
+      integrity: 4500,
+      pollution: fixedNode.id.includes('thi_am') ? 80 : fixedNode.id.includes('van_doc') ? 95 : 0,
+      facilities: fixedNode.facilities,
+      resources: ["Linh Thạch", "Linh Thảo"],
+      npcIds: [...fixedNode.fixedNpcIds],
+      description: fixedNode.description
+    };
+  }
+
+  // 2. Tầng Thượng Giới / Bí Cảnh Lơ Lửng (z = 1)
+  if (z === 1) {
+    const isRift = (x === 0 && y === 0) || (x === 5 && y === 5);
+    return {
+      x, y, z,
+      id: `upper_${x}_${y}`,
+      name: isRift ? `Kẽ Nứt Hư Không (${x},${y})` : `Thượng Vị Đảo Mây (${x},${y})`,
+      region: "NgoaiCanhDLC",
+      regionName: "Thượng Giới & Bí Cảnh Lơ Lửng",
+      terrain: isRift ? 'ke_nut_khong_gian' : 'dong_co',
+      terrainName: isRift ? 'Cổng Xuyên Không' : 'Đảo Tiên Bồng Bềnh',
+      rulingFaction: "Thiên Đình Thượng Giới",
+      aura: 6000 + Math.abs((x * 123 + y * 456) % 3000),
+      integrity: 4800,
+      pollution: 0,
+      facilities: isRift ? ["KhongGianMon"] : ["DaoTrangThienGioi"],
+      resources: ["Tiên Thạch Thượng Phẩm", "Ngộ Đạo Trà"],
+      npcIds: [],
+      isRiftPortal: isRift,
+      targetRiftZ: 0,
+      description: isRift ? "Vết nứt không gian lấp lánh nối liền giữa Mặt Đất và Thượng Giới." : "Hòn đảo tiên trôi lơ lửng trên biển mây thần thoại, linh khí dày đặc tụ thành sương mờ."
+    };
+  }
+
+  // 3. Tầng Âm Ti / Cửu U / Địa Ngục (z = -1)
+  if (z === -1) {
+    const isRift = (x === -5 && y === -5) || (x === 0 && y === 0);
+    return {
+      x, y, z,
+      id: `under_${x}_${y}`,
+      name: isRift ? `U Minh Vực Khuyết (${x},${y})` : `Âm Ti Cửu U (${x},${y})`,
+      region: "NgoaiCanhDLC",
+      regionName: "Minh Giới & Mười Tám Tầng Địa Ngục",
+      terrain: isRift ? 'ke_nut_khong_gian' : 'ma_vuc_chuan',
+      terrainName: isRift ? 'Cổng Luân Hồi' : 'Vực Sâu Âm Khí',
+      rulingFaction: "Thập Điện Diêm Vương",
+      aura: 1500,
+      integrity: 3500,
+      pollution: 300 + Math.abs((x * 77 + y * 89) % 400),
+      facilities: isRift ? ["LuanHoiDai"] : ["HuyetHa", "VongXuyen"],
+      resources: ["Âm Hồn Tinh", "U Minh Thạch"],
+      npcIds: [],
+      isRiftPortal: isRift,
+      targetRiftZ: 0,
+      description: "Vực sâu tăm tối ngập tràn tiếng quỷ gào oán hận, dòng sông Vong Xuyên chảy xiết dưới lòng đất ngàn trượng."
+    };
+  }
+
+  // 4. Hiệu ứng xâm thực vi diện DLC (Biome Corruption)
+  let dlcCorruption: 'none' | 'co_khi' | 'quang_am' | 'hong_hoang' = 'none';
+  if (activeDLCs.includes('dlc_cyberpunk') && (x >= 10 || y <= -10)) {
+    dlcCorruption = 'co_khi';
+  } else if (activeDLCs.includes('dlc_dark_fantasy') && (x <= -10 || y >= 10)) {
+    dlcCorruption = 'quang_am';
+  } else if (activeDLCs.includes('dlc_hong_hoang') && Math.abs(x) >= 14) {
+    dlcCorruption = 'hong_hoang';
+  }
+
+  if (dlcCorruption === 'co_khi') {
+    return {
+      x, y, z,
+      id: `grid_${x}_${y}_${z}`,
+      name: `Hoang Địa Cơ Khí (${x},${y})`,
+      region: "NgoaiCanhDLC",
+      regionName: "Vùng Xâm Lấn Cơ Khí Giáng Lâm",
+      terrain: 'hoang_dia_co_khi',
+      terrainName: 'Rỉ Sét Cơ Khí',
+      rulingFaction: "Máy Móc Thần Giáo",
+      aura: 1000,
+      integrity: 3200,
+      pollution: 250,
+      facilities: ["LoNangLuongNano"],
+      resources: ["Hợp Kim Adamantium", "Lõi Năng Lượng Uranos"],
+      npcIds: [],
+      dlcCorruption,
+      description: "Mặt đất bị cơ khí hóa, các đường ống dẫn dầu lượng tử và kim loại rỉ sét chồi lên mặt đất thay thế cho cây cỏ."
+    };
+  }
+
+  if (dlcCorruption === 'quang_am') {
+    return {
+      x, y, z,
+      id: `grid_${x}_${y}_${z}`,
+      name: `Chiến Hào Lưu Huỳnh (${x},${y})`,
+      region: "NgoaiCanhDLC",
+      regionName: "Vùng Xâm Lấn Quang Ám Thánh Chiến",
+      terrain: 'chien_hao_luu_huynh',
+      terrainName: 'Chiến Hào Thánh Chiến',
+      rulingFaction: "Ác Ma Thất Mang Tinh",
+      aura: 1800,
+      integrity: 2500,
+      pollution: 400,
+      facilities: ["HuyetTeTran"],
+      resources: ["Warpstone Tà Năng", "Máu Fel"],
+      npcIds: [],
+      dlcCorruption,
+      description: "Chiến hào ngập mùi lưu huỳnh khét lẹt và khói súng, nơi binh đoàn quỷ dữ và thiên thần sa ngã giao tranh khốc liệt."
+    };
+  }
+
+  // 5. THIẾT KẾ ĐỊA HÌNH CỬU CHÂU (z = 0): Phân chia ranh giới theo khu vực liền mạch và nhà cửa rải rác
+  let region: "DongThang" | "TayNguu" | "NamThiem" | "BacCau" | "TrungCuc" = "TrungCuc";
+  let regionName = "Trung Cực Hoàng Triều";
+  let faction = "Hoàng Triều Đại Càn";
+
+  // Hàm băm tọa độ tạo số ngẫu nhiên kết hợp Hạt Giống Bản Đồ (mapSeed) để mỗi ván chơi địa hình vi mô mới mẻ
+  const seedShift = (mapSeed % 1000) * 0.137;
+  const posHash = Math.abs(Math.sin((x + seedShift) * 12.9898 + (y + seedShift) * 78.233) * 43758.5453) % 1;
+  const clusterHash = Math.abs(Math.sin((Math.floor(x / 3) + seedShift) * 19.19 + (Math.floor(y / 3) + seedShift) * 47.47) * 43758.5453) % 1;
+
+  // Xác định ranh giới Đại Châu địa lý theo trục tọa độ chuẩn toàn cầu Cửu Châu
+  const distFromCenter = Math.max(Math.abs(x), Math.abs(y));
+  const isBorder = (Math.abs(x) === 5 && Math.abs(y) <= 15) || (Math.abs(y) === 5 && Math.abs(x) <= 15) || (Math.abs(x) === Math.abs(y) && distFromCenter >= 5);
+
+  if (distFromCenter <= 4) {
+    region = "TrungCuc";
+    regionName = "Trung Cực Hoàng Triều";
+    faction = "Hoàng Triều Đại Càn";
+  } else if (x > 0 && Math.abs(x) >= Math.abs(y)) {
+    region = "DongThang";
+    regionName = "Đông Thắng Thần Châu";
+    faction = "Thanh Vân Kiếm Tông";
+  } else if (x < 0 && Math.abs(x) >= Math.abs(y)) {
+    region = "TayNguu";
+    regionName = "Tây Ngưu Hạ Châu";
+    faction = "Kim Thiền Phật Tông";
+  } else if (y < 0 && Math.abs(y) > Math.abs(x)) {
+    region = "NamThiem";
+    regionName = "Nam Thiểm Bộ Châu";
+    faction = "Nam Man Yêu Tộc";
+  } else if (y > 0 && Math.abs(y) > Math.abs(x)) {
+    region = "BacCau";
+    regionName = "Bắc Câu Lư Châu";
+    faction = "U Minh Thi Âm Tông";
+  } else {
+    region = "TrungCuc";
+    regionName = "Trung Cực Hoàng Triều";
+    faction = "Hoàng Triều Đại Càn";
+  }
+
+  let terrain: TerrainType = 'dong_co';
+  let terrainName = 'Thảo Nguyên Đồng Bằng';
+  let aura = 2000;
+  let facilities: string[] = [];
+  let resources: string[] = ["Nước Ngọt", "Lương Thảo"];
+  let description = `Vùng đất thuộc quyền quản hạt của ${regionName}.`;
+
+  // KIỂM TRA ĐIỂM DÂN CƯ / NHÀ CỬA / CÔNG TRÌNH RẢI RÁC THEO QUY LUẬT THỰC TẾ:
+  // A. Nếu nằm ngay trên RANH GIỚI BIÊN PHÒNG giữa các vùng:
+  if (isBorder) {
+    if (posHash < 0.35) {
+      terrain = 'quan_ai';
+      terrainName = region === 'DongThang' ? 'Kiếm Môn Quan Ải' : region === 'TayNguu' ? 'Ngọc Môn Quan Ải' : region === 'NamThiem' ? 'Nam Cương Quan Ải' : region === 'BacCau' ? 'Hắc Thủy Quan Ải' : 'Càn Long Quan Ải';
+      facilities = ["TramKiemSoat", "VongLau", "QuanDoi"];
+      resources = ["Quân Lương", "Mũi Tên Sắt"];
+      aura = 2400;
+      description = `Cửa ải biên phòng kiên cố ngăn cách ranh giới giữa các châu quận. Binh lính ngày đêm canh gác nghiêm ngặt.`;
+    } else if (posHash < 0.65) {
+      terrain = 'dich_tram';
+      terrainName = 'Dịch Trạm Ranh Giới';
+      facilities = ["QuanTro", "TraQuan", "ChuongNgua"];
+      resources = ["Nước Sôi", "Cỏ Khô"];
+      aura = 2100;
+      description = `Dịch trạm sầm uất nằm ngay đường ranh giới giao thương. Thương nhân và lữ khách khắp nơi dừng chân nghỉ ngựa.`;
+    } else if (posHash < 0.8) {
+      terrain = 'song_ho';
+      terrainName = 'Giang Hà Biên Giới';
+      facilities = ["BenDo", "CauDa"];
+      resources = ["Cá Sông", "Phù Sa"];
+      aura = 2800;
+      description = `Dòng sông tự nhiên uốn lượn đóng vai trò như ranh giới chia cắt hai miền đất đai. Bến đò cổ đưa người qua sông.`;
+    } else {
+      terrain = 'miu_co';
+      terrainName = 'Cổ Miếu Biên Cương';
+      facilities = ["NhangDen", "TuVienNho"];
+      resources = ["Tro Nhang", "Bùa Bình An"];
+      aura = 2600;
+      description = `Ngôi miếu cổ dựng bên mốc ranh giới từ trăm năm trước để trấn áp tà khí và cầu bình an cho lữ khách qua lại.`;
+    }
+  } 
+  // B. Nếu nằm bên trong từng vùng lãnh thổ:
+  else {
+    // Tỷ lệ xuất hiện nhà cửa / thôn xóm / thị trấn nhỏ rải rác bên trong tự nhiên (khoảng 22% số ô)
+    const isSettlement = posHash < 0.22;
+
+    if (isSettlement) {
+      if (posHash < 0.08) {
+        terrain = 'thanh_tran';
+        terrainName = region === 'TrungCuc' ? 'Phố Thị Phồn Hoa' : region === 'DongThang' ? 'Thanh Trấn Kiếm Thị' : region === 'TayNguu' ? 'Sa Thành Cát Vàng' : region === 'NamThiem' ? 'Man Hoang Phường Trại' : 'U Thị Đêm Đen';
+        facilities = ["PhuongThi", "QuanTro", "TiemThuoc"];
+        resources = ["Linh Thạch", "Vải Lụa", "Dược Dịch"];
+        aura = 2600;
+        description = `Thành thị sầm uất rải rác giữa vùng đất, nơi tụ họp dân cư, tán tu mua bán và trao đổi đan dược, pháp bảo.`;
+      } else if (posHash < 0.16) {
+        terrain = 'thon_lang';
+        terrainName = region === 'TrungCuc' ? 'Bình An Thôn' : region === 'DongThang' ? 'Trúc Diệp Thôn' : region === 'TayNguu' ? 'Ốc Đảo Thôn' : region === 'NamThiem' ? 'Thảo Mộc Thôn' : 'Tuyết Cốt Thôn';
+        facilities = ["NongTrang", "GiengNuoc", "ChiemThu"];
+        resources = ["Lúa Mì", "Rau Rừng", "Thịt Khô"];
+        aura = 1900;
+        description = `Thôn làng mộc mạc của phàm nhân định cư yên ả, khói bếp chiều hôm bay lượn trên những mái ngói đơn sơ.`;
+      } else {
+        terrain = 'miu_co';
+        terrainName = region === 'TayNguu' ? 'Cổ Tự Thờ Phật' : region === 'DongThang' ? 'Kiếm Ý Thảo Đình' : 'Thổ Địa Miếu Cổ';
+        facilities = ["BiaDa", "LinhHuong"];
+        resources = ["Nước Cam Lộ", "Linh Mộc"];
+        aura = 2700;
+        description = `Cổ miếu thanh tịnh ẩn sâu giữa thiên nhiên hoang sơ, hương khói nghi ngút tĩnh tại lòng người.`;
+      }
+    } 
+    // Nếu là địa hình tự nhiên: Phân chia thành MẢNG RỘNG LIỀN MẠCH dựa theo clusterHash (không caro luân phiên)
+    else {
+      if (region === 'DongThang') {
+        // Đông Thắng: Rừng rậm bạt ngàn hoặc dãy núi chạy dài liên tục thành mảng
+        if (clusterHash < 0.55) {
+          terrain = 'rung_ram';
+          terrainName = 'Trúc Lâm Kiếm Khí';
+          resources = ["Linh Trúc", "Măng Rừng", "Linh Thảo"];
+          aura = 3200;
+          description = `Rừng trúc ngút ngàn xanh biếc, gió thổi qua phát ra thanh âm tựa tiếng kiếm reo vang dội.`;
+        } else if (clusterHash < 0.85) {
+          terrain = 'nui_cao';
+          terrainName = 'Hiểm Sơn Kỳ Lĩnh';
+          resources = ["Quặng Thiết", "Huyền Thạch"];
+          aura = 3500;
+          description = `Dãy núi đá vôi hùng vĩ sừng sững giữa biển mây, vách đá cheo leo nghìn trượng nối dài vô tận.`;
+        } else {
+          terrain = 'dong_co';
+          terrainName = 'Kiếm Khí Bình Nguyên';
+          resources = ["Lương Thảo", "Nước Ngọt"];
+          aura = 2800;
+          description = `Bình nguyên bằng phẳng thảm cỏ xanh mượt trải dài dưới chân các dãy núi của Đông Vực.`;
+        }
+      } else if (region === 'TayNguu') {
+        // Tây Ngưu: Đại mạc cát vàng rộng lớn, có ốc đảo và tàn tích cổ mộ
+        if (clusterHash < 0.7) {
+          terrain = 'sa_mac';
+          terrainName = 'Cát Vàng Sa Mạc';
+          resources = ["Cát Vàng", "Hỏa Tinh Thạch"];
+          aura = 1200;
+          description = `Biển cát mênh mông vô tận, bão cát che khuất mặt trời, dấu vết lữ hành nhanh chóng bị xóa sạch.`;
+        } else if (clusterHash < 0.85) {
+          terrain = 'song_ho';
+          terrainName = 'Ốc Đảo Nguyệt Hồ';
+          resources = ["Nước Ngọt", "Linh Tuyền Thảo"];
+          aura = 3100;
+          facilities = ["LinhTuyen"];
+          description = `Hồ nước ngọt trong vắt kỳ diệu giữa lòng sa mạc, cây cỏ sinh sôi quanh bờ cát trắng.`;
+        } else {
+          terrain = 'phe_tich';
+          terrainName = 'Sa Mạc Cổ Mộ';
+          resources = ["Bảo Vật Cổ", "Xương Thú"];
+          aura = 2400;
+          description = `Tàn tích của các vương quốc cổ đại bị vùi lấp dưới cát bụi, lộ ra sau những cơn bão cát lớn.`;
+        }
+      } else if (region === 'NamThiem') {
+        // Nam Thiểm: Đầm lầy chướng khí và rừng mưa nhiệt đới cổ thụ thành từng vùng lớn
+        if (clusterHash < 0.5) {
+          terrain = 'dam_lay';
+          terrainName = 'Đầm Lầy Chướng Khí';
+          resources = ["Độc Thảo", "Bùn Đen"];
+          aura = 3400;
+          pollution = 60;
+          description = `Đầm lầy nước đen bốc khói chướng khí ngũ sắc độc hại, muông thú dị loài ẩn nấp dưới đáy bùn.`;
+        } else if (clusterHash < 0.85) {
+          terrain = 'rung_ram';
+          terrainName = 'Rừng Nhiệt Đới Cổ Thụ';
+          resources = ["Gỗ Ngàn Năm", "Yêu Thảo"];
+          aura = 3600;
+          description = `Cánh rừng nguyên sinh rợp bóng cây đại thụ ngàn năm, cành lá rậm rạp che kín bầu trời.`;
+        } else {
+          terrain = 'nui_cao';
+          terrainName = 'Thập Vạn Man Sơn';
+          resources = ["Khoáng Thạch", "Yêu Đan"];
+          aura = 3800;
+          description = `Dãy núi non trùng điệp hiểm trở của Nam Cương, nơi trú ngụ của muôn vàn mãnh thú yêu tộc.`;
+        }
+      } else if (region === 'BacCau') {
+        // Bắc Câu: Băng nguyên tuyết phủ và bãi tha ma tà đạo lạnh giá
+        if (clusterHash < 0.55) {
+          terrain = 'bang_nguyen';
+          terrainName = 'Tuyết Lĩnh Băng Giá';
+          resources = ["Băng Tinh", "Tuyết Liên"];
+          aura = 3600;
+          description = `Cánh đồng tuyết trắng xóa và núi băng nguyên vĩnh cửu, gió lạnh buốt xương cắt da thịt.`;
+        } else if (clusterHash < 0.8) {
+          terrain = 'phe_tich';
+          terrainName = 'Bãi Tha Ma Cổ';
+          resources = ["Âm Cốt", "Tử Khí Thạch"];
+          aura = 3900;
+          pollution = 70;
+          description = `Bãi tha ma chôn xác vạn dặm ngập tràn âm khí u uất của Bắc Vực, lò luyện thi khói đen mịt mù.`;
+        } else {
+          terrain = 'nui_cao';
+          terrainName = 'Băng Phong Tuyệt Đỉnh';
+          resources = ["Băng Phách Thạch"];
+          aura = 4000;
+          description = `Đỉnh núi băng tuyết ngút trời lạnh lẽo cô độc, nơi các kiếm tu hàn băng rèn giũa đạo tâm.`;
+        }
+      } else {
+        // Trung Cực Hoàng Triều: Thảo nguyên, bình nguyên phì nhiêu màu mỡ
+        if (clusterHash < 0.6) {
+          terrain = 'dong_co';
+          terrainName = 'Thảo Nguyên Đồng Bằng';
+          resources = ["Lương Thảo", "Gia Súc"];
+          aura = 2300;
+          description = `Bình nguyên trù phú đất đai phì nhiêu của trung tâm Cửu Châu, đường sá bằng phẳng ngựa xe qua lại tấp nập.`;
+        } else if (clusterHash < 0.8) {
+          terrain = 'song_ho';
+          terrainName = 'Hoàng Hà Phù Sa';
+          resources = ["Cá Sông", "Thủy Thảo"];
+          aura = 2600;
+          description = `Dòng sông lớn chảy qua trung tâm hoàng triều, bồi đắp phù sa màu mỡ cho ruộng đồng đôi bờ.`;
+        } else {
+          terrain = 'rung_ram';
+          terrainName = 'Ngự Uyển Rừng Xanh';
+          resources = ["Gỗ Quý", "Thú Săn"];
+          aura = 2900;
+          description = `Khu rừng sinh thái được hoàng triều che chở bảo tồn, cây cối xanh tươi linh khí bình hòa.`;
+        }
+      }
+    }
+  }
+
+  // Cổng kẽ nứt không gian
+  const isRiftPortal = (x === 3 && y === 3) || (x === -3 && y === -3);
+
+  return {
+    x, y, z,
+    id: `grid_${x}_${y}_${z}`,
+    name: `${terrainName} (${x},${y})`,
+    region,
+    regionName,
+    terrain: isRiftPortal ? 'ke_nut_khong_gian' : terrain,
+    terrainName: isRiftPortal ? 'Kẽ Nứt Không Gian' : terrainName,
+    rulingFaction: faction,
+    aura: aura + Math.abs((x * 37 + y * 53) % 400),
+    integrity: 4000,
+    pollution: region === 'BacCau' ? 60 : region === 'NamThiem' ? 50 : 0,
+    facilities,
+    resources,
+    npcIds: [],
+    isRiftPortal,
+    targetRiftZ: isRiftPortal ? (x > 0 ? 1 : -1) : undefined,
+    description: isRiftPortal ? "Một kẽ nứt không gian lơ lửng giữa trời, tỏa ra luồng hấp lực kỳ dị dẫn sang tầng không gian khác." : description
+  };
+};
+
+// Hàm tính cự ly dặm theo hệ tọa độ lưới (1 ô = 10 dặm, chênh lệch tầng z tốn thêm 50 dặm)
+const getGridDistanceLi = (c1: { x: number; y: number; z?: number }, c2: { x: number; y: number; z?: number }) => {
+  const dx = Math.abs(c1.x - c2.x);
+  const dy = Math.abs(c1.y - c2.y);
+  const dz = Math.abs((c1.z || 0) - (c2.z || 0));
+  return Math.max(1, Math.round(Math.sqrt(dx * dx + dy * dy) * 10 + dz * 50));
+};
+
+// Hàm tính bán kính tầm nhìn quét sương mù theo cảnh giới và thần thức
+export const getVisionRadiusByStage = (stageId: number = 1, spiritPower: number = 10, isFlying: boolean = false): number => {
+  let baseRadius = 1;
+  if (stageId <= 2) baseRadius = 1;
+  else if (stageId <= 4) baseRadius = 2;
+  else if (stageId <= 6) baseRadius = 3;
+  else if (stageId <= 9) baseRadius = 4;
+  else baseRadius = 5;
+
+  if (spiritPower > 500) baseRadius += 1;
+  if (isFlying) baseRadius += 1;
+
+  return Math.min(6, Math.max(1, baseRadius));
+};
+
+export interface CanonEvent {
+  id: string;
+  triggerYear: number;
+  triggerMonth: number;
+  locationId: string;
+  gridCoord?: { x: number; y: number; z: number };
+  title: string;
+  canonDescription: string; // Diễn biến gốc nếu người chơi không can thiệp
+  canonVictims: string[]; // Danh sách NPC sẽ chết theo kịch bản gốc
+  canonBeneficiary: string; // Kẻ sẽ nhặt cơ duyên theo kịch bản gốc
+  requiredConditions: string[]; // Điều kiện để sự kiện xảy ra
+  hasDiverged: boolean; // Cờ đánh dấu dòng thời gian đã bị người chơi bẻ cong
+  divergenceLog?: string; // Ghi chép cách người chơi làm thay đổi lịch sử
+  // ===== V1.19: MỞ RỘNG CANON EVENT SYSTEM (tutien2.txt — PHẦN IV/V/VI/VII) =====
+  chainId?: string; // Nhóm sự kiện cùng mạch nhân quả
+  parentEventId?: string; // Sự kiện tiền đề trong chuỗi (đọc trạng thái của sự kiện trước)
+  disasterTag?: 'hoa' | 'bang' | 'huyet' | 'doc' | 'thien_thach' | 'khac'; // Đối chiếu chéo "Tam Tai" giữa các timeline
+  divergenceLevel?: 0 | 1 | 2 | 3; // Thang phân kỳ: 0 Nguyên Tác → 3 Đảo Nghịch Cục Diện
+  consequences?: { ifIntact: string; ifDiverged: string }[]; // Hệ quả kỳ vọng nếu sự kiện không bị / bị phân kỳ
+  eventNpcIds?: string[]; // NPC sự kiện gắn kèm (xem EVENT_NPCS)
+}
+
+export interface WorldHistoryEntry {
+  year: number;
+  month: number;
+  locationName: string;
+  title: string;
+  description: string;
+  hasDiverged: boolean;
+  divergedBy?: string;
+  timestamp: number;
+  divergenceLevel?: 0 | 1 | 2 | 3; // V1.19: mức phân kỳ đã ghi nhận
+  aftermathType?: string; // V1.19: debt_of_gratitude | vengeful_enemy | world_scar
+  chainId?: string; // V1.19: chuỗi nhân quả bị bẻ gãy
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// V3.24: KHO BẢN ĐỒ NGOẠI CẢNH & ĐA VŨ TRỤ DLC ĐỘC LẬP (DLC_WORLD_GRAPH)
+// Tách biệt hoàn toàn khỏi FIXED_WORLD_GRAPH của Cửu Châu Tiên Giới
+// Chỉ nạp động khi người chơi chọn xuất thân đặc quyền hoặc kích hoạt gói DLC
+// ═══════════════════════════════════════════════════════════════════════════
+export const DLC_WORLD_GRAPH: Record<string, LocationNode> = {
+// V2.92: ĐẶC QUYỀN CHỦ TOẠ THÀNH KHÔN - CÁC VÙNG AN TOÀN 100% CHO XUẤT THÂN ĐA VŨ TRỤ
+  "dlc_violet_citadel_dalaran": {
+    fixedNpcIds: ["npc_long_than_orsted"],
+    id: "dlc_violet_citadel_dalaran",
+    name: "Tháp Pháp Sư Violet Citadel - Thiên Không Thành Dalaran",
+    region: "QuangAm",
+    regionName: "Thiên Không Thành Dalaran",
+    realm: "Hạ Vị Diện",
+    tier: "HaViDien",
+    type: "Tháp Pháp Sư",
+    coordinates: { x: -18, y: 18, z: 2 },
+    stability: 100,
+    rulingFaction: "Hội Nghị Kirin Tor & Các Archmage",
+    description: "Tòa tháp vĩ đại sừng sững giữa bầu trời Dalaran, trung tâm ma thuật tối cao của chư giới. Độ an toàn 100%, được Hội Nghị Kirin Tor và các Archmage bảo kê nghiêm ngặt.",
+    loreSnippet: "Nơi hội tụ tinh hoa Áo Năng Arcane, thánh địa bất khả xâm phạm của ma pháp Tây Phương.",
+    dangerLevel: 1,
+    connectedTo: ["dlc_dark_fantasy_neu_jerusalem"],
+    facilities: ["Tháp Pháp Sư", "Thư Viện Phép Thuật", "Phòng Thí Nghiệm Áo Năng"]
+  },
+  "dlc_valhalla_new_asgard": {
+    id: "dlc_valhalla_new_asgard",
+    name: "New Asgard - Chiến Tử Điện Valhalla",
+    region: "QuangAm",
+    regionName: "Chiến Tử Điện Valhalla",
+    realm: "Hạ Vị Diện",
+    tier: "HaViDien",
+    type: "Thần Điện",
+    coordinates: { x: -20, y: 20, z: 3 },
+    stability: 100,
+    rulingFaction: "Thần Titan & Chiến Binh Canh Giữ (Valhalla)",
+    description: "Thánh địa phương Bắc của tộc Titan. Độ an toàn 100%, do các Thần Titan bảo kê và nhiều chiến binh hùng mạnh canh giữ ở Chiến Tử Điện.",
+    loreSnippet: "Bất khả xâm phạm, vạn ma thoái thác trước uy áp nhục thân cự nhân.",
+    dangerLevel: 1,
+    connectedTo: ["dlc_dark_fantasy_chien_hao"],
+    facilities: ["Chiến Tử Điện", "Rune Thần Đài", "Lò Rèn Cổ Ngữ"]
+  },
+  "dlc_khoa_ky_cong_quoc": {
+    id: "dlc_khoa_ky_cong_quoc",
+    name: "Khoa Kỹ Công Quốc",
+    realm: "Hạ Vị Diện",
+    tier: "HaViDien",
+    type: "Đô Thị Cơ Khí",
+    coordinates: { x: 18, y: -18, z: 0 },
+    stability: 100,
+    rulingFaction: "Quốc Chủ Khoa Kỹ Công Quốc",
+    description: "Kinh đô công nghệ cơ giới hiện đại kết hợp trận pháp tu chân. Độ an toàn 100%, lưới phòng thủ laser và hỏa lực dày đặc bảo an.",
+    loreSnippet: "Nơi máy móc logic đối đầu quy luật thiên đạo, súng đạn cơ khí xé toạc không gian.",
+    dangerLevel: 1,
+    connectedTo: ["dlc_cyberpunk_phuong_chu"],
+    facilities: ["Trung Tâm Nghiên Cứu", "Kho Cơ Giới", "Trạm Năng Lượng Nano"]
+  },
+  "dlc_alfheim_lothlorien": {
+    id: "dlc_alfheim_lothlorien",
+    name: "Alfheim - Lothlórien",
+    region: "QuangAm",
+    regionName: "Thánh Địa Tinh Linh Alfheim",
+    realm: "Hạ Vị Diện",
+    tier: "HaViDien",
+    type: "Thánh Địa Tinh Linh",
+    coordinates: { x: -16, y: 16, z: 1 },
+    stability: 100,
+    rulingFaction: "Các High Mage & Nữ Hoàng Tinh Linh",
+    description: "Thánh địa ngập tràn ánh sáng của High Elf dưới táng Tiếp Thiên Thần Mộc. Độ an toàn 100% do các High Mage bảo kê toàn diện.",
+    loreSnippet: "Cây cổ thụ ngàn năm che chở linh hồn thuần khiết, tuyệt đối an toàn.",
+    dangerLevel: 1,
+    connectedTo: ["dlc_dark_fantasy_lothlorien"],
+    facilities: ["Thần Mộc Thần Điện", "Suối Nguồn Linh Tuyền", "Vườn Quang Linh"]
+  },
+  "dlc_commorragh_naggaroth": {
+    id: "dlc_commorragh_naggaroth",
+    name: "Commorragh - Naggaroth",
+    region: "QuangAm",
+    regionName: "Kinh Đô Hắc Ám Commorragh",
+    realm: "Hạ Vị Diện",
+    tier: "HaViDien",
+    type: "Thành Trì Hắc Ám",
+    coordinates: { x: -22, y: 12, z: -2 },
+    stability: 100,
+    rulingFaction: "Các Supreme Sorceress & Lãnh Chúa Hắc Ám",
+    description: "Kinh đô u tối của Dark Elf trong vực sâu. Độ an toàn 100% do các Supreme Sorceress bảo kê.",
+    loreSnippet: "Bóng tối bao phủ vạn dặm, ma pháp hắc ám trấn áp vạn tộc.",
+    dangerLevel: 1,
+    connectedTo: ["dlc_dark_fantasy_hac_am_than_dien"],
+    facilities: ["Hắc Ám Ma Điện", "Tế Đàn Hư Vô", "Đấu Trường Gai Góc"]
+  },
+  "dlc_thien_duc_gioi_holy_palace": {
+    id: "dlc_thien_duc_gioi_holy_palace",
+    name: "Thiên Dực Giới - Holy Palace",
+    region: "QuangAm",
+    regionName: "Thiên Dực Giới",
+    realm: "Hạ Vị Diện",
+    tier: "HaViDien",
+    type: "Thánh Điện",
+    coordinates: { x: -15, y: 22, z: 5 },
+    stability: 100,
+    rulingFaction: "Các Holy Guardian & Đại Thiên Thần",
+    description: "Thánh điện thánh khiết lơ lửng trên chín tầng mây Thiên Dực Giới. Độ an toàn 100% do các Holy Guardian bảo kê.",
+    loreSnippet: "Thánh quang rực rỡ, tà ác bất nhập, dực tộc vỗ cánh che chở sinh linh.",
+    dangerLevel: 1,
+    connectedTo: ["dlc_dark_fantasy_neu_jerusalem"],
+    facilities: ["Thánh Quang Điện", "Cổng Thiên Đàng", "Bể Rửa Tội Thánh Khiết"]
+  },
+  "dlc_warp_khorne_huyet_vuc": {
+    id: "dlc_warp_khorne_huyet_vuc",
+    name: "Địa Ngục Giới - Warp Huyết Vực Khorne",
+    region: "Warp",
+    regionName: "Warp Huyết Vực Khorne",
+    realm: "Hạ Vị Diện",
+    tier: "HaViDien",
+    type: "Vực Thẳm Warp",
+    coordinates: { x: -25, y: -25, z: -5 },
+    stability: 100,
+    rulingFaction: "Huyết Thần Khorne (Huyết Thần Sủng Nhi)",
+    description: "Cõi Warp rực lửa máu của Huyết Thần. Độ an toàn 100%, Huyết Thần Sủng Nhi được bảo hộ tuyệt đối.",
+    loreSnippet: "Máu chảy thành sông, ngai vàng sọ người, nơi tôn sùng chiến ý vô tận.",
+    dangerLevel: 1,
+    connectedTo: ["dlc_dark_fantasy_huyet_toc_co_lau"],
+    facilities: ["Huyết Tế Ngai Vàng", "Đấu Trường Huyết Chiến", "Huyết Nhũ Trì"]
+  },
+  "dlc_warp_slaanesh_mi_vuc": {
+    id: "dlc_warp_slaanesh_mi_vuc",
+    name: "Địa Ngục Giới - Warp Mị Vực Slaanesh",
+    region: "Warp",
+    regionName: "Warp Mị Vực Slaanesh",
+    realm: "Hạ Vị Diện",
+    tier: "HaViDien",
+    type: "Vực Thẳm Warp",
+    coordinates: { x: -24, y: -26, z: -5 },
+    stability: 100,
+    rulingFaction: "Dục Thần Slaanesh (Dục Thần Sủng Nhi)",
+    description: "Cõi Warp mê đắm ngập tràn hương sắc lạc thú. Độ an toàn 100%, Dục Thần Sủng Nhi Mị Ma được bảo hộ tuyệt đối.",
+    loreSnippet: "Vô tận dục vọng và sắc hương, nơi mọi cám dỗ đều trở thành sức mạnh.",
+    dangerLevel: 1,
+    connectedTo: ["dlc_dark_fantasy_hac_am_than_dien"],
+    facilities: ["Mị Hoặc Cung", "Vườn Hoan Lạc", "Hương Nguyệt Trì"]
+  },
+  "dlc_warp_tzeentch_huyen_vuc": {
+    id: "dlc_warp_tzeentch_huyen_vuc",
+    name: "Địa Ngục Giới - Warp Huyễn Vực Tzeentch",
+    region: "Warp",
+    regionName: "Warp Huyễn Vực Tzeentch",
+    realm: "Hạ Vị Diện",
+    tier: "HaViDien",
+    type: "Vực Thẳm Warp",
+    coordinates: { x: -26, y: -24, z: -5 },
+    stability: 100,
+    rulingFaction: "Ảo Thần Tzeentch (Ảo Thần Sủng Nhi)",
+    description: "Cõi Warp pha lê vạn hoa biến ảo của Gian Kỳ Ảo Thần. Độ an toàn 100%, Ảo Thần Sủng Nhi Ác Mộng Ma được bảo hộ tuyệt đối.",
+    loreSnippet: "Mê cung tri thức và biến dịch vô tận, không ai có thể làm hại kẻ mang sủng ái ảo thần.",
+    dangerLevel: 1,
+    connectedTo: ["dlc_dark_fantasy_hac_am_than_dien"],
+    facilities: ["Tháp Pha Lê", "Mê Cung Tri Thức", "Hồ Huyễn Tưởng"]
+  },
+  "dlc_warp_orcus_tu_vuc": {
+    fixedNpcIds: ["npc_hades_minh_vuong"],
+    id: "dlc_warp_orcus_tu_vuc",
+    name: "Địa Ngục Giới - Warp Tử Vực Orcus",
+    region: "Warp",
+    regionName: "Warp Tử Vực Orcus",
+    realm: "Hạ Vị Diện",
+    tier: "HaViDien",
+    type: "Vực Thẳm Warp",
+    coordinates: { x: -27, y: -25, z: -6 },
+    stability: 100,
+    rulingFaction: "Tử Thần Orcus (Tử Thần Sủng Nhi)",
+    description: "Cõi chết vĩnh hằng lạnh lẽo của Tử Thần Orcus. Độ an toàn 100%, Thi Tộc vong linh là Tử Thần Sủng Nhi được bảo bọc.",
+    loreSnippet: "Cõi vĩnh hằng của tro tàn và xương trắng, cái chết là sự khởi đầu bất tử.",
+    dangerLevel: 1,
+    connectedTo: ["am_ti_cuu_u_minh_nguc"],
+    facilities: ["Vạn Mộ Thần Điện", "Hắc Cốt Trì", "Tử Linh Tế Đàn"]
+  },
+  "dlc_warp_nurgle_benh_vuc": {
+    id: "dlc_warp_nurgle_benh_vuc",
+    name: "Địa Ngục Giới - Warp Bệnh Vực Nurgle",
+    region: "Warp",
+    regionName: "Warp Bệnh Vực Nurgle",
+    realm: "Hạ Vị Diện",
+    tier: "HaViDien",
+    type: "Vực Thẳm Warp",
+    coordinates: { x: -25, y: -27, z: -6 },
+    stability: 100,
+    rulingFaction: "Bệnh Thần Nurgle (Bệnh Thần Sủng Nhi)",
+    description: "Khu vườn mục nát phì nhiêu của Bệnh Thần Nurgle. Độ an toàn 100%, Bỉ Mông Tộc là Bệnh Thần Sủng Nhi được yêu thương bảo bọc.",
+    loreSnippet: "Nơi sinh sôi của vạn độc và sự sống nguyên sơ, vĩnh viễn ấm áp trong vòng tay Từ Phụ.",
+    dangerLevel: 1,
+    connectedTo: ["nam_thiem_van_doc_u_coc"],
+    facilities: ["Vạc Nấu Dịch Bệnh", "Vườn Nấm Thần", "Đầm Hủ Hóa"]
+  },
+// --- MỞ RỘNG ĐỊA DANH DLC HỒNG HOANG ---
+  "dlc_hong_hoang_ban_co_dien": {
+    id: "dlc_hong_hoang_ban_co_dien",
+    name: "Bàn Cổ Thần Điện",
+    region: "NgoaiCanhDLC",
+    regionName: "Thái Cổ Hồng Hoang Cổ Giới",
+    coordinates: { x: 3000, y: 3000, z: 1000 },
+    tier: "ThuongViDien",
+    rulingFaction: "Thập Nhị Vu Tộc",
+    auraDensity: 8500,
+    description: "Thần điện nguy nga sừng sững tạc từ xương cốt Hỗn Độn Ma Thần, nơi hội tụ huyết mạch viễn cổ tối cao của Vu Tộc.",
+    facilities: ["BanCoTuDuong", "ToVuHuyetTri", "KhaiThienDai"],
+    connectedPaths: [
+      { targetId: "dong_thang_thanh_van_tong", distanceLi: 2500, dangerLevel: 5 },
+      { targetId: "dlc_hong_hoang_yeu_hoang_cung", distanceLi: 600, dangerLevel: 4 }
+    ],
+    fixedNpcIds: [],
+    requiredLevelId: 6,
+    requiredLevelName: "Hóa Thần Kỳ+",
+    requiredDLC: "dlc_hong_hoang",
+    dangerHazards: ["Áp lực nhục thân Thái Cổ cực nặng, tu vi dưới Hóa Thần sẽ bị nghiền ép kinh mạch"]
+  },
+  "dlc_hong_hoang_yeu_hoang_cung": {
+    id: "dlc_hong_hoang_yeu_hoang_cung",
+    name: "Yêu Hoàng Cung Thái Cổ",
+    region: "NgoaiCanhDLC",
+    regionName: "Thái Cổ Hồng Hoang Cổ Giới",
+    coordinates: { x: 3400, y: 2800, z: 1200 },
+    tier: "ThuongViDien",
+    rulingFaction: "Thái Cổ Tứ Đại Hoàng Tộc",
+    auraDensity: 9000,
+    description: "Hoàng cung lơ lửng trên biển mây thái cổ, nơi ngự trị của các Thái Cổ Hung Thú và Yêu Hoàng viễn cổ.",
+    facilities: ["YeuHoangDien", "LongChauDai", "ThienTri"],
+    connectedPaths: [
+      { targetId: "dlc_hong_hoang_ban_co_dien", distanceLi: 600, dangerLevel: 4 }
+    ],
+    fixedNpcIds: [],
+    requiredLevelId: 6,
+    requiredLevelName: "Hóa Thần Kỳ+",
+    requiredDLC: "dlc_hong_hoang",
+    dangerHazards: ["Uy áp Yêu Thần bùng nổ, dị thú đói khát săn lùng người lạ"]
+  },
+
+  // --- MỞ RỘNG ĐỊA DANH DLC QUANG ÁM (THÁNH CHIẾN) ---
+  "dlc_dark_fantasy_chien_hao": {
+    id: "dlc_dark_fantasy_chien_hao",
+    name: "Chiến Hào Lưu Huỳnh",
+    region: "NgoaiCanhDLC",
+    regionName: "Quang Ám Vi Diện (Tây Phương)",
+    coordinates: { x: -3000, y: -2500, z: 500 },
+    tier: "ThuongViDien",
+    rulingFaction: "Quân Đoàn Ác Ma Thất Mang Tinh",
+    auraDensity: 6500,
+    description: "Chiến hào nồng nặc mùi lưu huỳnh và khói độc khét lẹt, nơi binh đoàn quỷ dữ và thiên thần sa ngã giao tranh ngày đêm, rải rác Tro Tàn Quỷ Dữ và quặng tà năng.",
+    facilities: ["HuyetTeTran", "LoTuaNang", "HamChienDau"],
+    connectedPaths: [
+      { targetId: "tay_nguu_co_ma_thap", distanceLi: 1800, dangerLevel: 4 },
+      { targetId: "dlc_dark_fantasy_neu_jerusalem", distanceLi: 700, dangerLevel: 5 },
+      { targetId: "dlc_dark_fantasy_hac_am_than_dien", distanceLi: 500, dangerLevel: 5 },
+      { targetId: "dlc_dark_fantasy_huyet_toc_co_lau", distanceLi: 400, dangerLevel: 4 }
+    ],
+    fixedNpcIds: [],
+    requiredLevelId: 5,
+    requiredLevelName: "Nguyên Anh Kỳ+",
+    requiredDLC: "dlc_dark_fantasy",
+    dangerHazards: ["Khói lưu huỳnh ăn mòn phổi, tà năng Fel làm tăng nhanh Đan Độc và Tâm Ma"]
+  },
+  "dlc_dark_fantasy_farum_azula": {
+    id: "dlc_dark_fantasy_farum_azula",
+    name: "The Land Between - Farum Azula (Tổ Long Xà Trùng)",
+    region: "NgoaiCanhDLC",
+    regionName: "The Land Between (Phương Tây)",
+    coordinates: { x: -4200, y: -2500, z: 1200 },
+    tier: "HaViDien",
+    rulingFaction: "Tổ Long Xà Trùng (Dominion of Dragon)",
+    auraDensity: 8800,
+    description: "Cố đô rồng viễn cổ lơ lửng giữa tâm bão thời không The Land Between phương Tây, nơi thống trị của Tổ Long Xà Trùng (Dominion of Dragon). Sấm sét vàng rực xé toạc hư không, long uy ngút trời.",
+    facilities: ["LongDaoDien", "BaoSamHao", "ToLongNguyenSo"],
+    connectedPaths: [
+      { targetId: "dlc_dark_fantasy_neu_jerusalem", distanceLi: 900, dangerLevel: 5 },
+      { targetId: "dlc_dark_fantasy_chien_hao", distanceLi: 1100, dangerLevel: 5 },
+      { targetId: "tay_nguu_hoang_sa_dai_mac", distanceLi: 2200, dangerLevel: 4 }
+    ],
+    fixedNpcIds: [],
+    requiredDLC: "dlc_dark_fantasy"
+  },
+  "dlc_dark_fantasy_neu_jerusalem": {
+    id: "dlc_dark_fantasy_neu_jerusalem",
+    name: "Thánh Thành Neu Jerusalem",
+    region: "NgoaiCanhDLC",
+    regionName: "Quang Ám Vi Diện (Tây Phương)",
+    coordinates: { x: -3500, y: -2000, z: 800 },
+    tier: "ThuongViDien",
+    rulingFaction: "Quang Minh Thần Điện",
+    auraDensity: 7500,
+    description: "Pháo đài thánh bọc thép kiên cố bằng Adamantium, ngọn Lửa Khởi Nguyên (First Flame) soi rọi xua tan bóng tối tà ác, nơi cất giữ Máu Của Vị Thần Đóng Đinh.",
+    facilities: ["ThanhDuong", "LoiPhatDien", "ThapPhongKhong", "LoLuaKhoiNguyen"],
+    connectedPaths: [
+      { targetId: "dlc_dark_fantasy_chien_hao", distanceLi: 700, dangerLevel: 5 },
+      { targetId: "dlc_dark_fantasy_hac_am_than_dien", distanceLi: 900, dangerLevel: 5 },
+      { targetId: "dlc_dark_fantasy_lothlorien", distanceLi: 600, dangerLevel: 3 }
+    ],
+    fixedNpcIds: [],
+    requiredLevelId: 5,
+    requiredLevelName: "Nguyên Anh Kỳ+",
+    requiredDLC: "dlc_dark_fantasy",
+    dangerHazards: ["Thánh Quang áp chế kẻ có nghiệp lực âm (Karma âm), cấm ma đạo bén mảng"]
+  },
+  "dlc_dark_fantasy_hac_am_than_dien": {
+    id: "dlc_dark_fantasy_hac_am_than_dien",
+    name: "Hắc Ám Thần Điện (Synapse Đảo Nghịch)",
+    region: "NgoaiCanhDLC",
+    regionName: "Quang Ám Vi Diện (Tây Phương)",
+    coordinates: { x: -3800, y: -2800, z: 600 },
+    tier: "ThuongViDien",
+    rulingFaction: "Hắc Ám Thần Điện & Thập Mang Tinh",
+    auraDensity: 8200,
+    description: "Đại sào huyệt hắc ám ngự trị dưới Nguyệt Thực Đen, nơi ngọn Lửa Điên Loạn (Frenzied Flame) thiêu rụi lý trí và diễn ra cuộc tranh đoạt Chén Thánh Hắc Hóa.",
+    facilities: ["DaiVucToiLoi", "DienThoHienTe", "LoLuaDienLoan", "HuyetTeTran"],
+    connectedPaths: [
+      { targetId: "dlc_dark_fantasy_chien_hao", distanceLi: 500, dangerLevel: 5 },
+      { targetId: "dlc_dark_fantasy_neu_jerusalem", distanceLi: 900, dangerLevel: 5 },
+      { targetId: "dlc_dark_fantasy_huyet_toc_co_lau", distanceLi: 500, dangerLevel: 4 }
+    ],
+    fixedNpcIds: [],
+    requiredLevelId: 5,
+    requiredLevelName: "Nguyên Anh Kỳ+",
+    requiredDLC: "dlc_dark_fantasy",
+    dangerHazards: ["Lửa điên loạn ăn mòn đạo tâm, tà khí gây điên loạn và tăng vọt Tâm Ma"]
+  },
+  "dlc_dark_fantasy_lothlorien": {
+    id: "dlc_dark_fantasy_lothlorien",
+    name: "Lothlórien - Tiếp Thiên Thần Mộc",
+    region: "NgoaiCanhDLC",
+    regionName: "Quang Ám Vi Diện (Tiên Tộc Alfheim)",
+    coordinates: { x: -2800, y: -1800, z: 700 },
+    tier: "ThuongViDien",
+    rulingFaction: "Tiên Tộc Alfheim (Galadriel & Corellon)",
+    auraDensity: 8600,
+    description: "Thánh đô của Tinh Linh Tiên Tộc bao bọc dưới bóng đại thụ Tiếp Thiên Thần Mộc (Cây Thế Giới), nơi khởi nguồn của Tiếp Thiên Thần Thủy thanh tẩy vạn vật.",
+    facilities: ["TiepThienThanMoc", "AlfheimDaoTrang", "LinhDien", "DanPhong"],
+    connectedPaths: [
+      { targetId: "dlc_dark_fantasy_neu_jerusalem", distanceLi: 600, dangerLevel: 3 },
+      { targetId: "nam_thiem_than_moc_thon", distanceLi: 2100, dangerLevel: 4 }
+    ],
+    fixedNpcIds: [],
+    requiredLevelId: 5,
+    requiredLevelName: "Nguyên Anh Kỳ+",
+    requiredDLC: "dlc_dark_fantasy",
+    dangerHazards: ["Kết giới Tiên Tộc bài xích ma tu và kẻ có nghiệp lực âm (Karma âm)"]
+  },
+  "dlc_dark_fantasy_huyet_toc_co_lau": {
+    id: "dlc_dark_fantasy_huyet_toc_co_lau",
+    name: "Huyết Ma Cổ Lâu (Lãnh Địa Huyết Tộc)",
+    region: "NgoaiCanhDLC",
+    regionName: "Quang Ám Vi Diện (Tây Phương)",
+    coordinates: { x: -3200, y: -3100, z: 400 },
+    tier: "ThuongViDien",
+    rulingFaction: "Huyết Tộc Dracula & Huyết Thiên Sứ",
+    auraDensity: 6800,
+    description: "Pháo đài cổ kính u ám của loài dơi quỷ và Huyết Tộc Thủy Tổ, nơi chôn giấu Huyết Tinh Ma Cà Rồng Thủy Tổ và Huyết Ngọc Của Dơi Yêu.",
+    facilities: ["HuyetTeDan", "CoMo", "LuyenThiTrang"],
+    connectedPaths: [
+      { targetId: "dlc_dark_fantasy_chien_hao", distanceLi: 400, dangerLevel: 4 },
+      { targetId: "dlc_dark_fantasy_hac_am_than_dien", distanceLi: 500, dangerLevel: 4 }
+    ],
+    fixedNpcIds: [],
+    requiredLevelId: 5,
+    requiredLevelName: "Nguyên Anh Kỳ+",
+    requiredDLC: "dlc_dark_fantasy",
+    dangerHazards: ["Sương mù độc hại và bầy dơi khát máu mai phục, ban đêm quái vật tăng gấp đôi lực chiến"]
+  },
+
+  // --- MỞ RỘNG ĐỊA DANH DLC CƠ KHÍ GIÁNG LÂM ---
+  "dlc_cyberpunk_phuong_chu": {
+    id: "dlc_cyberpunk_phuong_chu",
+    name: "Tàn Tích Phi Thuyền Phương Chu",
+    region: "NgoaiCanhDLC",
+    regionName: "Khu Vực Cơ Khí Giáng Lâm",
+    coordinates: { x: 2500, y: -3000, z: 600 },
+    tier: "ThuongViDien",
+    rulingFaction: "Máy Móc Thần Giáo & Hiệp Nghị Túc Chính",
+    auraDensity: 5500,
+    description: "Xác chiến hạm vĩ mô rơi rụng từ nền văn minh 11 chiều, các đường ống dẫn dầu lượng tử và kim loại sống nén ép linh khí.",
+    facilities: ["LoPhanUngNano", "XuongCoiCoGioi", "TramLieuLoi"],
+    connectedPaths: [
+      { targetId: "nam_thiem_thap_van_dai_son", distanceLi: 2200, dangerLevel: 4 }
+    ],
+    fixedNpcIds: ["npc_co_khi_chu"],
+    requiredLevelId: 4,
+    requiredLevelName: "Kim Đan Kỳ+",
+    requiredDLC: "dlc_cyberpunk",
+    dangerHazards: ["Bức xạ lượng tử ăn mòn thần thức, khôi lỗi máy móc tuần tra tiêu diệt sinh vật sống"]
+  }
+};
+
+export const FIXED_WORLD_GRAPH: Record<string, LocationNode> = {
+// 1. ĐÔNG THẮNG THẦN CHÂU
+  "dong_thang_hai_uyen_co_vuc": {
+    id: "dong_thang_hai_uyen_co_vuc",
+    name: "Thâm Hải Vạn Trượng",
+    region: "DongThang",
+    regionName: "Đông Thắng Thần Châu",
+    coordinates: { x: 1600, y: 800, z: -500 },
+    tier: "HaViDien",
+    rulingFaction: "Hải Uyên Yêu Tộc",
+    auraDensity: 3800,
+    description: "Vực sâu thẳm dưới đáy đại dương ngàn năm không thấy ánh mặt trời. Nước biển áp suất cực lớn, chứa dồi dào thủy linh khí nguyên sơ và bầy đàn thủy tộc.",
+    facilities: ["ThuyTrang", "HaiTinhKhoang", "SanHoTran"],
+    connectedPaths: [
+      { targetId: "dong_thang_thien_nam_phuong_thi", distanceLi: 400, dangerLevel: 2 }
+    ],
+    fixedNpcIds: []
+  },
+  "dong_thang_thanh_van_tong": {
+    id: "dong_thang_thanh_van_tong",
+    name: "Thanh Vân Kiếm Tông",
+    region: "DongThang",
+    regionName: "Đông Thắng Thần Châu",
+    coordinates: { x: 1200, y: 800, z: 150 },
+    tier: "HaViDien",
+    rulingFaction: "Thanh Vân Kiếm Tông",
+    auraDensity: 3500,
+    description: "Tông môn đệ nhất kiếm đạo Đông Thắng Thần Châu. Non xanh nước biếc, vách đá ngàn trượng, động phủ ẩn trong biển mây sương mù.",
+    facilities: ["DanPhong", "LuyenKhiCac", "TangKinhCac", "LinhDien", "KiemTrang"],
+    connectedPaths: [
+      { targetId: "dong_thang_thien_nam_phuong_thi", distanceLi: 150, dangerLevel: 1 },
+      { targetId: "dong_thang_hac_quy_coc", distanceLi: 300, dangerLevel: 2 },
+      { targetId: "dong_thang_thien_quang_thanh_dien", distanceLi: 300, dangerLevel: 2 },
+      { targetId: "ngoai_canh_dao_may_thoi_khong", distanceLi: 1800, dangerLevel: 4 },
+      { targetId: "trung_cuc_dao_tri_tien_canh", distanceLi: 1500, dangerLevel: 4 }
+    ],
+    fixedNpcIds: ["npc_thanh_van_tong_chu", "npc_ly_huyen_dao", "npc_kiem_tong_truong_lao"]
+  },
+  "dong_thang_thien_quang_thanh_dien": {
+    id: "dong_thang_thien_quang_thanh_dien",
+    name: "Thiên Quang Thánh Điện",
+    region: "DongThang",
+    regionName: "Đông Thắng Thần Châu",
+    coordinates: { x: 1350, y: 950, z: 400 },
+    tier: "HaViDien",
+    rulingFaction: "Thiên Quang Thánh Tông",
+    auraDensity: 4200,
+    description: "Thánh điện ngự trị trên đỉnh Cực Quang Lĩnh của Đông Thắng Thần Châu, nơi hội tụ Thái Dương Thánh Khí ngàn năm và cất giữ Tinh Hạch Thiên Quang chí bảo.",
+    facilities: ["DanPhong", "TangKinhCac", "LinhDien", "ThanhQuangDai"],
+    connectedPaths: [
+      { targetId: "dong_thang_thanh_van_tong", distanceLi: 300, dangerLevel: 2 },
+      { targetId: "dong_thang_thien_nam_phuong_thi", distanceLi: 400, dangerLevel: 2 }
+    ],
+    fixedNpcIds: ["npc_thien_quang_dien_chu"]
+  },
+  "dong_thang_thien_nam_phuong_thi": {
+    id: "dong_thang_thien_nam_phuong_thi",
+    name: "Thiên Nam Phường Thị",
+    region: "DongThang",
+    regionName: "Đông Thắng Thần Châu",
+    coordinates: { x: 1050, y: 750, z: 20 },
+    tier: "HaViDien",
+    rulingFaction: "Vạn Bảo Thương Hội",
+    auraDensity: 1200,
+    description: "Đại phường thị sầm uất nhất Đông Vực, nơi giao thương trao đổi pháp bảo, đan dược của tán tu và môn phái khắp Cửu Châu.",
+    facilities: ["PhuongThi", "DauGiaHoi", "QuanTro", "ThaoDuocCac"],
+    connectedPaths: [
+      { targetId: "dong_thang_thanh_van_tong", distanceLi: 150, dangerLevel: 1 },
+      { targetId: "dong_thang_thien_quang_thanh_dien", distanceLi: 400, dangerLevel: 2 },
+      { targetId: "dong_thang_hao_nhien_hoc_vien", distanceLi: 250, dangerLevel: 1 }
+    ],
+    fixedNpcIds: ["npc_van_bao_chu", "npc_chu_quan_tro"]
+  },
+  "dong_thang_hao_nhien_hoc_vien": {
+    id: "dong_thang_hao_nhien_hoc_vien",
+    name: "Hạo Nhiên Học Viện",
+    region: "DongThang",
+    regionName: "Đông Thắng Thần Châu",
+    coordinates: { x: 950, y: 600, z: 50 },
+    tier: "HaViDien",
+    rulingFaction: "Hạo Nhiên Nho Tông",
+    auraDensity: 2800,
+    description: "Thánh địa Nho đạo cổ xưa. Trúc lâm bạt ngàn, tiếng đọc kinh thư vang vọng trời đất, tụ ngưng Hạo Nhiên Chính Khí.",
+    facilities: ["ThuVien", "DaoTrang", "KhueVanCac", "VanTuBia"],
+    connectedPaths: [
+      { targetId: "dong_thang_thien_nam_phuong_thi", distanceLi: 250, dangerLevel: 1 },
+      { targetId: "trung_cuc_can_long_kinh_do", distanceLi: 800, dangerLevel: 2 }
+    ],
+    fixedNpcIds: ["npc_khong_phu_tu", "npc_van_su_dong"]
+  },
+  "dong_thang_hac_quy_coc": {
+    id: "dong_thang_hac_quy_coc",
+    name: "Hạc Quy Cốc",
+    region: "DongThang",
+    regionName: "Đông Thắng Thần Châu",
+    coordinates: { x: 1400, y: 950, z: 200 },
+    tier: "HaViDien",
+    rulingFaction: "Bách Thảo Tiên Các",
+    auraDensity: 4200,
+    description: "Thung lũng ngập tràn linh khí và linh hạc bay lượn, dược thảo quý hiếm ngàn năm sinh trưởng tự nhiên trong sương sớm.",
+    facilities: ["LinhDien", "DongPhu", "LinhTuyen", "DanPhong"],
+    connectedPaths: [
+      { targetId: "dong_thang_thanh_van_tong", distanceLi: 300, dangerLevel: 2 },
+      { targetId: "bac_cau_bang_phach_tuyet_linh", distanceLi: 1200, dangerLevel: 4 },
+      { targetId: "trung_cuc_dao_tri_tien_canh", distanceLi: 600, dangerLevel: 3 }
+    ],
+    fixedNpcIds: ["npc_hac_lao_nhan", "npc_duoc_dong"]
+  },
+
+  // 2. TÂY NGƯU HẠ CHÂU
+  "tay_nguu_bo_de_kim_thien_tu": {
+    id: "tay_nguu_bo_de_kim_thien_tu",
+    name: "Bồ Đề Kim Thiền Tự",
+    region: "TayNguu",
+    regionName: "Tây Ngưu Hạ Châu",
+    coordinates: { x: -1200, y: 400, z: 100 },
+    tier: "HaViDien",
+    rulingFaction: "Kim Thiền Phật Tông",
+    auraDensity: 3800,
+    description: "Cổ tự ngàn năm giữa sa mạc mênh mông. Chuông chùa ngân vang xua tan tà niệm, sen vàng nở rộ khắp Phật trì.",
+    facilities: ["TangKinhCac", "DaiHungBaoDien", "BoDeVien", "XaLoiThap"],
+    connectedPaths: [
+      { targetId: "tay_nguu_hoang_sa_dai_mac", distanceLi: 200, dangerLevel: 2 },
+      { targetId: "tay_nguu_nguyet_nha_linh_tuyen", distanceLi: 350, dangerLevel: 1 }
+    ],
+    fixedNpcIds: ["npc_phat_tu_thich_khong", "npc_phap_minh_truong_lao"]
+  },
+  "tay_nguu_hoang_sa_dai_mac": {
+    id: "tay_nguu_hoang_sa_dai_mac",
+    name: "Hoàng Sa Đại Mạc",
+    region: "TayNguu",
+    regionName: "Tây Ngưu Hạ Châu",
+    coordinates: { x: -1400, y: 200, z: 0 },
+    tier: "HaViDien",
+    rulingFaction: "Tự Do Sa Bang",
+    auraDensity: 800,
+    description: "Biển cát vàng vô tận, bão cát che khuất mặt trời, ẩn giấu vô số tàn tích cổ mộ và cổ bảo của thời thái cổ.",
+    facilities: ["PhanTich", "CoMo", "TapKetDiem"],
+    connectedPaths: [
+      { targetId: "tay_nguu_bo_de_kim_thien_tu", distanceLi: 200, dangerLevel: 2 },
+      { targetId: "tay_nguu_co_ma_thap", distanceLi: 400, dangerLevel: 4 }
+    ],
+    fixedNpcIds: ["npc_sa_ma_vuong", "npc_dao_mo_hieu_uy"]
+  },
+  "tay_nguu_nguyet_nha_linh_tuyen": {
+    id: "tay_nguu_nguyet_nha_linh_tuyen",
+    name: "Nguyệt Nha Linh Tuyền",
+    region: "TayNguu",
+    regionName: "Tây Ngưu Hạ Châu",
+    coordinates: { x: -1050, y: 300, z: 10 },
+    tier: "HaViDien",
+    rulingFaction: "Nguyệt Nha Tiên Cư",
+    auraDensity: 3000,
+    description: "Ốc đảo hình trăng khuyết kỳ diệu giữa lòng sa mạc, dòng suối nguồn linh dịch ngọt lành nuôi dưỡng vạn mộc.",
+    facilities: ["LinhTuyen", "DanPhong", "QuanTro"],
+    connectedPaths: [
+      { targetId: "tay_nguu_bo_de_kim_thien_tu", distanceLi: 350, dangerLevel: 1 },
+      { targetId: "trung_cuc_can_long_kinh_do", distanceLi: 900, dangerLevel: 2 },
+      { targetId: "ngoai_canh_nhat_nguyet_dong_tri", distanceLi: 1600, dangerLevel: 3 }
+    ],
+    fixedNpcIds: ["npc_nguyet_tuyen_tien_tu", "npc_tuyen_chu"]
+  },
+  "tay_nguu_co_ma_thap": {
+    id: "tay_nguu_co_ma_thap",
+    name: "Cổ Ma Tháp",
+    region: "TayNguu",
+    regionName: "Tây Ngưu Hạ Châu",
+    coordinates: { x: -1600, y: 100, z: -50 },
+    tier: "HaViDien",
+    rulingFaction: "Phong Ấn Ma Vực",
+    auraDensity: 5000,
+    description: "Tòa tháp đen kịt phong ấn đại ma đầu thượng cổ, âm khí cuồn cuộn ngút trời, phù văn xiềng xích phong tỏa ngàn dặm.",
+    facilities: ["PhongAnDia", "MaQuyetCac", "HuyetTeDan"],
+    connectedPaths: [
+      { targetId: "tay_nguu_hoang_sa_dai_mac", distanceLi: 400, dangerLevel: 4 },
+      { targetId: "nam_thiem_van_doc_u_coc", distanceLi: 1000, dangerLevel: 3 },
+      { targetId: "bac_cau_huyet_hai_ma_uyen", distanceLi: 1200, dangerLevel: 4 }
+    ],
+    fixedNpcIds: ["npc_phong_an_ma_ton", "npc_tran_thap_lao_nhan"]
+  },
+
+  // 3. NAM THIỂM BỘ CHÂU
+  "nam_thiem_van_doc_u_coc": {
+    id: "nam_thiem_van_doc_u_coc",
+    name: "Vạn Độc U Cốc",
+    region: "NamThiem",
+    regionName: "Nam Thiểm Bộ Châu",
+    coordinates: { x: -400, y: -1200, z: -100 },
+    tier: "HaViDien",
+    rulingFaction: "Vạn Độc Cổ Tông",
+    auraDensity: 3200,
+    description: "Thung lũng u ám ngập tràn chướng khí ngũ sắc và cổ độc bò lúc nhúc. Cây cỏ hoa lá đều mang kịch độc chết người.",
+    facilities: ["DocPhong", "LuyenDuocCac", "CucDuocDong"],
+    connectedPaths: [
+      { targetId: "nam_thiem_thap_van_dai_son", distanceLi: 300, dangerLevel: 3 },
+      { targetId: "nam_thiem_dam_lay_hac_thuy", distanceLi: 250, dangerLevel: 3 },
+      { targetId: "tay_nguu_co_ma_thap", distanceLi: 1000, dangerLevel: 3 }
+    ],
+    fixedNpcIds: ["npc_doc_co_tien", "npc_co_su_lao_ba"]
+  },
+  "nam_thiem_thap_van_dai_son": {
+    id: "nam_thiem_thap_van_dai_son",
+    name: "Thập Vạn Đại Sơn",
+    region: "NamThiem",
+    regionName: "Nam Thiểm Bộ Châu",
+    coordinates: { x: -100, y: -1400, z: 300 },
+    tier: "HaViDien",
+    rulingFaction: "Nam Man Yêu Tộc",
+    auraDensity: 4500,
+    description: "Trùng trùng điệp điệp núi non hùng vĩ, rừng mưa nhiệt đới cổ thụ ngàn năm rợp bóng, lãnh địa của muôn vàn mãnh thú cự yêu.",
+    facilities: ["LinhThaoVien", "YeuVuongDong", "SanThuCac"],
+    connectedPaths: [
+      { targetId: "nam_thiem_van_doc_u_coc", distanceLi: 300, dangerLevel: 3 },
+      { targetId: "nam_thiem_than_moc_thon", distanceLi: 200, dangerLevel: 2 },
+      { targetId: "nam_thiem_dam_lay_hac_thuy", distanceLi: 400, dangerLevel: 3 }
+    ],
+    fixedNpcIds: ["npc_man_hoang_yeu_vuong", "npc_dai_son_tho_san"]
+  },
+  "nam_thiem_than_moc_thon": {
+    id: "nam_thiem_than_moc_thon",
+    name: "Thần Mộc Thôn",
+    region: "NamThiem",
+    regionName: "Nam Thiểm Bộ Châu",
+    coordinates: { x: 100, y: -1100, z: 80 },
+    tier: "HaViDien",
+    rulingFaction: "Thần Mộc Thị Tộc",
+    auraDensity: 2600,
+    description: "Thôn làng cổ xưa được che chở dưới bóng đại thụ Thần Mộc ngàn trượng, bá tánh hiền hòa chất phác sống tựa vào thiên nhiên.",
+    facilities: ["LinhDien", "LinhThuDan", "YQuanThon"],
+    connectedPaths: [
+      { targetId: "nam_thiem_thap_van_dai_son", distanceLi: 200, dangerLevel: 2 },
+      { targetId: "trung_cuc_can_long_kinh_do", distanceLi: 750, dangerLevel: 2 },
+      { targetId: "nam_thiem_dam_lay_hac_thuy", distanceLi: 350, dangerLevel: 2 }
+    ],
+    fixedNpcIds: ["npc_thon_truong_moc_lao", "npc_a_nguu"]
+  },
+  "nam_thiem_dam_lay_hac_thuy": {
+    id: "nam_thiem_dam_lay_hac_thuy",
+    name: "Đầm Lầy Hắc Thủy",
+    region: "NamThiem",
+    regionName: "Nam Thiểm Bộ Châu",
+    coordinates: { x: -300, y: -1500, z: -150 },
+    tier: "HaViDien",
+    rulingFaction: "U Trạch Thủy Quái",
+    auraDensity: 2900,
+    description: "Đầm lầy nước đen ngòm bốc mùi sình lầy và khí độc mục rữa, cá sấu khổng lồ và mãng xà mai phục dưới đáy bùn lầy.",
+    facilities: ["XuyenHacThuy", "DocTrach", "PhanTichDamLay"],
+    connectedPaths: [
+      { targetId: "nam_thiem_van_doc_u_coc", distanceLi: 250, dangerLevel: 3 }
+    ],
+    fixedNpcIds: ["npc_hac_thuy_huyen_xa", "npc_lao_ngu_dam"]
+  },
+
+  // 4. BẮC CÂU LƯ CHÂU
+  "bac_cau_u_minh_thi_am_tong": {
+    id: "bac_cau_u_minh_thi_am_tong",
+    name: "U Minh Thi Âm Tông",
+    region: "BacCau",
+    regionName: "Bắc Câu Lư Châu",
+    coordinates: { x: 400, y: 1500, z: -80 },
+    tier: "HaViDien",
+    rulingFaction: "Thi Âm Tà Tông",
+    auraDensity: 4000,
+    description: "Tà phái đệ nhất Bắc Vực. Bãi tha ma chôn xác vạn dặm, âm phong rít gào từng cơn, lò luyện thi khói đen mù mịt đêm ngày.",
+    facilities: ["LuyenThiTrang", "AmSatDia", "TangKinhCac", "TieuHonTri"],
+    connectedPaths: [
+      { targetId: "bac_cau_huyet_hai_ma_uyen", distanceLi: 350, dangerLevel: 4 },
+      { targetId: "bac_cau_bang_phach_tuyet_linh", distanceLi: 250, dangerLevel: 3 },
+      { targetId: "am_ti_cuu_u_minh_nguc", distanceLi: 400, dangerLevel: 4 }
+    ],
+    fixedNpcIds: ["npc_thi_am_tong_chu", "npc_cot_ma_truong_lao"]
+  },
+  "bac_cau_huyet_hai_ma_uyen": {
+    id: "bac_cau_huyet_hai_ma_uyen",
+    name: "Huyết Hải Ma Uyên",
+    region: "BacCau",
+    regionName: "Bắc Câu Lư Châu",
+    coordinates: { x: 600, y: 1800, z: -300 },
+    tier: "HaViDien",
+    rulingFaction: "Huyết Hải Ma Giáo",
+    auraDensity: 5500,
+    description: "Vực sâu thăm thẳm ngập tràn biển máu sủi bọt tanh nồng, oán hồn gào thét đòi mạng, nơi ma tu khắp thiên hạ khao khát rèn kiếm.",
+    facilities: ["HuyetTri", "MaDaoTrang", "TuyenMaDai"],
+    connectedPaths: [
+      { targetId: "bac_cau_u_minh_thi_am_tong", distanceLi: 350, dangerLevel: 4 },
+      { targetId: "bac_cau_bang_cot_cung", distanceLi: 400, dangerLevel: 4 },
+      { targetId: "am_ti_cuu_u_minh_nguc", distanceLi: 300, dangerLevel: 4 }
+    ],
+    fixedNpcIds: ["npc_huyet_hai_lao_to", "npc_sat_vuong"]
+  },
+  "bac_cau_bang_phach_tuyet_linh": {
+    id: "bac_cau_bang_phach_tuyet_linh",
+    name: "Băng Phách Tuyệt Lĩnh",
+    region: "BacCau",
+    regionName: "Bắc Câu Lư Châu",
+    coordinates: { x: 200, y: 1400, z: 500 },
+    tier: "HaViDien",
+    rulingFaction: "Hàn Băng Tán Tu",
+    auraDensity: 3600,
+    description: "Dãy núi băng nguyên vĩnh cửu tuyết phủ ngàn năm không tan, gió lạnh thấu xương có thể đóng băng kinh mạch tu sĩ cấp thấp.",
+    facilities: ["BangTuyetDong", "HanBangThach", "HuyenBangCac"],
+    connectedPaths: [
+      { targetId: "bac_cau_u_minh_thi_am_tong", distanceLi: 250, dangerLevel: 3 },
+      { targetId: "bac_cau_bang_cot_cung", distanceLi: 300, dangerLevel: 3 },
+      { targetId: "dong_thang_hac_quy_coc", distanceLi: 1200, dangerLevel: 4 }
+    ],
+    fixedNpcIds: ["npc_bang_phach_tien_co", "npc_tuyet_lang_vuong"]
+  },
+  "bac_cau_bang_cot_cung": {
+    id: "bac_cau_bang_cot_cung",
+    name: "Băng Cốt Cung",
+    region: "BacCau",
+    regionName: "Bắc Câu Lư Châu",
+    coordinates: { x: 350, y: 1700, z: 200 },
+    tier: "HaViDien",
+    rulingFaction: "Băng Cốt Cung",
+    auraDensity: 4100,
+    description: "Cung điện băng tráng lệ tạc từ băng tinh ngàn năm, nơi các nữ kiếm tu tu luyện Băng Phách Kiếm Quyết lạnh lùng đoạn tuyệt tình trần.",
+    facilities: ["BangCotDien", "LuyenBangThat", "TangKinhCac"],
+    connectedPaths: [
+      { targetId: "bac_cau_bang_phach_tuyet_linh", distanceLi: 300, dangerLevel: 3 },
+      { targetId: "bac_cau_huyet_hai_ma_uyen", distanceLi: 400, dangerLevel: 4 }
+    ],
+    fixedNpcIds: ["npc_bang_cot_cung_chu", "npc_han_bang_thanh_nu"]
+  },
+
+  // 5. TRUNG CỰC HOÀNG TRIỀU (ĐẠI CÀN)
+  "trung_cuc_can_long_kinh_do": {
+    id: "trung_cuc_can_long_kinh_do",
+    name: "Càn Long Kinh Đô",
+    region: "TrungCuc",
+    regionName: "Trung Cực Hoàng Triều",
+    coordinates: { x: 0, y: 0, z: 50 },
+    tier: "HaViDien",
+    rulingFaction: "Hoàng Triều Đại Càn",
+    auraDensity: 3000,
+    description: "Trọng tâm quyền lực phàm trần Cửu Châu. Thành trì kiên cố ngàn trượng, cung điện dát vàng tráng lệ, quân đội tinh nhuệ kết thành Long Trận.",
+    facilities: ["HoangCung", "KhamThienGiam", "PhuongThiHoangGia", "KiemTrang", "QuanDoi"],
+    connectedPaths: [
+      { targetId: "trung_cuc_loi_dai_hem_anh_vu", distanceLi: 5, dangerLevel: 2 },
+      { targetId: "trung_cuc_kham_thien_giam", distanceLi: 10, dangerLevel: 1 },
+      { targetId: "trung_cuc_thien_lao_tu_nguc", distanceLi: 20, dangerLevel: 2 },
+      { targetId: "trung_cuc_vo_lam_minh_dai", distanceLi: 30, dangerLevel: 1 },
+      { targetId: "dong_thang_hao_nhien_hoc_vien", distanceLi: 800, dangerLevel: 2 },
+      { targetId: "tay_nguu_nguyet_nha_linh_tuyen", distanceLi: 900, dangerLevel: 2 },
+      { targetId: "nam_thiem_than_moc_thon", distanceLi: 750, dangerLevel: 2 },
+      { targetId: "trung_cuc_dao_tri_tien_canh", distanceLi: 300, dangerLevel: 2 },
+      { targetId: "ngoai_canh_nhat_nguyet_dong_tri", distanceLi: 2200, dangerLevel: 4 }
+    ],
+    fixedNpcIds: ["npc_can_hoang_de", "npc_quoc_su_can_trieu"]
+  },
+  "trung_cuc_kham_thien_giam": {
+    id: "trung_cuc_kham_thien_giam",
+    name: "Khâm Thiên Giám",
+    region: "TrungCuc",
+    regionName: "Trung Cực Hoàng Triều",
+    coordinates: { x: 5, y: 10, z: 120 },
+    tier: "HaViDien",
+    rulingFaction: "Khâm Thiên Ti Đại Càn",
+    auraDensity: 3500,
+    description: "Đài quan sát tinh tượng sao trời tối cao của triều đình, nơi quan chiêm tinh ngày đêm suy diễn thiên cơ và quốc vận, quan sát quỹ đạo các vì sao để ngưng tụ Dấu Vết Vận Mệnh.",
+    facilities: ["QuanTinhDai", "ThienCoCac", "BiThuCac"],
+    connectedPaths: [
+      { targetId: "trung_cuc_can_long_kinh_do", distanceLi: 10, dangerLevel: 1 },
+      { targetId: "trung_cuc_dao_tri_tien_canh", distanceLi: 280, dangerLevel: 1 },
+      { targetId: "ngoai_canh_dao_may_thoi_khong", distanceLi: 1500, dangerLevel: 4 }
+    ],
+    fixedNpcIds: ["npc_kham_thien_giam_chinh", "npc_chiem_tinh_su"]
+  },
+  "trung_cuc_thien_lao_tu_nguc": {
+    id: "trung_cuc_thien_lao_tu_nguc",
+    name: "Thiên Lao Tử Ngục",
+    region: "TrungCuc",
+    regionName: "Trung Cực Hoàng Triều",
+    coordinates: { x: -10, y: -15, z: -50 },
+    tier: "HaViDien",
+    rulingFaction: "Hình Bộ Đại Càn",
+    auraDensity: 1500,
+    description: "Ngục tối dưới lòng đất kinh đô, giam giữ các tử tù phàm trần và tà tu phản nghịch, xiềng xích cấm chế khóa chặt mọi luồng chân khí.",
+    facilities: ["TuNguc", "KhaoDaThat", "PhapTruong"],
+    connectedPaths: [
+      { targetId: "trung_cuc_can_long_kinh_do", distanceLi: 20, dangerLevel: 2 },
+      { targetId: "trung_cuc_loi_dai_hem_anh_vu", distanceLi: 15, dangerLevel: 3 }
+    ],
+    fixedNpcIds: ["npc_thien_lao_nguc_truong", "npc_dao_phu_hoang_gia"]
+  },
+  "trung_cuc_vo_lam_minh_dai": {
+    id: "trung_cuc_vo_lam_minh_dai",
+    name: "Võ Lâm Minh Đài",
+    region: "TrungCuc",
+    regionName: "Trung Cực Hoàng Triều",
+    coordinates: { x: 20, y: -20, z: 30 },
+    tier: "HaViDien",
+    rulingFaction: "Cửu Châu Võ Lâm Minh",
+    auraDensity: 2000,
+    description: "Lôi đài tỷ võ danh chấn giang hồ, nơi võ lâm cao thủ phàm trần và tán tu tỷ thí phân cao hạ, tranh đoạt minh chủ.",
+    facilities: ["LoiDai", "HoiQuan", "VoDuong"],
+    connectedPaths: [
+      { targetId: "trung_cuc_can_long_kinh_do", distanceLi: 30, dangerLevel: 1 }
+    ],
+    fixedNpcIds: ["npc_vo_lam_minh_chu", "npc_loi_dai_tai_phan"],
+    dangerHazards: ["Tỷ thí luận võ đao thương không có mắt, dễ bị trọng thương"]
+  },
+  "trung_cuc_loi_dai_hem_anh_vu": {
+    id: "trung_cuc_loi_dai_hem_anh_vu",
+    name: "Lôi Đài Hẻm Anh Vũ",
+    region: "TrungCuc",
+    regionName: "Trung Cực Hoàng Triều (Hẻm Ngầm Kinh Đô)",
+    coordinates: { x: 2, y: -3, z: 45 },
+    tier: "HaViDien",
+    rulingFaction: "Hắc Thị Triệu Gia (Kinh Đô Ngầm)",
+    auraDensity: 1200,
+    description: "Sới đấu ngầm khét tiếng nằm sâu trong khu ổ chuột Hẻm Anh Vũ dưới chân thành Kinh Đô. Đài đấu bằng gỗ lim nhuốm đen vết máu khô, rào sắt gai bao quanh, mùi rượu đục, khói thuốc lá và tiếng gào thét cá cược hỗn loạn đêm ngày.",
+    facilities: ["LoiDaiNgam", "SongBac", "LoMoCu", "DuocQuanChui"],
+    connectedPaths: [
+      { targetId: "trung_cuc_can_long_kinh_do", distanceLi: 5, dangerLevel: 2 },
+      { targetId: "trung_cuc_thien_lao_tu_nguc", distanceLi: 15, dangerLevel: 3 }
+    ],
+    fixedNpcIds: [
+      "npc_chu_song_trieu_nghiem",
+      "npc_trinh_quan_su",
+      "npc_trong_tai_tiet_manh",
+      "npc_vo_si_vuong_tam",
+      "npc_vo_si_loi_chan_son",
+      "npc_vo_si_quach_hac_dao",
+      "npc_vo_si_diep_hoai_phong",
+      "npc_vo_si_tran_doan_ti",
+      "npc_vo_si_hua_nhuc_dao",
+      "npc_vo_si_a_lu_dai",
+      "npc_vo_si_so_dich",
+      "npc_vo_si_thich_tri_dung",
+      "npc_vo_si_luc_tieu_that"
+    ],
+    dangerHazards: ["Sới đấu ngầm vô pháp vô thiên, đao thương không mắt, có thể bị đánh chết trên sàn đấu hoặc cướp bóc khi rời hẻm"]
+  },
+
+  // --- CÁC ĐỊA DANH MỚI BỔ SUNG KHỚP VỚI ITEM LORE & CƠ CHẾ ĐỘC TÔN ---
+  "trung_cuc_dao_tri_tien_canh": {
+    id: "trung_cuc_dao_tri_tien_canh",
+    name: "Dao Trì Tiên Cảnh (Vườn Đào Tiên)",
+    region: "TrungCuc",
+    regionName: "Trung Cực Hoàng Triều (Đỉnh Mây Côn Luân)",
+    coordinates: { x: 50, y: 80, z: 500 },
+    tier: "ThuongViDien",
+    rulingFaction: "Dao Trì Tiên Cung (Tây Vương Mẫu)",
+    auraDensity: 8800,
+    description: "Tiên cảnh trên đỉnh mây Côn Luân của Tây Vương Mẫu, nơi ngự trị 3600 gốc Nhâm Thủy Đào Tiên trường sinh bất lão và dòng suối tiên ngưng tụ linh dịch cửu thiên.",
+    facilities: ["VuonDaoTien", "DaoTriTri", "TangKinhCac", "DanPhong"],
+    connectedPaths: [
+      { targetId: "trung_cuc_can_long_kinh_do", distanceLi: 300, dangerLevel: 2 },
+      { targetId: "trung_cuc_kham_thien_giam", distanceLi: 280, dangerLevel: 1 },
+      { targetId: "dong_thang_hac_quy_coc", distanceLi: 600, dangerLevel: 3 }
+    ],
+    fixedNpcIds: ["npc_tay_vuong_mau", "npc_dai_tien_nu_hong_y", "npc_luc_tien_nu"],
+    requiredLevelId: 4,
+    requiredLevelName: "Kim Đan Kỳ+",
+    dangerHazards: ["Tiên Trận Dao Trì áp chế kẻ mang ác niệm hoặc ma khí"]
+  },
+
+  "am_ti_cuu_u_minh_nguc": {
+    id: "am_ti_cuu_u_minh_nguc",
+    name: "Cửu U Minh Ngục (Hoàng Tuyền Vong Xuyên)",
+    region: "BacCau",
+    regionName: "Bắc Câu Lư Châu (Âm Ti Cửu U)",
+    coordinates: { x: 500, y: 1900, z: -500 },
+    tier: "ThuongViDien",
+    rulingFaction: "Thập Điện Diêm La & Phán Quan Điện",
+    auraDensity: 7000,
+    description: "Cõi u minh tăm tối dưới đáy sâu Cửu U, dòng sông Vong Xuyên chảy xiết dẫn ra biển Minh Hà, nơi ngưng tụ Minh Hà Âm Thủy và âm hồn vạn cổ.",
+    facilities: ["SongVongXuyen", "NaiHaCau", "MinhHaTri", "LuanHoiDai", "PhanTich"],
+    connectedPaths: [
+      { targetId: "bac_cau_u_minh_thi_am_tong", distanceLi: 400, dangerLevel: 4 },
+      { targetId: "bac_cau_huyet_hai_ma_uyen", distanceLi: 300, dangerLevel: 4 }
+    ],
+    fixedNpcIds: ["npc_phan_quan_thoi_giac", "npc_thap_dien_diem_la", "npc_hac_bach_vo_thuong"],
+    requiredLevelId: 5,
+    requiredLevelName: "Nguyên Anh Kỳ+",
+    dangerHazards: ["Âm khí cực thịnh đóng băng kinh mạch người sống, sinh linh dương khí yếu sẽ bị tước đoạt sinh cơ"]
+  },
+
+  "ngoai_canh_dao_may_thoi_khong": {
+    id: "ngoai_canh_dao_may_thoi_khong",
+    name: "Đảo Mây Thời Không Lơ Lửng",
+    region: "NgoaiCanhDLC",
+    regionName: "Rìa Không - Thời Gian Ngoại Cảnh",
+    coordinates: { x: 2000, y: 2000, z: 800 },
+    tier: "ThuongViDien",
+    rulingFaction: "Thời Không Ẩn Tộc",
+    auraDensity: 9500,
+    description: "Hòn đảo tiên trôi dạt ngoài rìa không-thời gian, nơi quy luật lịch sử bị cô lập. Mặt đất kết tinh Huyễn Mộng Chi Quả (Golden Apple) và tầng mây cắm Đinh Thần Không (Celestial Nail).",
+    facilities: ["KhaiThienDai", "TangMayVoCuc", "KhongGianMon"],
+    connectedPaths: [
+      { targetId: "trung_cuc_kham_thien_giam", distanceLi: 1500, dangerLevel: 4 },
+      { targetId: "dong_thang_thanh_van_tong", distanceLi: 1800, dangerLevel: 4 }
+    ],
+    fixedNpcIds: ["npc_thoi_khong_nguoi_canh_giu"],
+    requiredLevelId: 6,
+    requiredLevelName: "Hóa Thần Kỳ+",
+    dangerHazards: ["Loạn lưu thời không bẻ cong tuổi thọ, tu sĩ chưa thấu triệt quy luật sẽ bị thoái hóa hoặc già nua tức khắc"]
+  },
+
+  "ngoai_canh_nhat_nguyet_dong_tri": {
+    id: "ngoai_canh_nhat_nguyet_dong_tri",
+    name: "Khối Cộng Trị Nhật Nguyệt (Thái Âm & Thái Dương)",
+    region: "NgoaiCanhDLC",
+    regionName: "Vực Thần Nhật Nguyệt (Thượng Vị Diện)",
+    coordinates: { x: -2000, y: 2500, z: 900 },
+    tier: "ThuongViDien",
+    rulingFaction: "Thái Dương Tộc & Thái Âm Tộc (Lục Áp & Vọng Thư)",
+    auraDensity: 9200,
+    description: "Thánh địa trung tâm nơi hội tụ Giếng Mặt Trời và Giếng Mặt Trăng. Nơi sinh ra Thái Âm Hàn Tinh và cất giữ Vĩnh Tịch Băng Tâm tối cao.",
+    facilities: ["GiengMatTrang", "GiengMatTroi", "SuoiNguonVinhCuu", "NhatNguyetDien"],
+    connectedPaths: [
+      { targetId: "trung_cuc_can_long_kinh_do", distanceLi: 2200, dangerLevel: 4 },
+      { targetId: "tay_nguu_nguyet_nha_linh_tuyen", distanceLi: 1600, dangerLevel: 3 }
+    ],
+    fixedNpcIds: ["npc_luc_ap_de_quan", "npc_vong_thu_tien_vuong"],
+    requiredLevelId: 6,
+    requiredLevelName: "Hóa Thần Kỳ+",
+    dangerHazards: ["Bức xạ ánh sáng chí dương và hàn khí chí âm giao tranh liên tục, kinh mạch bình thường dễ bị xé rách"]
+  },
+};
+
+export const ALL_WORLD_GRAPH: Record<string, LocationNode> = {
+  ...FIXED_WORLD_GRAPH,
+  ...DLC_WORLD_GRAPH
+};
+
+
+export interface TimelineConfig {
+  id: string;
+  worldName: string;
+  timelineTitle: string;
+  description: string;
+  defaultStartNodeId: string;
+  worldFactions: string[];
+  worldGraph: Record<string, LocationNode>;
+  canonEvents: CanonEvent[];
+}
+
+export const TIMELINES_CONFIG: Record<string, TimelineConfig & { candidateStartNodes?: string[] }> = {
+  // DÒNG THỜI GIAN 1: CỬU CHÂU TIÊN GIỚI (THANH VÂN KHÍ VẬN KỶ)
+  "timeline_thanh_van": {
+    id: "timeline_thanh_van",
+    worldName: "Cửu Châu Tiên Giới",
+    timelineTitle: "Thanh Vân Khí Vận Kỷ",
+    description: "Kỷ nguyên đại đạo càn khôn tuần hoàn định sẵn. Đông Thắng Kiếm Tông trấn thủ linh môn, Đại Càn triều đình mưu toan phong tỏa long mạch, bí cảnh và tai kiếp luân phiên giáng lâm theo thiên mệnh.",
+    defaultStartNodeId: "dong_thang_thien_nam_phuong_thi",
+    candidateStartNodes: ["dong_thang_thien_nam_phuong_thi", "dong_thang_hao_nhien_hoc_vien", "dong_thang_hac_quy_coc", "trung_cuc_can_long_kinh_do", "nam_thiem_than_moc_thon"],
+    worldFactions: ["Thanh Vân Kiếm Tông", "Hoàng Triều Đại Càn", "Hạo Nhiên Nho Tông", "Kim Thiền Phật Tông", "U Minh Thi Âm Tông", "Vạn Bảo Thương Hội"],
+    worldGraph: FIXED_WORLD_GRAPH,
+    canonEvents: [
+      {
+        id: "canon_tv_1",
+        triggerYear: 1,
+        triggerMonth: 3,
+        locationId: "dong_thang_thanh_van_tong",
+        title: "Thiên Môn Khai Kiếm - Định Sẵn Môn Đồ",
+        canonDescription: "Đại hội tuyển chọn đệ tử mười năm một lần của Thanh Vân Kiếm Tông. Kiếm Trủng phát ra hào quang xé rách mây tầng, thiên tài các thế gia quy tụ về bái sư, kiếm khí bao phủ ngàn dặm.",
+        canonVictims: [],
+        canonBeneficiary: "Thanh Vân Kiếm Tông",
+        requiredConditions: [],
+        hasDiverged: false,
+        disasterTag: "khac",
+        eventNpcIds: ["enpc_dong_bach_y_su_gia"],
+      },
+      {
+        id: "canon_tv_2",
+        triggerYear: 3,
+        triggerMonth: 8,
+        locationId: "nam_thiem_than_moc_thon",
+        title: "Nam Cương Yêu Triều Phá Thôn",
+        canonDescription: "Thú triều định sẵn từ Thập Vạn Đại Sơn tràn xuống tàn phá Thần Mộc Thôn. Thôn làng cổ đại bị san bằng thành bình địa, Thần Mộc ngàn năm bị yêu độc ăn mòn rễ cái.",
+        canonVictims: ["npc_thon_truong_moc_lao"],
+        canonBeneficiary: "npc_man_hoang_yeu_vuong",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_tv_nam_cuong",
+        disasterTag: "khac",
+        eventNpcIds: ["enpc_nam_co_be_than_moc"],
+        consequences: [
+          { ifIntact: "Yêu triều san bằng Thần Mộc Thôn: dân Nam Cương di cư về Đông, Nho Tông phải mở kho cứu tế, tà tu trà trộn vào dòng người tị nạn.", ifDiverged: "Thần Mộc Thôn trụ vững: không có làn sóng di cư, Khuê Văn Các ít bị nhòm ngó nhưng tà tu phải tìm đường khác để trộm cổ tịch." }
+        ]
+      },
+      {
+        id: "canon_tv_3",
+        triggerYear: 6,
+        triggerMonth: 5,
+        locationId: "dong_thang_hao_nhien_hoc_vien",
+        title: "Khâm Thiên Tinh Bàn Thất Lạc",
+        canonDescription: "Trận pháp bói toán của Nho Đạo bị tà khí quấy nhiễu, Khuê Văn Các bốc cháy trong đêm trăng máu, cổ tịch phong thủy bị tà tu đánh cắp phân tán khắp phương Đông.",
+        canonVictims: ["npc_van_su_dong"],
+        canonBeneficiary: "Hạo Nhiên Nho Tông",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_tv_nam_cuong",
+        parentEventId: "canon_tv_2",
+        disasterTag: "khac",
+        eventNpcIds: ["enpc_dong_khat_cai_mu"],
+      },
+      {
+        id: "canon_tv_4",
+        triggerYear: 10,
+        triggerMonth: 11,
+        locationId: "tay_nguu_hoang_sa_dai_mac",
+        title: "Thái Cổ Xích Hỏa Bí Cảnh Khai Mở",
+        canonDescription: "Địa mạch sa mạc nứt toác giữa cơn bão cát ngàn năm. Bí cảnh cổ xưa xuất thế mang theo ngọn Cửu U Minh Hỏa phun trào thiêu rụi ba ngàn dặm cát vàng, Tự Do Sa Bang độc chiếm hỏa trì.",
+        canonVictims: ["npc_dao_mo_hieu_uy"],
+        canonBeneficiary: "npc_sa_ma_vuong",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_tv_sa_mac",
+        disasterTag: "hoa",
+        eventNpcIds: ["enpc_tay_hoa_tu_dien", "enpc_tay_dao_mo_nhan"],
+        consequences: [
+          { ifIntact: "Bí cảnh mở: tài nguyên dồi dào, phường thị bùng nổ giao thương và lộ tài sản.", ifDiverged: "Bí cảnh bị phong tỏa sớm: phường thị không bùng nổ, Thi Âm Tông thiếu cớ nhưng vẫn nhắm vào kho báu." }
+        ]
+      },
+      {
+        id: "canon_tv_5",
+        triggerYear: 16,
+        triggerMonth: 6,
+        locationId: "dong_thang_thien_nam_phuong_thi",
+        title: "U Minh Vạn Thi Tập Kích Thiên Nam",
+        canonDescription: "Thi Âm Tông tế luyện vạn thi đại trận đột kích Thiên Nam Phường Thị, tàn sát tán tu cướp bóc kho linh thạch và bảo vật của Vạn Bảo Thương Hội.",
+        canonVictims: ["npc_van_bao_chu"],
+        canonBeneficiary: "npc_thi_am_tong_chu",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_tv_sa_mac",
+        parentEventId: "canon_tv_4",
+        disasterTag: "huyet",
+        eventNpcIds: ["enpc_dong_thuong_nhan_doc_nhan"],
+      },
+      {
+        id: "canon_tv_6",
+        triggerYear: 24,
+        triggerMonth: 4,
+        locationId: "dong_thang_hac_quy_coc",
+        title: "Vạn Niên Linh Dược Thục Hóa",
+        canonDescription: "Cây Thần Dược chín muồi phát ra dược hương ngút trời tại Hạc Quy Cốc. Tán tu khắp Cửu Châu kéo đến chém giết đẫm máu để tranh đoạt linh quả trường thọ.",
+        canonVictims: ["npc_duoc_dong"],
+        canonBeneficiary: "Bách Thảo Tiên Các",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_tv_long_mach",
+        disasterTag: "khac",
+        consequences: [
+          { ifIntact: "Bách Thảo Tiên Các trúng lớn, mở rộng ảnh hưởng ra Trung Cực.", ifDiverged: "Dược bị cướp hoặc bị đốt: các phe mất nguồn đan dược và suy yếu." }
+        ]
+      },
+      {
+        id: "canon_tv_7",
+        triggerYear: 32,
+        triggerMonth: 1,
+        locationId: "trung_cuc_can_long_kinh_do",
+        title: "Đại Càn Hoàng Triều Phong Tỏa Long Mạch",
+        canonDescription: "Càn Long Hoàng Đế ban chiếu chỉ phong tỏa toàn bộ linh mạch phàm trần để đúc Cửu Châu Trấn Quốc Đỉnh, châm ngòi đại chiến toàn diện giữa triều đình và các môn phái tu tiên.",
+        canonVictims: ["npc_quoc_su_can_trieu"],
+        canonBeneficiary: "npc_can_hoang_de",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_tv_long_mach",
+        parentEventId: "canon_tv_6",
+        disasterTag: "khac",
+        eventNpcIds: ["enpc_trung_thai_giam_truyen_chi"],
+        consequences: [
+          { ifIntact: "Triều đình đúc xong Cửu Châu Trấn Quốc Đỉnh, chính đạo suy.", ifDiverged: "Đỉnh không hoàn thành: nội loạn cung đình, long mạch rò rỉ." }
+        ]
+      },
+      {
+        id: "canon_tv_8",
+        triggerYear: 48,
+        triggerMonth: 9,
+        locationId: "tay_nguu_co_ma_thap",
+        title: "Cổ Ma Tháp Rạn Nứt Phong Ấn",
+        canonDescription: "Phù văn xiềng xích thượng cổ tại Cổ Ma Tháp mục nát, âm khí ngút trời giải thoát tàn hồn đại ma đầu viễn cổ, Tây Ngưu sa mạc chìm trong bão cát ma đạo.",
+        canonVictims: ["npc_tran_thap_lao_nhan"],
+        canonBeneficiary: "npc_phong_an_ma_ton",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_tv_long_mach",
+        parentEventId: "canon_tv_7",
+        disasterTag: "khac",
+        eventNpcIds: ["enpc_boss_co_ma_ton"],
+        consequences: [
+          { ifIntact: "Ma đầu viễn cổ thoát khốn, Tây Ngưu biến thành ma địa.", ifDiverged: "Phong ấn được gia cố: ma khí bị nén, trào ngược và nổ lớn hơn." }
+        ]
+      }
+    ]
+  },
+
+  // DÒNG THỜI GIAN 2: HUYỀN THIÊN ĐẠI LỤC (CỬU TIÊU MA KIẾP KỶ)
+  "timeline_huyen_thien": {
+    id: "timeline_huyen_thien",
+    worldName: "Huyền Thiên Đại Lục",
+    timelineTitle: "Cửu Tiêu Ma Kiếp Kỷ",
+    description: "Kỷ nguyên ma kiếm quật khởi từ lòng đất. Đại đạo cấm chế suy tàn, kiếm phách thái cổ nứt toác tại thung lũng sâu, chư phái chính ma huyết chiến tranh giành quyền định đoạt số phận đại lục.",
+    defaultStartNodeId: "dong_thang_thien_nam_phuong_thi",
+    candidateStartNodes: ["dong_thang_thien_nam_phuong_thi", "trung_cuc_vo_lam_minh_dai", "tay_nguu_nguyet_nha_linh_tuyen", "nam_thiem_than_moc_thon", "dong_thang_hao_nhien_hoc_vien"],
+    worldFactions: ["Cửu Tiêu Kiếm Môn", "Đại Chu Tiên Triều", "Đại Lôi Âm Cổ Tự", "Vạn Quỷ Huyết Uyên", "Thiên Bảo Cổ Các"],
+    worldGraph: FIXED_WORLD_GRAPH,
+    canonEvents: [
+      {
+        id: "canon_ht_1",
+        triggerYear: 1,
+        triggerMonth: 5,
+        locationId: "dong_thang_thanh_van_tong",
+        title: "Vạn Kiếm Uyên Bạo Loạn - Kiếm Khí Ngập Trời",
+        canonDescription: "Đáy vực Vạn Kiếm Uyên nứt toác, sát khí ma kiếm thái cổ ngủ vùi ngàn năm thức tỉnh xé nát đại trận bảo vệ kiếm môn, hàng trăm đệ tử tuần tra nhiễm ma khí phát điên.",
+        canonVictims: ["npc_ly_huyen_dao"],
+        canonBeneficiary: "Cửu Tiêu Kiếm Môn",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_ht_vu_khi",
+        disasterTag: "khac",
+        consequences: [
+          { ifIntact: "Ma khí rò rỉ ở Đông lan thành dòng hàn khí phương Bắc, băng triều dị biến.", ifDiverged: "Ma khí bị chặn sớm: Băng Phách Tuyệt Lĩnh không dị biến, hàn thú tiếp tục ngủ yên." }
+        ]
+      },
+      {
+        id: "canon_ht_2",
+        triggerYear: 4,
+        triggerMonth: 2,
+        locationId: "bac_cau_bang_phach_tuyet_linh",
+        title: "Bắc Minh Băng Triều Tràn Xuống",
+        canonDescription: "Hàn thú thái cổ thức tỉnh phá vỡ phong ấn tuyết vực, hàn băng vĩnh cửu đóng băng ba ngàn dặm biên cương Bắc Câu, tán tu rét cóng chết rải rác trên đỉnh núi tuyết.",
+        canonVictims: ["npc_bang_phach_tien_co"],
+        canonBeneficiary: "npc_tuyet_lang_vuong",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_ht_vu_khi",
+        parentEventId: "canon_ht_1",
+        disasterTag: "bang",
+        eventNpcIds: ["enpc_bac_nu_kiem_bang_cot"],
+      },
+      {
+        id: "canon_ht_3",
+        triggerYear: 8,
+        triggerMonth: 9,
+        locationId: "nam_thiem_van_doc_u_coc",
+        title: "Bích Lạc U Độc Dị Hỏa Xuất Thế",
+        canonDescription: "Ngọn Bích Lạc U Hỏa phun trào từ lòng đầm lầy ngũ sắc. Ma tu khắp nơi tàn sát lẫn nhau để đoạt lấy ngọn lửa độc, khói độc lan rộng làm chết sạch muông thú ngàn dặm.",
+        canonVictims: ["npc_co_su_lao_ba"],
+        canonBeneficiary: "npc_doc_co_tien",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_ht_doc_hoa",
+        disasterTag: "doc",
+        eventNpcIds: ["enpc_nam_co_su_cam"],
+        consequences: [
+          { ifIntact: "Dị hỏa độc giết sạch muông thú, ma tu tranh giành, tà khí dồn về Cổ Ma Tháp.", ifDiverged: "Dị hỏa bị thu phong: tà khí không dồn về Cổ Ma Tháp, Thập Phương Hắc Ma Trận phục hưng chậm hàng chục năm." }
+        ]
+      },
+      {
+        id: "canon_ht_4",
+        triggerYear: 15,
+        triggerMonth: 11,
+        locationId: "tay_nguu_co_ma_thap",
+        title: "Thập Phương Hắc Ma Trận Phục Hưng",
+        canonDescription: "Hắc Ma Trận thái cổ thức tỉnh giữa lòng sa mạc Tây Vực, tà khí cuộn trào biến ốc đảo thành bãi tha ma tà đạo, nuốt chửng các đoàn lữ hành qua lại.",
+        canonVictims: ["npc_tran_thap_lao_nhan"],
+        canonBeneficiary: "npc_phong_an_ma_ton",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_ht_doc_hoa",
+        parentEventId: "canon_ht_3",
+        disasterTag: "khac",
+        eventNpcIds: ["enpc_boss_co_ma_ton"],
+      },
+      {
+        id: "canon_ht_5",
+        triggerYear: 22,
+        triggerMonth: 4,
+        locationId: "dong_thang_thien_nam_phuong_thi",
+        title: "Huyết Sát Ma Giáo Huyết Tế Thiên Nam",
+        canonDescription: "Huyết Sát Ma Giáo đồ sát toàn bộ đan phòng Thiên Nam, bắt hàng vạn tán tu luyện chế Huyết Hồn Đan, kho báu phường thị bị cướp sạch biến thành đống gạch vụn.",
+        canonVictims: ["npc_van_bao_chu", "npc_chu_quan_tro"],
+        canonBeneficiary: "Vạn Quỷ Huyết Uyên",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_ht_phat_ma",
+        disasterTag: "huyet",
+        consequences: [
+          { ifIntact: "Huyết tế phường thị, triều đình ban Phạt Ma Lệnh và tổng động viên toàn đại lục.", ifDiverged: "Huyết tế bị phá: triều đình không có cớ ban Phạt Ma Lệnh, chiến tranh chính ma nổ ra muộn và lẻ tẻ." }
+        ]
+      },
+      {
+        id: "canon_ht_6",
+        triggerYear: 35,
+        triggerMonth: 10,
+        locationId: "trung_cuc_can_long_kinh_do",
+        title: "Đại Chu Tiên Triều Ban Bố Phạt Ma Đại Lệnh",
+        canonDescription: "Kinh đô phát lệnh tổng động viên toàn bộ thế gia chính đạo vây quét đệ tử ma phái khắp đại lục, các môn phái chịu áp lực trưng thu binh lực khốc liệt.",
+        canonVictims: ["npc_kham_thien_giam_chinh"],
+        canonBeneficiary: "Đại Chu Tiên Triều",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_ht_phat_ma",
+        parentEventId: "canon_ht_5",
+        disasterTag: "khac",
+      },
+      {
+        id: "canon_ht_7",
+        triggerYear: 50,
+        triggerMonth: 7,
+        locationId: "bac_cau_huyet_hai_ma_uyen",
+        title: "Huyết Hải Triều Tịch Triệu Hoán Ma Thần",
+        canonDescription: "Biển máu dâng cao ngập tràn cõi u minh Bắc Câu, oán hồn vạn kiếp kết tinh triệu hoán tàn hồn Huyết Hải Lão Tổ phục sinh làm chấn động toàn bộ vi diện.",
+        canonVictims: ["npc_sat_vuong"],
+        canonBeneficiary: "npc_huyet_hai_lao_to",
+        requiredConditions: [],
+        hasDiverged: false,
+        disasterTag: "huyet",
+        eventNpcIds: ["enpc_boss_huyet_hai"],
+      }
+    ]
+  },
+
+  // DÒNG THỜI GIAN 3: THƯƠNG LAN CỔ GIỚI (THƯƠNG LAN DỊ HỎA KỶ)
+  "timeline_thuong_lan": {
+    id: "timeline_thuong_lan",
+    worldName: "Thương Lan Cổ Giới",
+    timelineTitle: "Thương Lan Dị Hỏa Kỷ",
+    description: "Kỷ nguyên Đan Đạo và Dị Hỏa xưng bá thiên địa. Địa tâm sôi sục nhả ra vô số hỏa chủng ngàn năm, các môn phái luyện dược và băng cung phương Bắc tranh đoạt hỏa mạch sống còn.",
+    defaultStartNodeId: "dong_thang_hac_quy_coc",
+    candidateStartNodes: ["dong_thang_hac_quy_coc", "dong_thang_thien_nam_phuong_thi", "nam_thiem_thap_van_dai_son", "tay_nguu_nguyet_nha_linh_tuyen"],
+    worldFactions: ["Đan Thần Tiên Các", "Viêm Minh Cổ Tộc", "Băng Cốt Tiên Cung", "Tứ Hải Thương Bang", "Kim Thiền Phật Tông"],
+    worldGraph: FIXED_WORLD_GRAPH,
+    canonEvents: [
+      {
+        id: "canon_tl_1",
+        triggerYear: 1,
+        triggerMonth: 4,
+        locationId: "dong_thang_hac_quy_coc",
+        title: "Đan Đạo Đại Hội Trăm Năm - Hạc Quy Cốc",
+        canonDescription: "Đan Thần Tiên Các khai mở lò luyện đan cửu thiên, đan sư khắp đại lục tề tựu tranh đoạt ngọn Địa Hỏa Tinh Hoa, hỏa khí ngút trời làm cháy xém rừng thảo dược.",
+        canonVictims: [],
+        canonBeneficiary: "Đan Thần Tiên Các",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_tl_dan_hoi",
+        disasterTag: "hoa",
+        consequences: [
+          { ifIntact: "Đan hội thành công: hỏa chủng lan ra Nam Hoang, dung nham bộc phát.", ifDiverged: "Đan hội đổ vỡ: hỏa mạch bị phong tỏa sớm, Nam Hoang không bộc phát nhưng đan đạo suy yếu." }
+        ]
+      },
+      {
+        id: "canon_tl_2",
+        triggerYear: 3,
+        triggerMonth: 10,
+        locationId: "nam_thiem_thap_van_dai_son",
+        title: "Nam Hoang Dung Nham Bộc Phát - Hỏa Diễm Dị Biến",
+        canonDescription: "Núi lửa sâu trong rừng thiêng bộc phát ngọn Thanh Liên Dị Hỏa thiêu rụi ba ngọn sơn mạch, muông thú hoảng loạn tràn xuống đồng bằng phàm nhân gây ra thảm họa di dân.",
+        canonVictims: ["npc_dai_son_tho_san"],
+        canonBeneficiary: "Viêm Minh Cổ Tộc",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_tl_dan_hoi",
+        parentEventId: "canon_tl_1",
+        disasterTag: "hoa",
+      },
+      {
+        id: "canon_tl_3",
+        triggerYear: 8,
+        triggerMonth: 7,
+        locationId: "tay_nguu_hoang_sa_dai_mac",
+        title: "Thái Cổ Đan Ma Di Tích Xuất Lộ",
+        canonDescription: "Mộ huyệt cổ đan vương xuất thế giữa bão cát hoang mạc, cuốn sách cổ ghi chép đan phương cửu chuyển thất truyền bị phong tỏa bởi đại trận độc hỏa.",
+        canonVictims: ["npc_sa_ma_vuong"],
+        canonBeneficiary: "Tứ Hải Thương Bang",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_tl_di_tich",
+        disasterTag: "doc",
+        consequences: [
+          { ifIntact: "Đan ma di tích bị mở: độc hỏa xâm lấn mạch nước ngầm, linh dịch cạn kiệt.", ifDiverged: "Di tích được niêm phong: linh dịch Nguyệt Nha còn nguyên, các phe thiếu đan phương cửu chuyển." }
+        ]
+      },
+      {
+        id: "canon_tl_4",
+        triggerYear: 14,
+        triggerMonth: 2,
+        locationId: "tay_nguu_nguyet_nha_linh_tuyen",
+        title: "Nguyệt Nha Linh Dịch Cạn Kiệt",
+        canonDescription: "Hỏa độc dưới lòng đất xâm lấn ốc đảo sa mạc, suối nguồn linh tuyết tinh khiết bị bốc hơi một nửa, các môn phái phải dùng băng trận phong tỏa giữ nguồn nước.",
+        canonVictims: ["npc_tuyen_chu"],
+        canonBeneficiary: "Kim Thiền Phật Tông",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_tl_di_tich",
+        parentEventId: "canon_tl_3",
+        disasterTag: "bang",
+      },
+      {
+        id: "canon_tl_5",
+        triggerYear: 21,
+        triggerMonth: 3,
+        locationId: "bac_cau_bang_cot_cung",
+        title: "Băng Cốt Cung Nam Hạ Trảm Hỏa Mạch",
+        canonDescription: "Băng Cốt Cung mang hàn khí vĩnh cửu cực bắc xuôi nam săn lùng các hỏa mạch địa tâm để phong tỏa, dập tắt các lò đan dược của chính phái lẫn ma đạo.",
+        canonVictims: ["npc_duoc_dong"],
+        canonBeneficiary: "npc_bang_cot_cung_chu",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_tl_bang_nam",
+        disasterTag: "bang",
+        consequences: [
+          { ifIntact: "Băng Cốt Cung nam hạ thành công: hỏa mạch bị dập, triều đình thừa thế tịch thu thần dược.", ifDiverged: "Băng Cốt Cung bị đẩy lui: hỏa mạch còn sống, triều đình khó tịch thu thần dược toàn diện." }
+        ]
+      },
+      {
+        id: "canon_tl_6",
+        triggerYear: 34,
+        triggerMonth: 8,
+        locationId: "trung_cuc_can_long_kinh_do",
+        title: "Vương Triều Tịch Thu Thần Dược Thiên Hạ",
+        canonDescription: "Hoàng triều ban bố lệnh tịch thu toàn bộ thảo dược ngàn năm từ các phường thị và thung lũng linh điền để phục vụ hoàng cung luyện chế Trường Sinh Đan.",
+        canonVictims: ["npc_dao_phu_hoang_gia"],
+        canonBeneficiary: "npc_can_hoang_de",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_tl_bang_nam",
+        parentEventId: "canon_tl_5",
+        disasterTag: "khac",
+      },
+      {
+        id: "canon_tl_7",
+        triggerYear: 50,
+        triggerMonth: 12,
+        locationId: "nam_thiem_van_doc_u_coc",
+        title: "Đan Độc Hóa Tinh - Vạn Cổ Họa Bộc Phát",
+        canonDescription: "Chướng khí độc và cặn bã phế đan ngàn năm tích tụ dưới đầm lầy hóa thành hình hài Độc Đan Quỷ Vương, phun trào mây độc bao trùm toàn bộ Nam Thiểm Bộ Châu.",
+        canonVictims: ["npc_doc_co_tien"],
+        canonBeneficiary: "Vạn Độc Cổ Tông",
+        requiredConditions: [],
+        hasDiverged: false,
+        disasterTag: "doc",
+        eventNpcIds: ["enpc_boss_doc_dan_quy_vuong"],
+      }
+    ]
+  },
+
+  // DÒNG THỜI GIAN 4: BÁT HOANG THẦN CHÂU (HOANG CỔ CHÍ TÔN KIẾP)
+  "timeline_bat_hoang": {
+    id: "timeline_bat_hoang",
+    worldName: "Bát Hoang Thần Châu",
+    timelineTitle: "Hoang Cổ Chí Tôn Kiếp",
+    description: "Kỷ nguyên Thần Ma thể chất và bảo cốt viễn cổ. Trời đất sinh ra các khối Chí Tôn Cốt bẩm sinh trong lòng đất, cấm địa phong ấn hé lộ tàn thi ma thần, vạn tộc tàn sát lẫn nhau để đoạt cốt đúc đạo.",
+    defaultStartNodeId: "dong_thang_hao_nhien_hoc_vien",
+    candidateStartNodes: ["dong_thang_hao_nhien_hoc_vien", "dong_thang_thanh_van_tong", "nam_thiem_dam_lay_hac_thuy", "tay_nguu_co_ma_thap", "trung_cuc_vo_lam_minh_dai"],
+    worldFactions: ["Thiên Đạo Kiếm Nhai", "Thái Cổ Thần Đình", "Bồ Đề Cổ Viện", "Thập Vạn Ma Uyên", "Vạn Giới Đấu Giá Lâu"],
+    worldGraph: FIXED_WORLD_GRAPH,
+    canonEvents: [
+      {
+        id: "canon_bh_1",
+        triggerYear: 1,
+        triggerMonth: 2,
+        locationId: "dong_thang_hao_nhien_hoc_vien",
+        title: "Bát Hoang Đạo Các Khai Tế - Thiên Cơ Lộ Điềm",
+        canonDescription: "Lễ tế tổ Nho Đạo trăm năm làm lộ ra điềm báo Hoang Cổ phong ấn sắp rạn nứt, một khối bảo cốt viễn cổ rơi xuống vực thẳm cấm địa phương Đông.",
+        canonVictims: [],
+        canonBeneficiary: "Thái Cổ Thần Đình",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_bh_dao_cac",
+        disasterTag: "khac",
+        consequences: [
+          { ifIntact: "Điềm báo Hoang Cổ phong ấn rạn nứt, man thú Thập Vạn phá quan.", ifDiverged: "Điềm báo bị bưng bít: man thú không đồng loạt phá quan, cấm địa vẫn im lìm." }
+        ]
+      },
+      {
+        id: "canon_bh_2",
+        triggerYear: 5,
+        triggerMonth: 6,
+        locationId: "nam_thiem_dam_lay_hac_thuy",
+        title: "Thập Vạn Man Thú Phá Quan - Cự Xà Xuất Thế",
+        canonDescription: "Cự xà viễn cổ và đàn quái thú đầm lầy phá tan trạm kiểm soát biên ải, thôn tính hàng loạt trấn ấp phàm trần để đoạt lấy linh thạch bảo hộ.",
+        canonVictims: ["npc_lao_ngu_dam"],
+        canonBeneficiary: "npc_hac_thuy_huyen_xa",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_bh_dao_cac",
+        parentEventId: "canon_bh_1",
+        disasterTag: "khac",
+      },
+      {
+        id: "canon_bh_3",
+        triggerYear: 9,
+        triggerMonth: 4,
+        locationId: "nam_thiem_than_moc_thon",
+        title: "Thần Mộc Thôn Chảy Máu - Huyết Triệu Viễn Cổ",
+        canonDescription: "Đại thụ ngàn trượng bỗng nhiên rỉ máu đen từ thân gỗ, rễ cây đứt gãy báo hiệu một con cự thú ngủ say ngàn trượng dưới lòng đất sắp cựa mình.",
+        canonVictims: ["npc_a_nguu"],
+        canonBeneficiary: "Thần Mộc Thị Tộc",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_bh_huyet_trieu",
+        disasterTag: "huyet",
+        eventNpcIds: ["enpc_boss_cu_thu"],
+        consequences: [
+          { ifIntact: "Thần Mộc rỉ máu, cự thú ngủ say cựa mình, chiến trường thái cổ lộ diện.", ifDiverged: "Huyết triệu bị tịnh hóa: cự thú tiếp tục ngủ, bảo cốt Ma Thần vẫn chôn vùi." }
+        ]
+      },
+      {
+        id: "canon_bh_4",
+        triggerYear: 14,
+        triggerMonth: 12,
+        locationId: "tay_nguu_co_ma_thap",
+        title: "Thần Ma Cổ Chiến Trường Xuất Thế",
+        canonDescription: "Vách đá Cổ Ma Tháp sụp đổ để lộ chiến trường thời thái cổ chôn vùi dưới cát bụi, vô số bảo cốt Ma Thần và tàn binh vỡ vụn phát ra uy áp chấn động Tây Vực.",
+        canonVictims: [],
+        canonBeneficiary: "Thập Vạn Ma Uyên",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_bh_huyet_trieu",
+        parentEventId: "canon_bh_3",
+        disasterTag: "khac",
+      },
+      {
+        id: "canon_bh_5",
+        triggerYear: 22,
+        triggerMonth: 5,
+        locationId: "dong_thang_thien_nam_phuong_thi",
+        title: "Đấu Giá Hội Huyết Chiến - Mảnh Vỡ Đế Binh",
+        canonDescription: "Vạn Giới Đấu Giá Lâu đem đấu giá một mảnh vỡ Đế Binh thượng cổ, ma tu và các thế gia chính đạo xông vào cướp phá tạo nên vụ huyết án lớn nhất lịch sử phường thị.",
+        canonVictims: ["npc_van_bao_chu"],
+        canonBeneficiary: "Vạn Giới Đấu Giá Lâu",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_bh_de_binh",
+        disasterTag: "huyet",
+        consequences: [
+          { ifIntact: "Huyết án đấu giá: Thần Đình có cớ cưỡng chế thu nộp công pháp để đúc Vạn Đạo Bia.", ifDiverged: "Huyết án bị ngăn: Thần Đình mất chính danh, các tông môn kháng lệnh thu nộp." }
+        ]
+      },
+      {
+        id: "canon_bh_6",
+        triggerYear: 36,
+        triggerMonth: 11,
+        locationId: "trung_cuc_can_long_kinh_do",
+        title: "Thần Đình Đúc Vạn Đạo Bia - Trấn Áp Tông Môn",
+        canonDescription: "Kinh đô phát lệnh cưỡng chế thu nộp toàn bộ công pháp tuyệt học trấn phái của chư sơn chư cốc để đúc thành Vạn Đạo Bia ngự trị quyền lực thiên hạ.",
+        canonVictims: ["npc_thien_lao_nguc_truong"],
+        canonBeneficiary: "npc_can_hoang_de",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_bh_de_binh",
+        parentEventId: "canon_bh_5",
+        disasterTag: "khac",
+      },
+      {
+        id: "canon_bh_7",
+        triggerYear: 55,
+        triggerMonth: 3,
+        locationId: "bac_cau_bang_phach_tuyet_linh",
+        title: "Hàn Băng Thần Thú Phục Hưng - Băng Phong Cổ Giới",
+        canonDescription: "Đỉnh núi tuyết ngút trời vỡ toác làm đôi, hàn thú băng cốt thượng cổ thức tỉnh đóng băng vĩnh viễn toàn bộ phương Bắc, biến biên cương thành vùng cấm địa.",
+        canonVictims: ["npc_tuyet_lang_vuong"],
+        canonBeneficiary: "npc_bang_phach_tien_co",
+        requiredConditions: [],
+        hasDiverged: false,
+        disasterTag: "bang",
+      }
+    ]
+  },
+
+  // DÒNG THỜI GIAN 5: THÁI CỔ CỔ GIỚI (THÁI CỔ HỒNG HOANG KỶ)
+  "timeline_hong_hoang": {
+    id: "timeline_hong_hoang",
+    worldName: "Thái Cổ Cổ Giới",
+    timelineTitle: "Thái Cổ Hồng Hoang Kỷ",
+    description: "Kỷ nguyên trời đất sơ khai hồng hoang nguyên thủy. Chư thiên hỗn độn, Tổ Vu cự nhân và Thái Cổ Yêu Tộc cát cứ tranh bá, sấm sét thiên kiếp rèn luyện nhục thân, sinh tồn tàn khốc giữa vạn dặm sơn hà.",
+    defaultStartNodeId: "nam_thiem_thap_van_dai_son",
+    candidateStartNodes: ["nam_thiem_thap_van_dai_son", "nam_thiem_dam_lay_hac_thuy", "dong_thang_hac_quy_coc", "bac_cau_bang_phach_tuyet_linh"],
+    worldFactions: ["Thập Nhị Vu Tộc", "Yêu Hoàng Cung Thái Cổ", "Thần Mộc Thị Tộc", "Kim Thiền Phật Tông", "Vạn Bảo Thương Hội"],
+    worldGraph: FIXED_WORLD_GRAPH,
+    canonEvents: [
+      {
+        id: "canon_hh_1",
+        triggerYear: 1,
+        triggerMonth: 1,
+        locationId: "nam_thiem_thap_van_dai_son",
+        title: "Hồng Hoang Thú Triều Thức Tỉnh",
+        canonDescription: "Lòng chảo Thập Vạn Đại Sơn bộc phát tiếng gầm rú viễn cổ, bầy mãnh thú cự yêu thức tỉnh sau giấc ngủ vùi ngàn năm, phân chia lại địa bàn lãnh thổ của các đại yêu vương.",
+        canonVictims: [],
+        canonBeneficiary: "npc_man_hoang_yeu_vuong",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_hh_thu_trieu",
+        disasterTag: "khac",
+        eventNpcIds: ["enpc_boss_cu_thu"],
+        consequences: [
+          { ifIntact: "Thú triều thức tỉnh: huyết khí dồn về Huyết Hải Ma Uyên.", ifDiverged: "Yêu vương bị trấn áp: Huyết Hải thiếu tinh huyết, Tổ Vu khó tụ khí." }
+        ]
+      },
+      {
+        id: "canon_hh_2",
+        triggerYear: 3,
+        triggerMonth: 7,
+        locationId: "bac_cau_huyet_hai_ma_uyen",
+        title: "Huyết Hải Tổ Vu Tụ Khí",
+        canonDescription: "Biển máu Cửu U sủi bọt ngập trời, tinh huyết sót lại từ thời hỗn độn ngưng tụ thành luồng năng lượng nhục thân cường bạo, thu hút các tu sĩ luyện thể phương Bắc.",
+        canonVictims: ["npc_sat_vuong"],
+        canonBeneficiary: "npc_huyet_hai_lao_to",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_hh_thu_trieu",
+        parentEventId: "canon_hh_1",
+        disasterTag: "huyet",
+      },
+      {
+        id: "canon_hh_3",
+        triggerYear: 7,
+        triggerMonth: 4,
+        locationId: "tay_nguu_hoang_sa_dai_mac",
+        title: "Thiên Ngoại Hỏa Diễm Bàn Thạch Giáng Lâm",
+        canonDescription: "Một tảng thiên thạch khổng lồ bốc cháy ngùn ngụt từ ngoài không gian rơi xuống lòng sa mạc Tây Vực, tạo thành hố nham thạch nung chảy cát vàng thành thủy tinh.",
+        canonVictims: ["npc_dao_mo_hieu_uy"],
+        canonBeneficiary: "npc_sa_ma_vuong",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_hh_thien_thach",
+        disasterTag: "thien_thach",
+        eventNpcIds: ["enpc_tay_dao_mo_nhan"],
+        consequences: [
+          { ifIntact: "Thiên thạch giáng lâm: địa mạch Tây Vực chấn động, hàn khí Bắc Cực bộc phát.", ifDiverged: "Thiên thạch bị chệch hướng hoặc dập tắt: Băng Phách Tuyệt Lĩnh không mở khe nứt Thượng Giới." }
+        ]
+      },
+      {
+        id: "canon_hh_4",
+        triggerYear: 15,
+        triggerMonth: 9,
+        locationId: "bac_cau_bang_phach_tuyet_linh",
+        title: "Huyền Minh Băng Phách Phong Thiên",
+        canonDescription: "Hàn khí Tổ Vu Huyền Minh bộc phát từ sườn núi tuyết, đóng băng cả mây trời và linh khí xung quanh, mở ra một khe nứt dẫn sang tầng không gian Thượng Giới.",
+        canonVictims: ["npc_tuyet_lang_vuong"],
+        canonBeneficiary: "Băng Cốt Cung",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_hh_thien_thach",
+        parentEventId: "canon_hh_3",
+        disasterTag: "bang",
+      },
+      {
+        id: "canon_hh_5",
+        triggerYear: 26,
+        triggerMonth: 5,
+        locationId: "trung_cuc_can_long_kinh_do",
+        title: "Thái Cổ Long Mạch Dị Động Trung Tâm",
+        canonDescription: "Mạch rồng viễn cổ dưới nền móng kinh đô Đại Càn cựa mình, khí tức hoàng kim dâng trào làm nứt nẻ thành trì, lộ ra hang động cổ bảo chứa đầy linh khoáng.",
+        canonVictims: ["npc_thien_lao_nguc_truong"],
+        canonBeneficiary: "npc_can_hoang_de",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_hh_long_mach",
+        disasterTag: "hoa",
+        consequences: [
+          { ifIntact: "Long mạch dị động: linh khí Trung Cực dâng cao, tiên đào Côn Luân chín rộ.", ifDiverged: "Long mạch bị trấn yên: linh khí không dâng, Đào Tiên hội không triệu được đại năng tam giới." }
+        ]
+      },
+      {
+        id: "canon_hh_6",
+        triggerYear: 40,
+        triggerMonth: 10,
+        locationId: "trung_cuc_dao_tri_tien_canh",
+        title: "Nhâm Thủy Bàn Đào Cửu Thiên Thành Thục",
+        canonDescription: "Ba ngàn sáu trăm gốc Nhâm Thủy Đào Tiên trên đỉnh mây Côn Luân đồng loạt chín rộ, tiên khí thơm ngát tỏa khắp chín tầng trời thu hút đại năng tam giới tụ hội.",
+        canonVictims: [],
+        canonBeneficiary: "Dao Trì Tiên Cung",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_hh_long_mach",
+        parentEventId: "canon_hh_5",
+        disasterTag: "khac",
+      },
+      {
+        id: "canon_hh_7",
+        triggerYear: 60,
+        triggerMonth: 12,
+        locationId: "tay_nguu_co_ma_thap",
+        title: "Hỗn Độn Ma Thần Tàn Ý Phản Phệ",
+        canonDescription: "Tàn niệm Ma Thần ngủ vùi dưới chân Cổ Ma Tháp bộc phát làm rách nát vách ngăn không gian, tạo thành lỗ đen hút lấy linh khí sa mạc, đe dọa nuốt chửng cả châu quận lân cận.",
+        canonVictims: ["npc_tran_thap_lao_nhan"],
+        canonBeneficiary: "npc_phong_an_ma_ton",
+        requiredConditions: [],
+        hasDiverged: false,
+        disasterTag: "khac",
+      }
+    ]
+  },
+
+  // DÒNG THỜI GIAN 6: U MINH MINH GIỚI (CỬU U HUYẾT KIẾP KỶ)
+  "timeline_u_minh": {
+    id: "timeline_u_minh",
+    worldName: "U Minh Minh Giới",
+    timelineTitle: "Cửu U Huyết Kiếp Kỷ",
+    description: "Kỷ nguyên âm dương đảo lộn, sông Vong Xuyên chảy xiết dưới lòng đất ngàn trượng, lò luyện thi của U Minh Thi Âm Tông khói đen che khuất mặt trời, chính đạo và quỷ tu huyết chiến không ngừng.",
+    defaultStartNodeId: "bac_cau_u_minh_thi_am_tong",
+    candidateStartNodes: ["bac_cau_u_minh_thi_am_tong", "bac_cau_huyet_hai_ma_uyen", "nam_thiem_van_doc_u_coc", "tay_nguu_co_ma_thap"],
+    worldFactions: ["U Minh Thi Âm Tông", "Huyết Hải Ma Giáo", "Kim Thiền Phật Tông", "Hoàng Triều Đại Càn", "Vạn Bảo Thương Hội"],
+    worldGraph: FIXED_WORLD_GRAPH,
+    canonEvents: [
+      {
+        id: "canon_um_1",
+        triggerYear: 1,
+        triggerMonth: 6,
+        locationId: "bac_cau_u_minh_thi_am_tong",
+        title: "Khai Mở Lò Luyện Vạn Thi Đêm Trăng Khuyết",
+        canonDescription: "Thi Âm Tông mở lò luyện thi đại trận, khói đen bao trùm bãi tha ma Bắc Câu Lư Châu, luyện chế hàng loạt cổ thi khôi lỗi phục vụ cuộc xâm lấn phương Nam.",
+        canonVictims: [],
+        canonBeneficiary: "npc_thi_am_tong_chu",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_um_lo_luyen",
+        disasterTag: "khac",
+        eventNpcIds: ["enpc_bac_tu_binh_phan_loan"],
+        consequences: [
+          { ifIntact: "Lò luyện vạn thi mở: âm khí dồn về Bắc Vực, Huyết Hải tràn bờ.", ifDiverged: "Lò luyện bị phá: Huyết Hải thiếu oán hồn, ma tu nội bộ sinh loạn." }
+        ]
+      },
+      {
+        id: "canon_um_2",
+        triggerYear: 4,
+        triggerMonth: 3,
+        locationId: "bac_cau_huyet_hai_ma_uyen",
+        title: "Huyết Hải Triều Dâng Tràn Bờ Cửu U",
+        canonDescription: "Biển máu sôi sục dâng trào ngập các hẻm vực sâu thẳm của Bắc Vực, âm hồn gào thét đòi mạng, ma tu tề tựu rèn luyện Huyết Đao bộc phát sát ý ngút trời.",
+        canonVictims: ["npc_sat_vuong"],
+        canonBeneficiary: "npc_huyet_hai_lao_to",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_um_lo_luyen",
+        parentEventId: "canon_um_1",
+        disasterTag: "huyet",
+        eventNpcIds: ["enpc_boss_huyet_hai"],
+      },
+      {
+        id: "canon_um_3",
+        triggerYear: 9,
+        triggerMonth: 8,
+        locationId: "nam_thiem_van_doc_u_coc",
+        title: "Cổ Độc Xâm Nhiễm Mạch Nước Ngầm",
+        canonDescription: "Chướng khí độc từ Vạn Độc U Cốc ngấm vào mạch nước ngầm chảy qua các làng mạc Nam Cương, dịch bệnh lan tràn khiến phàm nhân hoảng loạn di cư.",
+        canonVictims: ["npc_co_su_lao_ba"],
+        canonBeneficiary: "npc_doc_co_tien",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_um_co_doc",
+        disasterTag: "doc",
+        eventNpcIds: ["enpc_nam_co_su_cam"],
+        consequences: [
+          { ifIntact: "Cổ độc xâm nhiễm mạch nước ngầm: dịch bệnh Nam Cương, oán linh sa mạc hưng khởi.", ifDiverged: "Mạch nước được thanh tẩy: dịch bệnh bị chặn, Kim Thiền Tự ít có cớ xuất thế tịnh hóa." }
+        ]
+      },
+      {
+        id: "canon_um_4",
+        triggerYear: 16,
+        triggerMonth: 2,
+        locationId: "tay_nguu_bo_de_kim_thien_tu",
+        title: "Bồ Đề Kim Quang Tịnh Hóa Sa Mạc Oán Linh",
+        canonDescription: "Cổ tự ngàn năm rung chuông pháp lệnh, sen vàng bừng nở khắp hồ nước thanh tẩy tà niệm của bầy quỷ sa mạc, đẩy lùi âm phong của ma phái.",
+        canonVictims: [],
+        canonBeneficiary: "Kim Thiền Phật Tông",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_um_co_doc",
+        parentEventId: "canon_um_3",
+        disasterTag: "khac",
+      },
+      {
+        id: "canon_um_5",
+        triggerYear: 25,
+        triggerMonth: 11,
+        locationId: "dong_thang_thien_nam_phuong_thi",
+        title: "Đêm Đen Âm Binh Quá Cảnh Thiên Nam",
+        canonDescription: "Đoàn âm binh từ cõi chết đột nhiên hiện hình tràn qua Thiên Nam Phường Thị trong đêm đông giá buốt, cuốn phăng các cửa tiệm đan dược ngoài rìa thành.",
+        canonVictims: ["npc_chu_quan_tro"],
+        canonBeneficiary: "U Minh Thi Âm Tông",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_um_am_binh",
+        disasterTag: "khac",
+        consequences: [
+          { ifIntact: "Âm binh quá cảnh: dân chúng kinh hoàng, triều đình phát lệnh đồ trảm ma giáo.", ifDiverged: "Âm binh bị đánh lui: triều đình chần chừ xuất quân, Bắc Vực tiếp tục là đất của quỷ tu." }
+        ]
+      },
+      {
+        id: "canon_um_6",
+        triggerYear: 38,
+        triggerMonth: 5,
+        locationId: "trung_cuc_can_long_kinh_do",
+        title: "Kinh Đô Phát Lệnh Đồ Trảm Ma Giáo",
+        canonDescription: "Càn Long Hoàng Đế hạ chiếu chỉ xuất quân ba vạn giáp sĩ kết hợp đại năng chính đạo tiến về Bắc Vực thảo phạt các cứ điểm luyện thi tà đạo.",
+        canonVictims: ["npc_dao_phu_hoang_gia"],
+        canonBeneficiary: "npc_can_hoang_de",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_um_am_binh",
+        parentEventId: "canon_um_5",
+        disasterTag: "khac",
+      },
+      {
+        id: "canon_um_7",
+        triggerYear: 52,
+        triggerMonth: 10,
+        locationId: "am_ti_cuu_u_minh_nguc",
+        title: "Hoàng Tuyền Đoạn Lưu - Cổng Luân Hồi Nứt Vỡ",
+        canonDescription: "Dòng sông Vong Xuyên dưới đáy Cửu U bị chặn đứng bởi tàn tích cổ trận, âm hồn vạn kiếp bạo loạn tràn lên mặt đất đe dọa sinh cơ toàn bộ hạ giới.",
+        canonVictims: ["npc_hac_bach_vo_thuong"],
+        canonBeneficiary: "Thập Điện Diêm Vương",
+        requiredConditions: [],
+        hasDiverged: false,
+        disasterTag: "huyet",
+      }
+    ]
+  },
+
+  // DÒNG THỜI GIAN 7: TRUNG CỰC HOÀNG TRIỀU (ĐẠI CÀN THỊNH THẾ KỶ)
+  "timeline_can_long": {
+    id: "timeline_can_long",
+    worldName: "Trung Cực Hoàng Triều",
+    timelineTitle: "Đại Càn Thịnh Thế Kỷ",
+    description: "Kỷ nguyên hoàng quyền phàm trần đạt cực thịnh. Khâm Thiên Giám ngày đêm chiêm tinh đoán quốc vận, triều đình dựng pháp luật trói buộc giang hồ, Nho đạo trị quốc đối đầu với các tông môn ẩn thế.",
+    defaultStartNodeId: "trung_cuc_can_long_kinh_do",
+    candidateStartNodes: ["trung_cuc_can_long_kinh_do", "trung_cuc_kham_thien_giam", "dong_thang_hao_nhien_hoc_vien", "dong_thang_thien_nam_phuong_thi", "trung_cuc_vo_lam_minh_dai"],
+    worldFactions: ["Hoàng Triều Đại Càn", "Khâm Thiên Ti Đại Càn", "Hạo Nhiên Nho Tông", "Cửu Châu Võ Lâm Minh", "Vạn Bảo Thương Hội"],
+    worldGraph: FIXED_WORLD_GRAPH,
+    canonEvents: [
+      {
+        id: "canon_cl_1",
+        triggerYear: 1,
+        triggerMonth: 2,
+        locationId: "trung_cuc_kham_thien_giam",
+        title: "Tinh Tượng Chiêm Tinh - Cửu Tinh Liên Châu",
+        canonDescription: "Quan chiêm tinh Khâm Thiên Giám phát hiện chín vì sao thẳng hàng trên bầu trời kinh đô, báo hiệu thời kỳ biến chuyển quốc vận và địa mạch phàm trần.",
+        canonVictims: [],
+        canonBeneficiary: "Khâm Thiên Ti Đại Càn",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_cl_chiem_tinh",
+        disasterTag: "khac",
+        eventNpcIds: ["enpc_trung_quan_chiem_tinh_tre"],
+        consequences: [
+          { ifIntact: "Cửu tinh liên châu: quốc vận biến chuyển, triều đình mở đại khoa cử thu nạp nhân tài.", ifDiverged: "Tinh tượng bị che giấu: triều đình không kịp trấn an thiên hạ, khoa cử bị hoãn, lòng dân dao động." }
+        ]
+      },
+      {
+        id: "canon_cl_2",
+        triggerYear: 4,
+        triggerMonth: 8,
+        locationId: "dong_thang_hao_nhien_hoc_vien",
+        title: "Đại Khoa Cử Nho Đạo Khảo Thí",
+        canonDescription: "Học viện Nho tông tổ chức kỳ thi đại khoa cử tuyển chọn tú tài cử nhân vào triều làm quan, tiếng đọc kinh thư làm dâng tràn Hạo Nhiên Chính Khí bao phủ Đông Vực.",
+        canonVictims: [],
+        canonBeneficiary: "npc_khong_phu_tu",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_cl_chiem_tinh",
+        parentEventId: "canon_cl_1",
+        disasterTag: "khac",
+      },
+      {
+        id: "canon_cl_3",
+        triggerYear: 8,
+        triggerMonth: 5,
+        locationId: "trung_cuc_vo_lam_minh_dai",
+        title: "Đại Hội Võ Lâm Tranh Đoạt Minh Chủ",
+        canonDescription: "Lôi đài tỷ võ kinh đô khai mở đại hội tranh đoạt ngôi vị võ lâm minh chủ, đao kiếm giang hồ va chạm đẫm máu để phân định ngôi thứ quyền uy.",
+        canonVictims: ["npc_loi_dai_tai_phan"],
+        canonBeneficiary: "npc_vo_lam_minh_chu",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_cl_vo_lam",
+        disasterTag: "khac",
+        consequences: [
+          { ifIntact: "Đại hội võ lâm định ngôi minh chủ, Thiên Lao bạo động vì tù nhân thừa cơ.", ifDiverged: "Đại hội đổ máu bất thường: võ lâm phân liệt, ngục tù bị siết chặt hơn." }
+        ]
+      },
+      {
+        id: "canon_cl_4",
+        triggerYear: 14,
+        triggerMonth: 1,
+        locationId: "trung_cuc_thien_lao_tu_nguc",
+        title: "Thiên Lao Bạo Động - Tử Tù Phản Nghịch",
+        canonDescription: "Ngục tối dưới lòng đất kinh đô bị phá cấm chế, các cao thủ giang hồ và tà tu phản nghịch phá xiềng xích tràn ra ngoài gây náo loạn đường phố kinh thành.",
+        canonVictims: ["npc_dao_phu_hoang_gia"],
+        canonBeneficiary: "npc_thien_lao_nguc_truong",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_cl_vo_lam",
+        parentEventId: "canon_cl_3",
+        disasterTag: "khac",
+        eventNpcIds: ["enpc_trung_tu_tu_vo_danh"],
+      },
+      {
+        id: "canon_cl_5",
+        triggerYear: 20,
+        triggerMonth: 9,
+        locationId: "dong_thang_thien_nam_phuong_thi",
+        title: "Hoàng Gia Thương Hội Thâu Tóm Phường Thị",
+        canonDescription: "Chiếu chỉ triều đình ban ra áp đặt quyền thu thuế độc quyền tại Thiên Nam Phường Thị, ép các thương nhân tự do và môn phái phải nộp cống phẩm quý hiếm.",
+        canonVictims: ["npc_van_bao_chu"],
+        canonBeneficiary: "Hoàng Triều Đại Càn",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_cl_thau_tom",
+        disasterTag: "khac",
+        consequences: [
+          { ifIntact: "Triều đình thâu tóm phường thị, có tiền của và nhân lực để thu phục Thần Mộc địa mạch.", ifDiverged: "Thương hội phản kháng: triều đình thiếu hụt quỹ, chiến dịch Nam Cương bị trì hoãn." }
+        ]
+      },
+      {
+        id: "canon_cl_6",
+        triggerYear: 30,
+        triggerMonth: 6,
+        locationId: "nam_thiem_than_moc_thon",
+        title: "Triều Đình Thu Phục Thần Mộc Địa Mạch",
+        canonDescription: "Quân đội hoàng gia tiến về Nam Cương lập trạm kiểm soát quanh Thần Mộc Thôn, khai thác linh mộc ngàn năm để đúc cung nỏ thần khí phục vụ quân triều đình.",
+        canonVictims: ["npc_thon_truong_moc_lao"],
+        canonBeneficiary: "npc_quoc_su_can_trieu",
+        requiredConditions: [],
+        hasDiverged: false,
+        chainId: "chain_cl_thau_tom",
+        parentEventId: "canon_cl_5",
+        disasterTag: "khac",
+      },
+      {
+        id: "canon_cl_7",
+        triggerYear: 45,
+        triggerMonth: 11,
+        locationId: "dong_thang_thanh_van_tong",
+        title: "Hoàng Đế Hạ Chiếu Ép Kiếm Tông Quy Phục",
+        canonDescription: "Sứ giả mang thánh chỉ đến chân núi Thanh Vân Kiếm Tông yêu cầu giao nộp sổ môn đồ và chịu sự giám sát của triều đình, châm ngòi cuộc đấu kiếm giữa quốc sư và kiếm tông.",
+        canonVictims: ["npc_kiem_tong_truong_lao"],
+        canonBeneficiary: "npc_can_hoang_de",
+        requiredConditions: [],
+        hasDiverged: false,
+        disasterTag: "khac",
+        eventNpcIds: ["enpc_trung_thai_giam_truyen_chi"],
+      }
+    ]
+  }
+};
+
+export const getActiveTimeline = (timelineId?: string): TimelineConfig => {
+  if (timelineId && TIMELINES_CONFIG[timelineId]) {
+    return TIMELINES_CONFIG[timelineId];
+  }
+  return TIMELINES_CONFIG["timeline_thanh_van"];
+};
+
+export const getActiveWorldGraph = (timelineId?: string): Record<string, LocationNode> => {
+  const tl = getActiveTimeline(timelineId);
+  return { ...FIXED_WORLD_GRAPH, ...(tl.worldGraph || {}) };
+};
+
+export const DEFAULT_CANON_TIMELINE: CanonEvent[] = TIMELINES_CONFIG["timeline_thanh_van"].canonEvents;
+

@@ -1,0 +1,1951 @@
+// ============================================================================
+// V1.22.4: MA TRẬN ĐẠI ĐẠO DUNG HỢP KHÍ VẬN & THỂ CHẤT (MASTER_FUSION_MATRIX)
+// Gắn liền 33 Nút Cửu Châu, NPC Vạn Linh Ký và Bảo Vật Xúc Tác Định Sẵn
+// ============================================================================
+export interface FusionRecipe {
+  id: string;
+  name: string;
+  ingredients: string[];
+  alternativeIngredients?: string[][];
+  locationId: string;
+  locationName: string;
+  npcId: string;
+  catalystItem: string;
+  minStageId: number;
+  statsBonus?: { pAtk?: number; pDef?: number; pSpd?: number; pSpp?: number; pMult?: number };
+  desc: string;
+}
+
+// DESIGN INTENT (V1.22.11b): 3 nguyên liệu dùng chung giữa nhiều công thức là NGÃ RẼ CÓ CHỦ ĐÍCH.
+// Chí Tôn Cốt → chọn 1: Hoang Cổ Chí Tôn Thể HOẶC Hỗn Độn Vạn Khí Cốt (không được cả 2).
+// Hỗn Độn Đạo Thể → chọn 1: Hỗn Độn Bàn Cổ Khu HOẶC Hỗn Độn Vạn Khí Cốt.
+// Thôn Kim Phệ Cốt Thể → chọn 1: Vạn Cổ Hư Cốt HOẶC Thao Thiết Ma Độc Cổ.
+// AI PHẢI hỏi người chơi chọn con đường nào, KHÔNG tự ý chọn hộ.
+export const MASTER_FUSION_MATRIX: FusionRecipe[] = [
+  {
+    id: "fuse_thien_quang_thanh_linh_the",
+    name: "Thiên Quang Thánh Linh Thể",
+    ingredients: ["Thánh Quang Thần Thể", "Thiên Linh Căn"],
+    locationId: "dong_thang_thien_quang_thanh_dien",
+    locationName: "Thiên Quang Thánh Điện (Đông Thắng Thần Châu)",
+    npcId: "npc_thien_quang_dien_chu",
+    catalystItem: "Tinh Hạch Thiên Quang",
+    minStageId: 5,
+    statsBonus: { pAtk: 60, pDef: 60, pSpp: 80, pSpd: 40, pMult: 0.3 },
+    desc: "Khí vận dung hợp tối thượng từ Thánh Quang Thần Thể và Thiên Linh Căn xúc tác bởi Tinh Hạch Thiên Quang tại Thiên Quang Thánh Điện (Đông Thắng Thần Châu). Kế thừa toàn bộ quyền năng của cả hai thể chất. Khi nhận sát thương chí tử: miễn tử 1 lượt và hồi phục 100% sinh lực (mỗi kiếp 1 lần). Mỗi khi máu tụt dưới 20%: tự động hồi phục tới 50% HP (hồi chiêu 2 lượt). Kháng toàn diện các debuff/nguyền rủa từ ngoại cảnh hoặc NPC (chỉ tính từ ngoại cảnh, không tính tự gây ra; nếu Thần Thức nhỏ hơn đối phương hoặc chênh lệch quá 3 đại cảnh giới vẫn có thể bị trúng và trừ máu); mỗi lần kháng thành công tự động buff 1% toàn bộ chỉ số (tối đa 100%). Tăng thêm 100% hiệu quả hồi máu, buff và giải debuff; tăng 50% sát thương chuẩn hệ Thiên, Thánh, Thần, Tiên (stack với mọi hiệu ứng khác)."
+  },
+  {
+    id: "fuse_dai_dao_quy_khu",
+    name: "Đại Đạo Quy Khư",
+    ingredients: ["Hoang Cổ Chí Tôn Thể", "Hỗn Độn Đạo Thể", "Vạn Kiếp Chân Tôn Thể"],
+    locationId: "chung_yen_phe_tich",
+    locationName: "Chung Yên Phế Tích (Bắc Câu – Tuyệt Lĩnh)",
+    npcId: "npc_quy_khu_khi_linh",
+    catalystItem: "Hư Vô Bản Nguyên Châu",
+    minStageId: 20,
+    statsBonus: { pAtk: 180, pDef: 180, pSpp: 200, pSpd: 150, pMult: 0.6 },
+    desc: "Dung Hợp Bậc 3 Tối Thượng (ngang hàng Cộng Chủ Chí Cao Thiên, không thể bị mất và không thể ước bằng Chén Thánh). Yêu cầu Cảnh giới Cấp 20 (Đạo Tổ), sở hữu Đạo Tổ Niết Bàn và kích hoạt trong DLC Ác Mộng. Thân thể quy về cội nguồn Quy Khư hư vô: Hóa giải 100% sát thương ngũ hành, hỗn độn và bão táp hư không/loạn lưu không gian, nuốt chửng nhân quả miễn nhiễm mọi nguyền rủa trớ chú và thiên phạt, Tâm Ma/Đan Độc vĩnh viễn = 0, bộc phát uy áp tối thượng!"
+  },
+  {
+    id: "fuse_thai_am_tang_mach",
+    name: "Thái Âm Táng Mạch",
+    ingredients: ["Thái Âm Tuyệt Mạch", "Thái Âm Táng Thể"],
+    locationId: "bac_cau_u_minh_thi_am_tong",
+    locationName: "Cực Âm Hàn Đầm (U Minh Thi Âm Tông - Bắc Câu Lư Châu)",
+    npcId: "npc_le_cot_lao_ma",
+    catalystItem: "Thái Âm Quy Nguyên Đan",
+    minStageId: 5,
+    statsBonus: { pAtk: 60, pDef: 50, pSpp: 70, pSpd: 30, pMult: 0.25 },
+    desc: "Dung Hợp Bậc 1 từ Thái Âm Tuyệt Mạch và Thái Âm Táng Thể. Xóa sạch mọi nhược điểm tử vong/tự bạo của tuyệt mạch. Tăng 50% sát thương chuẩn hệ trớ chú, nguyền rủa, âm tà, ma sát. Tăng 40% tốc độ tu luyện khi song tu bình thường, tăng 80% khi song tu tại vùng cực âm/băng hàn."
+  },
+  {
+    id: "fuse_u_minh_sinh_am_hon",
+    name: "U Minh Sinh Âm Hồn",
+    ingredients: ["Cửu U Minh Mị Thể", "Thái Âm Táng Mạch"],
+    locationId: "bac_cau_cuu_u_hoang_tuyen",
+    locationName: "Cửu U Hoàng Tuyền (Minh Giới)",
+    npcId: "npc_diem_la_quy_de",
+    catalystItem: "U Minh Khởi Nguyên Tinh Phách",
+    minStageId: 6,
+    statsBonus: { pAtk: 90, pDef: 80, pSpp: 120, pSpd: 50, pMult: 0.4 },
+    desc: "Dung Hợp Bậc 2 tối thượng hội tụ 4 thể chất cực âm (Cửu U Minh Mị Thể, Thái Âm Táng Mạch). Thể chất song tu tối thượng: song tu tăng 200% tu vi trong mọi hoàn cảnh, vĩnh viễn tăng 3% toàn bộ chỉ số cho cả hai bên mỗi lần song tu không giới hạn trần, không tổn hại nguyên khí. Tự do triệu hoán thi khôi/hồn khôi, +100% sát thương chuẩn thần thức. Quyền năng sinh đẻ thần thánh: có thể chủ động thụ thai sinh con bất cứ lúc nào, hậu đại chắc chắn kế thừa 100% thể chất/khí vận thần cấp."
+  },
+  {
+    id: "fuse_chi_ton_vo_cuc_menh",
+    name: "Chí Tôn Vô Cực Mệnh",
+    ingredients: ["Hoang Cổ Chí Tôn Thể", "Thuấn Di Bản Năng"],
+    locationId: "trung_cuc_dao_tri_tien_canh",
+    locationName: "Đào Trì Tiên Cảnh (Côn Lôn Thần Điện)",
+    npcId: "npc_dao_tri_tien_mau",
+    catalystItem: "Thiên Đạo Vô Cực Tinh Phách",
+    minStageId: 7,
+    statsBonus: { pAtk: 120, pDef: 90, pSpp: 150, pSpd: 120, pMult: 0.5 },
+    desc: "Đại đạo chí tôn vô cực chi mệnh. Kế thừa 100% quyền năng Kamui bẻ cong không gian, miễn nhiễm sát thương vật lý, túi đồ vô tận 100 triệu kg, đòn đánh tất trúng khi Thức >= 1.2 Tốc địch. Vĩnh viễn khắc phục mù đường (Bước Đi Nhẹ Nhàng), mang Cực Phong Linh Căn, tăng 40 Tốc độ và nhân 1.5 lần Hard Cap Tốc độ (Phong Ảnh Thể). Miễn nhiễm mù lòa vĩnh viễn của Bản Nguyên Mù Lòa."
+  },
+  {
+    id: "fuse_thoi_khong_mi_vuc",
+    name: "Thời Không Mị Vực Ấn",
+    ingredients: ["Hư Không Lậu Thể", "Tuế Nguyệt Khô Vinh Thể", "Mị Cốt Thiên Sương"],
+    locationId: "trung_cuc_dao_tri_tien_canh",
+    locationName: "Đào Trì Tiên Cảnh (Côn Lôn Thần Điện)",
+    npcId: "npc_dao_tri_tien_mau",
+    catalystItem: "Hắc Động Thời Không Châu",
+    minStageId: 6,
+    statsBonus: { pAtk: 70, pDef: 50, pSpd: 40, pSpp: 60, pMult: 0.25 },
+    desc: "Dung hợp Hư Không Lậu Thể, Tuế Nguyệt Khô Vinh Thể và Mị Cốt Thiên Sương. Nuốt debuff thành Công (max 5 tầng +100%), thọ hóa cương khí giảm 35% sát thương, mị vực giảm 30% tốc độ địch khi thần thức >= 1.2x."
+  },
+  {
+    id: "fuse_hoang_co_chi_ton",
+    name: "Hoang Cổ Chí Tôn Thể",
+    ingredients: ["Chí Tôn Cốt", "Trùng Đồng Nhãn"],
+    locationId: "dong_thang_thanh_van_tong",
+    locationName: "Thanh Vân Kiếm Tông (Kiếm Trủng)",
+    npcId: "npc_thanh_van_tong_chu",
+    catalystItem: "Chí Tôn Tinh Huyết",
+    minStageId: 5,
+    statsBonus: { pAtk: 60, pDef: 40, pSpp: 40, pSpd: 20 },
+    desc: "Bảo cốt viễn cổ kết hợp đôi mắt khai thiên. Làm chậm 60% tốc độ địch, đòn đánh bộc phát 30% sát thương chuẩn theo máu đối phương."
+  },
+  {
+    id: "fuse_ban_co_hon_don",
+    name: "Hỗn Độn Bàn Cổ Khu",
+    ingredients: ["Bàn Cổ Huyết Mạch", "Hỗn Độn Đạo Thể"],
+    locationId: "dlc_hong_hoang_ban_co_dien",
+    locationName: "Bàn Cổ Thần Điện",
+    npcId: "npc_man_hoang_yeu_vuong",
+    catalystItem: "Hỗn Độn Nguyên Khí Thạch",
+    minStageId: 7,
+    statsBonus: { pDef: 90, pAtk: 50, pMult: 0.15 },
+    desc: "Thể tu cực đạo. Chuyển hóa sát thương phép nhận vào thành huyết khí, đòn cận chiến đánh nứt vỡ hư không. Không thể ngự kiếm tầm xa."
+  },
+  {
+    id: "fuse_thai_hu_than_binh",
+    name: "Thái Hư Thần Binh Chi Khu",
+    ingredients: ["Thiên Phú Binh Khí", "Tuyệt Thế Kiếm Tu"],
+    locationId: "dong_thang_thanh_van_tong",
+    locationName: "Thanh Vân Kiếm Tông (Kiếm Trủng)",
+    npcId: "npc_thanh_van_tong_chu",
+    catalystItem: "Thiên Ngoại Huyền Thiết Tủy",
+    minStageId: 5,
+    statsBonus: { pAtk: 80, pSpd: 30, pDef: -20 },
+    desc: "Người và kiếm hợp nhất. Mọi đòn đánh hóa kiếm khí vô hình xuyên giáp, cấm đối thủ hồi phục sinh lực trong 2 hiệp."
+  },
+  {
+    id: "fuse_am_duong_thai_cuc",
+    name: "Hỗn Độn Thái Cực Thần Thể",
+    ingredients: ["Thái Dương Thần Thể", "Thái Âm Thần Thể"],
+    locationId: "ngoai_canh_nhat_nguyet_dong_tri",
+    locationName: "Khối Cộng Trị Nhật Nguyệt",
+    npcId: "npc_chiem_tinh_su",
+    catalystItem: "Thái Dương Chân Hỏa Cực Tinh",
+    minStageId: 6,
+    statsBonus: { pAtk: 45, pDef: 35, pSpd: 25, pSpp: 25 },
+    desc: "Âm Dương luân chuyển. Ban ngày thiêu đốt thần hồn địch, ban đêm đóng băng chân khí đối thủ. Miễn dịch sát thương hệ Hỏa và Băng."
+  },
+  {
+    id: "fuse_loi_than_moc",
+    name: "Vạn Cổ Lôi Thần Mộc Khu",
+    ingredients: ["Thiên Lôi Thể", "Địa Thổ Mộc Thể"],
+    locationId: "nam_thiem_than_moc_thon",
+    locationName: "Thần Mộc Thôn",
+    npcId: "npc_thon_truong_moc_lao",
+    catalystItem: "Tiếp Thiên Thần Mộc Chi",
+    minStageId: 5,
+    statsBonus: { pDef: 60, pAtk: 30, pSpd: -20 },
+    desc: "Khóa chặt 2% máu không chết. Đón nhận lôi kiếp hồi 50% HP và tăng vĩnh viễn sinh cơ nhục thân."
+  },
+  {
+    id: "fuse_bo_de_ma_la",
+    name: "Bồ Đề Ma La Bất Hoại Thân",
+    ingredients: ["Phật Cốt Xá Lợi", "Thiên Ma Thể"],
+    locationId: "tay_nguu_co_ma_thap",
+    locationName: "Cổ Ma Tháp",
+    npcId: "npc_phat_tu_thich_khong",
+    catalystItem: "Huyết Bồ Đề Ma Tâm",
+    minStageId: 5,
+    statsBonus: { pDef: 60, pAtk: 40, pSpp: 40 },
+    desc: "Nhất niệm Ma Phật. Giảm 50% sát thương vật lý, miễn nhiễm hệ Quang và Ám. Tự do hưởng lợi chỉ số từ cả Karma Âm lẫn Dương."
+  },
+  {
+    id: "fuse_van_co_hu_cot",
+    name: "Vạn Cổ Hủ Cốt Ma Độc Thể",
+    ingredients: ["Ách Nan Độc Thể", "Thôn Kim Phệ Cốt Thể"],
+    locationId: "nam_thiem_van_doc_u_coc",
+    locationName: "Vạn Độc U Cốc",
+    npcId: "npc_doc_co_tien",
+    catalystItem: "Vạn Độc Hóa Cốt Thủy",
+    minStageId: 5,
+    statsBonus: { pAtk: 40, pDef: 50 },
+    desc: "Vạn độc thực cốt. Cắn nuốt quặng khoáng thạch để cường hóa nồng độ độc tố. Địch đánh cận chiến bị ăn mòn gãy vũ khí."
+  },
+  {
+    id: "fuse_cuu_u_minh_mi",
+    name: "Cửu U Minh Mị Thể",
+    ingredients: ["Hợp Hoan Mị Cốt", "Thi Âm Luyện Sư"],
+    locationId: "bac_cau_u_minh_thi_am_tong",
+    locationName: "U Minh Thi Âm Tông",
+    npcId: "npc_thi_am_tong_chu",
+    catalystItem: "Âm Dương Hóa Thi Hoàn",
+    minStageId: 4,
+    statsBonus: { pSpp: 40, pSpd: 30 },
+    desc: "Song tu đoạt nguyên khí từ cả người sống lẫn tàn hồn. Triệu hoán thi khôi mang ảo ảnh mị hoặc làm hỗn loạn chiến trường."
+  },
+  {
+    id: "fuse_van_yeu_thanh_hoang",
+    name: "Vạn Yêu Thánh Hoàng Thể",
+    ingredients: ["Thái Cổ Ngự Yêu Sư", "Vạn Thú Thân Hòa"],
+    locationId: "dlc_hong_hoang_yeu_hoang_cung",
+    locationName: "Yêu Hoàng Cung Thái Cổ",
+    npcId: "npc_luc_ap_de_quan",
+    catalystItem: "Yêu Hoàng Chi Lệnh",
+    minStageId: 6,
+    statsBonus: { pAtk: 40, pSpp: 50 },
+    desc: "Thống ngự muôn loài. Dung hợp đồng thời 3 Yêu Linh vào đan điền nhận trọn vẹn đặc kỹ. Yêu thú đồng giai không bao giờ chủ động tấn công."
+  },
+  {
+    id: "fuse_thao_thiet_co_ma",
+    name: "Thao Thiết Ma Độc Cổ Thể",
+    ingredients: ["Ngự Trù Bạo Chúa", "Thôn Kim Phệ Cốt Thể"],
+    locationId: "nam_thiem_dam_lay_hac_thuy",
+    locationName: "Đầm Lầy Hắc Thủy",
+    npcId: "npc_hac_thuy_huyen_xa",
+    catalystItem: "Thực Thần Thao Thiết Đỉnh",
+    minStageId: 5,
+    statsBonus: { pAtk: 45, pDef: 35, pSpp: 45 },
+    desc: "Xóa bỏ hoàn toàn điểm yếu kén ăn của Ngự Trù Bạo Chúa. Có thể há mồm nuốt chửng chiêu thức năng lượng của địch chuyển thành thể lực."
+  },
+  {
+    id: "fuse_thap_nhi_do_thien",
+    name: "Thập Nhị Đô Thiên Thần Sát Chân Thân",
+    ingredients: ["Truyền Thừa Chúc Dung", "Truyền Thừa Cộng Công"],
+    locationId: "dlc_hong_hoang_ban_co_dien",
+    locationName: "Bàn Cổ Thần Điện",
+    npcId: "npc_man_hoang_yeu_vuong",
+    catalystItem: "Vu Tộc Bản Nguyên Tinh Huyết",
+    minStageId: 7,
+    statsBonus: { pDef: 80, pAtk: 70 },
+    desc: "Nhục thân hóa khổng lồ, miễn dịch 70% sát thương ngũ hành, triệu hoán sát khí áp chế tuyệt đối kẻ địch cùng bậc."
+  },
+  {
+    id: "fuse_co_gioi_hac_quang",
+    name: "Cơ Giới Hắc Quang Thể",
+    ingredients: ["Hắc Quang Bệnh Độc (Blacklight Virus)", "Cơ Giới Bệnh Độc (Technocyte Virus)"],
+    locationId: "dlc_cyberpunk_phuong_chu",
+    locationName: "Tàn Tích Phi Thuyền Phương Chu",
+    npcId: "npc_co_khi_chu",
+    catalystItem: "Lò Phản Ứng Nano Vi Hạt",
+    minStageId: 4,
+    statsBonus: { pAtk: 60, pDef: 60, pSpd: 30, pSpp: -20 },
+    desc: "Kim loại sống Living Metal. Tiêu hóa cả thịt cỏ lẫn khoáng thạch để tăng chỉ số, tự biến đổi tứ chi thành vũ khí cơ giới tùy biến."
+  },
+  {
+    id: "fuse_chung_yen_diem_ky_di",
+    name: "Chung Yên Điểm Kỳ Dị Thể",
+    ingredients: ["Cơ Giới Hắc Quang Thể", "Dịch Bệnh Điểm Kỳ Dị (The Singularity Plague)"],
+    locationId: "dlc_dark_fantasy_chien_hao",
+    locationName: "Chiến Hào Lưu Huỳnh",
+    npcId: "npc_sat_vuong",
+    catalystItem: "Hạt Nhân Điểm Kỳ Dị Không Gian",
+    minStageId: 9,
+    statsBonus: { pAtk: 120, pDef: 120, pSpp: 80, pMult: 0.25 },
+    desc: "Đỉnh cao cơ giới sụp đổ. Đòn đánh phân rã cấu trúc vật chất đối phương ở cấp độ nguyên tử, bỏ qua toàn bộ hộ giáp và màn chắn."
+  },
+  {
+    id: "fuse_hach_tam_co_than",
+    name: "Hạch Tâm Cơ Thần Khôi Lỗi",
+    ingredients: ["Cơ Quan Hạch Tâm", "Cơ Khí Chân Lý (Iron Suit)"],
+    locationId: "dlc_cyberpunk_phuong_chu",
+    locationName: "Tàn Tích Phi Thuyền Phương Chu",
+    npcId: "npc_co_khi_chu",
+    catalystItem: "Trái Tim Nhiệt Hạch Thần Cơ",
+    minStageId: 5,
+    statsBonus: { pDef: 75, pAtk: 50, pSpd: 30 },
+    desc: "Trái tim nhiệt hạch viễn cổ. Miễn nhiễm 100% Tâm Ma, không tốn thể lực khi di chuyển hay chiến đấu. Phóng tia plasma phá hủy trận pháp."
+  },
+  {
+    id: "fuse_van_kiep_chan_ton",
+    name: "Vạn Kiếp Chân Tôn Thể",
+    ingredients: ["Luân Hồi Chi Tôn", "Tuế Nguyệt Khô Vinh Thể"],
+    locationId: "am_ti_cuu_u_minh_nguc",
+    locationName: "Cửu U Minh Ngục (Vong Xuyên)",
+    npcId: "npc_hac_bach_vo_thuong",
+    catalystItem: "Hoàng Tuyền Thần Thủy",
+    minStageId: 7,
+    statsBonus: { pAtk: 35, pDef: 35, pSpp: 55 },
+    desc: "Chưởng khống sinh tử. Khi chết lập tức niết bàn hồi sinh tại chỗ với 100% máu (1 lần mỗi kiếp). Cướp đoạt thọ nguyên đối thủ bị tiêu diệt."
+  },
+  {
+    id: "fuse_chan_menh_de_vuong",
+    name: "Đại Đạo Chân Mệnh Đế Vương",
+    ingredients: ["Thiên Mệnh Chi Tử", "Vạn Giới Tôn Sùng"],
+    locationId: "trung_cuc_can_long_kinh_do",
+    locationName: "Càn Long Kinh Đô",
+    npcId: "npc_can_hoang_de",
+    catalystItem: "Truyền Quốc Ngọc Tỷ Long Khí",
+    minStageId: 7,
+    statsBonus: { pMult: 0.2 },
+    desc: "Khí vận chí tôn chư thiên. Tăng 50% tỷ lệ xuất hiện kỳ ngộ cực phẩm. Kẻ địch tu vi thấp hơn tự động bị giảm 20% lực công kích."
+  },
+  {
+    id: "fuse_hu_vong_chan_the",
+    name: "Hư Vọng Chân Đế Thể",
+    ingredients: ["Tọa Vong Đạo", "Huyễn Mộng Chân Thể"],
+    locationId: "dong_thang_hac_quy_coc",
+    locationName: "Hạc Quy Cốc",
+    npcId: "npc_hac_lao_nhan",
+    catalystItem: "Huyễn Cảnh Chân Ma Châu",
+    minStageId: 5,
+    statsBonus: { pSpp: 65, pSpd: 40 },
+    desc: "Giả tức là thật. Biến đòn chí tử vừa nhận thành ảo giác và xuất hiện sau lưng địch. Tạo 1 phân thân thừa hưởng trọn vẹn lực chiến."
+  },
+  {
+    id: "fuse_bach_thao_bat_tu",
+    name: "Tiên Thiên Bách Thảo Bất Tử Khu",
+    ingredients: ["Vạn Dược Chi Thể", "Tạo Hóa Huyết Nhục"],
+    alternativeIngredients: [
+      ["Vạn Vật Giai Đan", "Tạo Hóa Huyết Nhục"],
+      ["Hỗn Độn Đan Tổ", "Tạo Hóa Huyết Nhục"],
+      ["Đan Hoàng Cửu Châu", "Tạo Hóa Huyết Nhục"]
+    ],
+    locationId: "dlc_dark_fantasy_lothlorien",
+    locationName: "Lothlórien - Tiếp Thiên Thần Mộc",
+    npcId: "npc_duoc_dong",
+    catalystItem: "Tiếp Thiên Thần Thủy",
+    minStageId: 6,
+    statsBonus: { pDef: 40, pSpp: 50 },
+    desc: "Thần nông nếm trăm cỏ. Ăn thảo dược trực tiếp tăng tu vi không tích tụ đan độc. Giọt máu bản thân có thể giải trừ mọi nguyền rủa độc tố."
+  },
+  {
+    id: "fuse_van_tran_quy_tong",
+    name: "Vạn Trận Quy Tông Thể",
+    ingredients: ["Vạn Vật Giai Trận", "Trận Tổ Chuyển Thế"],
+    alternativeIngredients: [
+      ["Trận Tổ Chuyển Thế", "Vạn Pháp Bất Xâm"]
+    ],
+    locationId: "trung_cuc_kham_thien_giam",
+    locationName: "Khâm Thiên Giám",
+    npcId: "npc_kham_thien_giam_chinh",
+    catalystItem: "Thái Cổ Trận Đồ Tàn Quyển",
+    minStageId: 6,
+    statsBonus: { pSpp: 70, pDef: 45 },
+    desc: "Khắc trận lên cốt tủy. Bố trận tức thời trong giao chiến không cần cờ trận; phản ngược 30% sát thương pháp thuật về phía kẻ thi triển."
+  },
+  {
+    id: "fuse_van_khi_quy_nguyen",
+    name: "Vạn Khí Quy Nguyên Thể",
+    ingredients: ["Đại Đạo Trùng Tu (Linh Lực)", "Đại Đạo Trùng Tu (Ma Khí)"],
+    alternativeIngredients: [
+      ["Đại Đạo Trùng Tu (Ma Khí)", "Thái Cực Linh Ma Thạch"],
+      ["Đại Đạo Trùng Tu (Linh Lực)", "Thái Cực Linh Ma Thạch"]
+    ],
+    locationId: "trung_cuc_loi_dai_hem_anh_vu",
+    locationName: "Lôi Đài Hẻm Anh Vũ",
+    npcId: "npc_trong_tai_tiet_manh",
+    catalystItem: "Hỗn Nguyên Đan Tẩy Tủy",
+    minStageId: 5,
+    statsBonus: { pAtk: 40, pDef: 40 },
+    desc: "Đồng hóa hai dòng năng lượng đối nghịch chạy song song trong kinh mạch mà không bị xung đột; tăng 40% uy lực công pháp."
+  },
+  {
+    id: "fuse_dao_to_toan_tri",
+    name: "Đạo Tổ Toàn Tri Thể",
+    ingredients: ["Đạo Tổ Niết Bàn", "Ngôn Xuất Pháp Tùy"],
+    locationId: "dong_thang_hao_nhien_hoc_vien",
+    locationName: "Hạo Nhiên Học Viện",
+    npcId: "npc_khong_phu_tu",
+    catalystItem: "Đại Đạo Vô Tự Thiên Thư",
+    minStageId: 10,
+    statsBonus: { pSpp: 90, pMult: 0.2 },
+    desc: "Miễn nhiễm 100% Tâm Ma. Học thần thông tiên thuật không bao giờ thất bại. Khẩu xuất thành pháp áp chế kẻ địch."
+  },
+  {
+    id: "fuse_thai_so_tich_diet",
+    name: "Thái Sơ Tịch Diệt Băng Hỏa Căn",
+    ingredients: ["Tổ Hỏa Loạn Nguyên Căn", "Quy Khư Vĩnh Hằng Băng Tâm"],
+    locationId: "dlc_dark_fantasy_hac_am_than_dien",
+    locationName: "Hắc Ám Thần Điện",
+    npcId: "npc_sat_vuong",
+    catalystItem: "Sơ Nguyên Lửa Hạt Nhân",
+    minStageId: 8,
+    statsBonus: { pAtk: 90, pDef: 90, pSpp: 90, pMult: 0.2 },
+    desc: "Thời không đóng băng và thiêu đốt. Phong tỏa dòng thời gian, tước đoạt hoàn toàn lượt hành động kế tiếp của kẻ địch."
+  },
+  {
+    id: "fuse_hon_don_van_khi_cot",
+    name: "Hỗn Độn Vạn Khí Cốt",
+    ingredients: ["Chí Tôn Cốt", "Hỗn Độn Đạo Thể"],
+    locationId: "dong_thang_thanh_van_tong",
+    locationName: "Thanh Vân Kiếm Tông",
+    npcId: "npc_thanh_van_tong_chu",
+    catalystItem: "Hỗn Độn Nguyên Thạch Cốt",
+    minStageId: 6,
+    statsBonus: { pAtk: 60, pDef: 60 },
+    desc: "Hỗn Độn Thần Quang. Bắn ra luồng thần quang phá hủy lập tức lớp phòng ngự và khiên hộ thân của đối phương."
+  },
+  {
+    id: "fuse_cuc_dao_ma_hoang",
+    name: "Cực Đạo Ma Hoàng Khí Vận",
+    ingredients: ["Vạn Ác Tội Thể", "Cực Đoan Ác Đạo"],
+    alternativeIngredients: [
+      ["Thiên Ma Thể", "Cực Đoan Ác Đạo"],
+      ["Thiên Ma Thể", "Vạn Ác Tội Thể"]
+    ],
+    locationId: "bac_cau_huyet_hai_ma_uyen",
+    locationName: "Huyết Hải Ma Uyên",
+    npcId: "npc_huyet_hai_lao_to",
+    catalystItem: "Huyết Thần Chuỗi Hạt",
+    minStageId: 7,
+    statsBonus: { pAtk: 80, pSpp: 50 },
+    desc: "Sát sinh không tăng Tâm Ma (khóa cứng = 0), đồ sát khu vực mang lại lượng Exp bộc phát khủng khiếp."
+  },
+  {
+    id: "fuse_suong_viem_luyen_nguc",
+    name: "Sương Viêm Luyện Ngục Thể",
+    ingredients: ["Hạn Bạt Viêm Thể", "Thủy Băng Hàn Thể"],
+    locationId: "bac_cau_bang_phach_tuyet_linh",
+    locationName: "Băng Phách Tuyệt Lĩnh",
+    npcId: "npc_bang_phach_tien_co",
+    catalystItem: "Băng Hỏa Cực Lạc Đan",
+    minStageId: 6,
+    statsBonus: { pAtk: 50, pDef: 40, pSpd: 20 },
+    desc: "Sát thương gây trạng thái Sương Viêm - vừa đốt cháy máu theo % vừa làm chậm 80% tốc độ di chuyển của địch."
+  }
+];
+
+// ============================================================================
+// V1.45: BẢNG ÁNH XẠ PHÔI DUNG HỢP CỨNG (FUSION_INGREDIENTS_MAP)
+// Thu hồi triệt để khí vận phôi đỏ ban đầu khi đã kích hoạt Thần thể dung hợp (Theo Góp Ý HOENGGG)
+// ============================================================================
+export const getRecursiveFusionIngredients = (fusedName: string): string[] => {
+    if (!fusedName || typeof MASTER_FUSION_MATRIX === 'undefined') return [];
+    const fLow = String(fusedName).toLowerCase().trim();
+    const directRecipe = MASTER_FUSION_MATRIX.find(r => r.name.toLowerCase() === fLow);
+    if (!directRecipe) return [];
+    const result = new Set<string>();
+    const queue = [
+        ...directRecipe.ingredients,
+        ...(directRecipe.alternativeIngredients ? directRecipe.alternativeIngredients.flat() : [])
+    ];
+    while (queue.length > 0) {
+        const ing = queue.shift()!;
+        const ingLow = ing.toLowerCase().trim();
+        if (!result.has(ingLow)) {
+            result.add(ingLow);
+            const subRecipe = MASTER_FUSION_MATRIX.find(r => r.name.toLowerCase() === ingLow);
+            if (subRecipe) {
+                queue.push(...subRecipe.ingredients);
+                if (subRecipe.alternativeIngredients) {
+                    queue.push(...subRecipe.alternativeIngredients.flat());
+                }
+            }
+        }
+    }
+    return Array.from(result);
+};
+
+// ============================================================================
+// ============================================================================
+// V1.24 FIX: TỪ ĐIỂN CÂY TIẾN HÓA KHÍ VẬN ĐA ĐẠO (EVOLUTION_CHAINS)
+// ============================================================================
+export const EVOLUTION_CHAINS: Record<string, string[]> = {
+    // Chuỗi Kinh Tế (2 Chiều - Được phép phá sản hoặc giàu lên)
+    "Tài Thần Giáng Lâm": ["Phú Giáp Nhất Phương"],
+    "Phú Giáp Nhất Phương": ["Vạn Giới Kim Chủ", "Tài Thần Giáng Lâm"],
+    "Vạn Giới Kim Chủ": ["Thạch Sùng Tái Thế", "Phú Giáp Nhất Phương"],
+    "Thạch Sùng Tái Thế": ["Kim Ngọc Mãn Đường", "Vạn Giới Kim Chủ"],
+    "Kim Ngọc Mãn Đường": ["Cự Phú Hào Môn", "Thạch Sùng Tái Thế"],
+    "Cự Phú Hào Môn": ["Gia Tài Bạc Vạn", "Kim Ngọc Mãn Đường"],
+    "Gia Tài Bạc Vạn": ["Có Chút Của Dư", "Cự Phú Hào Môn"],
+    "Có Chút Của Dư": ["Gia Cảnh Bình Phàm", "Gia Tài Bạc Vạn"],
+    "Gia Cảnh Bình Phàm": ["Vừa Đủ Ôn Bao", "Có Chút Của Dư"],
+    "Vừa Đủ Ôn Bao": ["Khố Rách Áo Ôm", "Gia Cảnh Bình Phàm"],
+    "Khố Rách Áo Ôm": ["Kẻ Đổ Nợ", "Vừa Đủ Ôn Bao"],
+    "Kẻ Đổ Nợ": ["Khố Rách Áo Ôm"],
+
+    // Tương thích với AI nếu nó dùng tên xuất thân gốc (Chống lỗi)
+    "Tài Nguyên Cuồn Cuộn": ["Cự Phú Hào Môn", "Kim Ngọc Mãn Đường"],
+    "Thường Dân": ["Khố Rách Áo Ôm", "Gia Cảnh Bình Phàm"],
+    "Kẻ Ăn Mày": ["Kẻ Đổ Nợ", "Vừa Đủ Ôn Bao"],
+    
+    // Chuỗi Luyện Đan (20 nấc - Đi lên)
+    "Hỗn Độn Đan Tổ": ["Vạn Vật Giai Đan"],
+    "Vạn Vật Giai Đan": ["Tiên Đan Thánh Sư"],
+    "Tiên Đan Thánh Sư": ["Tiên Đan Tông Sư"],
+    "Tiên Đan Tông Sư": ["Đan Hoàng Cửu Châu"],
+    "Đan Hoàng Cửu Châu": ["Đan Vương Hạ Giới"],
+    "Đan Vương Hạ Giới": ["Đan Đạo Tông Sư"],
+    "Đan Đạo Tông Sư": ["Luyện Đan Đại Sư"],
+    "Luyện Đan Đại Sư": ["Đan Sư Chính Thức"],
+    "Đan Sư Chính Thức": ["Luyện Đan Sơ Cấp"],
+    "Luyện Đan Sơ Cấp": ["Dược Sư Phàm Trần"],
+    "Dược Sư Phàm Trần": ["Học Đồ Luyện Đan"],
+    "Học Đồ Luyện Đan": ["Dược Đồng Tạp Dịch"],
+    "Dược Đồng Tạp Dịch": ["Nồi Đất Nấu Thuốc"],
+    "Nồi Đất Nấu Thuốc": ["Nhận Biết Thảo Dược"],
+    "Nhận Biết Thảo Dược": ["Dược Phế Thể"],
+
+    // Chuỗi Luyện Khí (20 nấc)
+    "Hỗn Độn Khí Tổ": ["Hư Không Chi Lò"],
+    "Hư Không Chi Lò": ["Luyện Khí Thánh Sư"],
+    "Luyện Khí Thánh Sư": ["Tiên Khí Tông Sư"],
+    "Tiên Khí Tông Sư": ["Khí Hoàng Cửu Châu"],
+    "Khí Hoàng Cửu Châu": ["Thiết Cốt Chi Thể"],
+    "Thiết Cốt Chi Thể": ["Khí Vương Hạ Giới"],
+    "Khí Vương Hạ Giới": ["Khí Đạo Tông Sư"],
+    "Khí Đạo Tông Sư": ["Luyện Khí Đại Sư"],
+    "Luyện Khí Đại Sư": ["Khí Sư Chính Thức"],
+    "Khí Sư Chính Thức": ["Luyện Khí Sơ Cấp"],
+    "Luyện Khí Sơ Cấp": ["Thợ Đúc Binh Khí"],
+    "Thợ Đúc Binh Khí": ["Học Đồ Luyện Khí"],
+    "Học Đồ Luyện Khí": ["Tạp Dịch Bơm Lò"],
+    "Tạp Dịch Bơm Lò": ["Thợ Rèn Phàm Trần"],
+    "Thợ Rèn Phàm Trần": ["Nhận Biết Quặng Sắt"],
+    "Nhận Biết Quặng Sắt": ["Cầm Búa Rớt Chân"],
+
+    // Chuỗi Luyện Phù (20 nấc)
+    "Hỗn Độn Phù Tổ": ["Hư Không Phù Họa"],
+    "Hư Không Phù Họa": ["Luyện Phù Thánh Sư"],
+    "Luyện Phù Thánh Sư": ["Tiên Phù Tông Sư"],
+    "Tiên Phù Tông Sư": ["Phù Hoàng Cửu Châu"],
+    "Phù Hoàng Cửu Châu": ["Linh Châu Khắc Thể"],
+    "Linh Châu Khắc Thể": ["Phù Vương Hạ Giới"],
+    "Phù Vương Hạ Giới": ["Phù Đạo Tông Sư"],
+    "Phù Đạo Tông Sư": ["Luyện Phù Đại Sư"],
+    "Luyện Phù Đại Sư": ["Phù Sư Chính Thức"],
+    "Phù Sư Chính Thức": ["Luyện Phù Sơ Cấp"],
+    "Luyện Phù Sơ Cấp": ["Phù Sư Phàm Trần"],
+    "Phù Sư Phàm Trần": ["Học Đồ Luyện Phù"],
+    "Học Đồ Luyện Phù": ["Tạp Dịch Mài Mực"],
+    "Tạp Dịch Mài Mực": ["Phù Đồ Phàm Trần"],
+    "Phù Đồ Phàm Trần": ["Nhận Biết Chu Sa"],
+    "Nhận Biết Chu Sa": ["Vẽ Bùa Rách Giấy"],
+
+    // Chuỗi Trận Pháp (17 nấc)
+    "Trận Tổ Chuyển Thế": ["Vạn Vật Giai Trận"],
+    "Vạn Vật Giai Trận": ["Luyện Trận Thánh Sư"],
+    "Luyện Trận Thánh Sư": ["Tiên Trận Tông Sư"],
+    "Tiên Trận Tông Sư": ["Trận Hoàng Cửu Châu"],
+    "Trận Hoàng Cửu Châu": ["Phá Vọng Trận Nhãn"],
+    "Phá Vọng Trận Nhãn": ["Trận Sư Thiên Tài"],
+    "Trận Sư Thiên Tài": ["Trận Đạo Tông Sư"],
+    "Trận Đạo Tông Sư": ["Bố Trận Đại Sư"],
+    "Bố Trận Đại Sư": ["Trận Sư Chính Thức"],
+    "Trận Sư Chính Thức": ["Bố Trận Sơ Cấp"],
+    "Bố Trận Sơ Cấp": ["Trận Sư Phàm Trần"],
+    "Trận Sư Phàm Trần": ["Cơ Sở Trận Pháp"],
+    "Cơ Sở Trận Pháp": ["Tạp Dịch Khắc Trận"],
+    "Tạp Dịch Khắc Trận": ["Trận Đồ Phàm Trần"],
+    "Trận Đồ Phàm Trần": ["Nhận Biết Phương Vị"],
+    "Nhận Biết Phương Vị": ["Rối Loạn Trận Cơ"],
+
+    // Chuỗi Cơ bản cũ
+    "Mị Cốt Thiên Sương": ["Khuynh Quốc Khuynh Thành"],
+    "Khuynh Quốc Khuynh Thành": ["Tướng Mạo Bình Phàm"],
+    "Tướng Mạo Bình Phàm": ["Tướng Mạo Xấu Xí"],
+    "Thiên Mệnh Ma Tôn": ["Đại Khí Vận", "Khí Vận Chi Tử", "Thiên Mệnh Chi Tử"],
+    "Thiên Mệnh Chi Tử": ["Đại Khí Vận"],
+    "Thiên Mệnh Chi Nữ": ["Đại Khí Vận"],
+    "Thời Không Mị Vực Ấn": ["Hư Không Lậu Thể", "Tuế Nguyệt Khô Vinh Thể", "Mị Cốt Thiên Sương"],
+    "Đại Khí Vận": ["Bí Cảnh Gặp May"],
+    "Bí Cảnh Gặp May": ["Vận Khí Bình Thường"],
+    "Vận Khí Bình Thường": ["Ách Vận Bám Thân"],
+    "Ngộ Tính Siêu Phàm": ["Học Bá Tu Tiên"],
+    "Học Bá Tu Tiên": ["Mọt Sách"],
+    "Mọt Sách": ["Ngộ Tính Ngu Độn"],
+    "Hỗn Độn Đạo Thể": ["Vạn Pháp Bất Xâm"],
+    "Vạn Pháp Bất Xâm": ["Tiên Phong Đạo Cốt"],
+    "Tiên Phong Đạo Cốt": ["Kinh Mạch Bình Thường"],
+    "Kinh Mạch Bình Thường": ["Đoạn Kinh Mạch"],
+    "Thuấn Di Bản Năng": ["Phong Ảnh Thể"],
+    "Phong Ảnh Thể": ["Bước Đi Nhẹ Nhàng"],
+    "Bước Đi Nhẹ Nhàng": ["Kẻ Mù Đường"],
+    "Vạn Giới Tôn Sùng": ["Uy Chấn Giang Hồ"],
+    "Uy Chấn Giang Hồ": ["Kẻ Vô Danh"],
+    "Kẻ Vô Danh": ["Cừu Nhân Khắp Chốn"],
+    "Ngôn Xuất Pháp Tùy": ["Thuyết Khách"],
+    "Thuyết Khách": ["Khéo Ăn Nói"],
+    "Khéo Ăn Nói": ["Lắp Bắp"]
+};
+
+// V1.22.4: MA TRẬN LÝ DO XUNG ĐỘT BẢN NGUYÊN ĐỊNH SẴN (INCOMPATIBILITY_REASONS)
+// ============================================================================
+export const INCOMPATIBILITY_REASONS: Record<string, Record<string, string>> = {
+  "Thánh Quang Thần Thể": {
+    "Thiên Ma Thể": "Thánh Quang bản nguyên trong kinh mạch tỏa ra ngút trời, thiêu rụi Ma Khí vừa xâm nhập thành tro bụi! Thánh - Ma như nước với lửa, không thể cùng tồn tại trong một tấc huyết nhục!",
+    "Vạn Ác Tội Thể": "Tâm quang thánh thiện bài xích tội nghiệt u ám! Tội khí không thể bén rễ trước hào quang thiên giới!",
+    "Thi Âm Luyện Sư": "Tử khí hôi hám của thi hài bị Thánh Quang thanh tẩy sạch sẽ ngay khi chạm vào da thịt!",
+    "Quỷ Đạo Truyền Nhân": "Ánh sáng thiêng liêng xua tan âm hồn u ám, quỷ khí không thể tụ lại trong đan điền!"
+  },
+  "Phật Cốt Xá Lợi": {
+    "Thiên Ma Thể": "Tiếng Phạn tụng vang vọng đan điền, Kim Cương Hộ Thể đánh bật Ma huyết hung tàn ra ngoài!",
+    "Quỷ Đạo Truyền Nhân": "Bồ Đề Kim Hồn soi sáng chín tầng mây, oán hồn quỷ khí vừa tới gần đã được siêu thoát độ hóa, không thể luyện thành quỷ trớ!",
+    "Vạn Ác Tội Thể": "Chính khí thanh tịnh gọt rửa tội nghiệt, Vạn Ác không thể xâm nhập cốt tủy đạo cốt!",
+    "Thi Âm Luyện Sư": "Âm khí luyện thi bị Phật quang áp chế hoàn toàn, không thể tụ hình!"
+  },
+  "Hạn Bạt Viêm Thể": {
+    "Thủy Băng Hàn Thể": "Nhiệt hỏa Hạn Bạt và Hàn Băng Cực Âm xung đột dữ dội! Hơi nước bốc lên mù mịt xé rách kinh mạch, chân khí tự bạo tống khứ luồng hàn khí ra ngoài!",
+    "Thái Âm Thần Thể": "Cực Dương thiêu đốt Cực Âm, âm dương chưa qua điều hòa đã va chạm khiến khí huyết sôi trào suýt tẩu hỏa nhập ma!",
+    "Thái Âm Táng Thể": "Hỏa độc cực hạn thiêu rụi tử khí táng thể, hai luồng chân khí bạo liệt không thể dung hòa!"
+  },
+  "Thủy Băng Hàn Thể": {
+    "Hạn Bạt Viêm Thể": "Cực độ rét lạnh đóng băng ngọn lửa viễn cổ! Hàn Băng Thần Mạch cự tuyệt hấp thu hỏa độc sa mạc!",
+    "Thái Dương Thần Thể": "Băng phách vạn năm bị thiêu rụi bề mặt, sản sinh phản phệ dữ dội buộc phải bức hỏa tức xuất thể!"
+  },
+  "Cơ Giới Bệnh Độc (Technocyte Virus)": {
+    "Địa Thổ Mộc Thể": "Toàn bộ tế bào đã bị kim loại Nano hóa cứng! Kinh mạch sắt thép nguội lạnh không có môi trường hữu cơ cho mầm sống Mộc tộc bén rễ!",
+    "Vạn Dược Chi Thể": "Mạch máu đã biến thành ống dẫn hợp kim lỏng, dược thảo sinh cơ không thể tuần hoàn trong cơ thể sắt thép!",
+    "Bản Thể Thảo Mộc": "Kim loại lạnh lùng đốn hạ mầm sống thực vật, tế bào thảo mộc bị nano kim loại gặm nhấm tiêu diệt!"
+  },
+  "Địa Thổ Mộc Thể": {
+    "Cơ Giới Bệnh Độc (Technocyte Virus)": "Đại địa sinh cơ bừng bừng sức sống, rễ cây cổ thụ bài trừ tạp chất kim loại rỉ sét ngoại lai ra khỏi đan điền!",
+    "Cơ Khí Chân Lý (Iron Suit)": "Sinh cơ tự nhiên bị giáp sắt lạnh lẽo cản trở dòng chảy kinh lạc, không thể phát huy thần thông!"
+  },
+  "Bàn Cổ Huyết Mạch": {
+    "Hư Không Lậu Thể": "Khí huyết Bàn Cổ nặng tựa thái sơn, kinh mạch kiên cố như bàn thạch! Sức mạnh thần ma nghiền nát mọi lỗ hổng rò rỉ của hư không!",
+    "Đoạn Kinh Mạch": "Huyết mạch khai thiên tịch địa tự động nối liền vạn mạch, phế thể tầm thường không thể tồn tại trên thân xác này!"
+  },
+  "Thiên Mệnh Chi Tử": {
+    "Thiên Sát Cô Tinh": "Kẻ được Thiên Đạo sủng ái tuyệt đối không thể đồng thời mang số mệnh bị Trời nguyền rủa khắc sát thân tộc!",
+    "Ách Vận Tử Khí": "Tử khí u ám vừa chạm vào vầng sáng phúc phận đã tự động tiêu tán dưới ánh dương Thiên Đạo!"
+  },
+  "Hạo Nhiên Chính Khí": {
+    "Tọa Vong Đạo": "Nho phong quân tử dĩ trực báo oán, tâm ý quang minh chính đại; tuyệt đối không dung nạp thói điên loạn lừa gạt hư thực của Tọa Vong Đạo!",
+    "Hợp Hoan Mị Cốt": "Chính khí hạo nhiên tịnh hóa tà dâm mị thuật; mị cốt không thể quyến rũ được tâm trí thánh hiền!"
+  }
+};
+
+
+// ============================================================================
+// V1.22.11: ĐẠI MA TRẬN BUFF & DEBUFF TOÀN DIỆN CỐ ĐỊNH (MASTER_EFFECTS_REGISTRY)
+// 114 Trạng Thái Phân Tầng Từ Vi Mô Phàm Trần Đến Vĩ Mô Đại Đạo
+// ============================================================================
+export interface MasterEffectDef {
+  id: string;
+  name: string;
+  type: 'buff' | 'debuff' | 'special';
+  tier: number;
+  durationMinutes: number;
+  desc: string;
+  remedy?: string;
+  // V1.22.11b: Mở rộng thêm 6 chỉ số
+  statMods?: { attack?: number; defense?: number; speed?: number; spiritPower?: number; dodge?: number; stamina?: number; charm?: number; enlightenment?: number; maxHp?: number; hpRegen?: number };
+}
+
+export const MASTER_EFFECTS_REGISTRY: Record<string, MasterEffectDef> = {
+  "eff_doi_bung_cao_cao": {
+    "id": "eff_doi_bung_cao_cao",
+    "name": "Bụng Đói Cồn Cào",
+    "type": "debuff",
+    "tier": 1,
+    "durationMinutes": 180,
+    "desc": "Thể lực hồi chậm 50%, Tốc -5. (Nguồn: Không ăn uống trong 12 giờ phàm trần (chưa Tị Cốc).)",
+    "remedy": "Ăn bánh bao, thịt khô, cơm nóng phàm trần.",
+    "statMods": {
+      "speed": -5
+    }
+  },
+  "eff_no_cang_tuc_bung": {
+    "id": "eff_no_cang_tuc_bung",
+    "name": "No Căng Tức Bụng",
+    "type": "debuff",
+    "tier": 1,
+    "durationMinutes": 60,
+    "desc": "Tốc -10, Né tránh -10. (Nguồn: Ăn quá nhiều lương thực cùng một lúc.)",
+    "remedy": "Tự tiêu hóa sau 1 giờ, hoặc uống trà tiêu thực.",
+    "statMods": {
+      "speed": -10,
+      "dodge": -10
+    }
+  },
+  "eff_chuong_bung_tro_tieu": {
+    "id": "eff_chuong_bung_tro_tieu",
+    "name": "Trúng Thực Đau Bụng",
+    "type": "debuff",
+    "tier": 1,
+    "durationMinutes": 360,
+    "desc": "Thể lực -20, Công -5, thỉnh thoảng ôm bụng quằn quại. (Nguồn: Ăn đồ ăn ôi thiu (freshness = 0), thịt thối, nước bẩn.)",
+    "remedy": "Uống nước gừng ấm, Tiêu Thực Hoàn, bế quan bài tiết.",
+    "statMods": {
+      "attack": -5,
+      "stamina": -20
+    }
+  },
+  "eff_am_ap_da_day": {
+    "id": "eff_am_ap_da_day",
+    "name": "Tỳ Vị Ôn Nhuận",
+    "type": "buff",
+    "tier": 1,
+    "durationMinutes": 120,
+    "desc": "Thể lực hồi phục +20%, tinh thần thư thái. (Nguồn: Thưởng thức sơn hào hải vị tươi ngon, canh gà hầm sâm phàm trần.)",
+    "remedy": "Tự hết khi tiêu hóa hết thức ăn.",
+    "statMods": {}
+  },
+  "eff_say_ruou_nga_nga": {
+    "id": "eff_say_ruou_nga_nga",
+    "name": "Say Say Hào Khí",
+    "type": "buff",
+    "tier": 1,
+    "durationMinutes": 90,
+    "desc": "Công +10, Kháng sợ hãi, nhưng Tốc -5, Né tránh -10. (Nguồn: Uống 1-2 vò rượu ngon phàm trần (Trúc Diệp Thanh, Đỗ Khang).)",
+    "remedy": "Tự tỉnh rượu sau 90 phút, hoặc uống trà giải rượu.",
+    "statMods": {
+      "attack": 10,
+      "speed": -5,
+      "dodge": -10
+    }
+  },
+  "eff_say_ruou_bi_ti": {
+    "id": "eff_say_ruou_bi_ti",
+    "name": "Đại Túy Bất Tỉnh",
+    "type": "debuff",
+    "tier": 1,
+    "durationMinutes": 360,
+    "desc": "Mất quyền hành động trong 30 phút đầu, sau đó Công -20, Tốc -30. (Nguồn: Uống quá chén, bị ép rượu, nốc rượu mạnh cõi tiên.)",
+    "remedy": "Nằm ngủ 6 giờ, hoặc dùng linh lực bức cồn ra đầu ngón tay.",
+    "statMods": {
+      "attack": -20,
+      "speed": -30
+    }
+  },
+  "eff_phong_han_cam_mao": {
+    "id": "eff_phong_han_cam_mao",
+    "name": "Nhiễm Phong Hàn",
+    "type": "debuff",
+    "tier": 1,
+    "durationMinutes": 1440,
+    "desc": "Thể lực -15, Tốc -10, thỉnh thoảng hắt hơi sổ mũi lộ tung tích. (Nguồn: Ngủ ngoài trời mưa gió, dầm mưa lạnh khi chưa Trúc Cơ.)",
+    "remedy": "Uống cháo hành giải cảm, Khương Thang, nghỉ ngơi phòng kín.",
+    "statMods": {
+      "speed": -10,
+      "stamina": -15
+    }
+  },
+  "eff_thu_nhiet_say_nang": {
+    "id": "eff_thu_nhiet_say_nang",
+    "name": "Say Nắng Trúng Thử",
+    "type": "debuff",
+    "tier": 1,
+    "durationMinutes": 360,
+    "desc": "Thần thức -10, Tốc -15, khát nước dữ dội. (Nguồn: Phơi nắng sa mạc, đi bộ đường trường cõi phàm giữa trưa hè.)",
+    "remedy": "Uống nước mát dưới bóng râm, Thanh Lương Đan.",
+    "statMods": {
+      "speed": -15,
+      "spiritPower": -10
+    }
+  },
+  "eff_am_uot_lo_loet": {
+    "id": "eff_am_uot_lo_loet",
+    "name": "Ẩm Thấp Khí Quấn Chân",
+    "type": "debuff",
+    "tier": 1,
+    "durationMinutes": 720,
+    "desc": "Tốc -10, da dẻ ngứa ngáy khó chịu. (Nguồn: Ngâm chân dưới đầm lầy, bì bõm lội nước nhiều canh giờ.)",
+    "remedy": "Hong khô bên đống lửa, bôi thuốc mỡ trừ thấp.",
+    "statMods": {
+      "speed": -10
+    }
+  },
+  "eff_bui_bay_vao_mat": {
+    "id": "eff_bui_bay_vao_mat",
+    "name": "Cát Bụi Che Mắt",
+    "type": "debuff",
+    "tier": 1,
+    "durationMinutes": 10,
+    "desc": "Thần thức -20, giảm 50% tầm quan sát. (Nguồn: Gió lốc ven đường, cát bay vào mắt khi chưa bật linh hộ.)",
+    "remedy": "Chớp mắt rửa nước sạch, tự tan sau 10 phút.",
+    "statMods": {
+      "spiritPower": -20
+    }
+  },
+  "eff_moi_co_ra_roi": {
+    "id": "eff_moi_co_ra_roi",
+    "name": "Cơ Bắp Mỏi Nhừ",
+    "type": "debuff",
+    "tier": 1,
+    "durationMinutes": 240,
+    "desc": "Công -10, Thể lực cạn kiệt, không thể chạy nhanh. (Nguồn: Chặt củi, gánh nước, lao động khổ sai cả ngày.)",
+    "remedy": "Tắm nước nóng, xoa bóp dầu thảo dược, ngủ 4 tiếng.",
+    "statMods": {
+      "attack": -10
+    }
+  },
+  "eff_thieu_ngu_trien_mien": {
+    "id": "eff_thieu_ngu_trien_mien",
+    "name": "Thiếu Ngủ Hoa Mắt",
+    "type": "debuff",
+    "tier": 1,
+    "durationMinutes": 720,
+    "desc": "Thần thức -15, Ngộ tính -5, phản ứng chậm chạp. (Nguồn: Thức trắng 3 đêm liền canh gác hoặc trốn chạy kẻ thù.)",
+    "remedy": "Đánh một giấc sâu tĩnh dưỡng nơi an toàn.",
+    "statMods": {
+      "spiritPower": -15,
+      "enlightenment": -5
+    }
+  },
+  "eff_ngu_ngon_phuc_hoi": {
+    "id": "eff_ngu_ngon_phuc_hoi",
+    "name": "Tĩnh Giấc Sảng Khoái",
+    "type": "buff",
+    "tier": 1,
+    "durationMinutes": 360,
+    "desc": "Thể lực hồi x2, Thần thức +5, tinh lực dồi dào. (Nguồn: Ngủ đủ giấc trên giường nệm êm ái hoặc hang động ấm áp.)",
+    "remedy": "Tự hết sau nửa ngày sinh hoạt.",
+    "statMods": {
+      "spiritPower": 5
+    }
+  },
+  "eff_hoi_ham_do_ban": {
+    "id": "eff_hoi_ham_do_ban",
+    "name": "Thân Thể Nhớp Nhúa",
+    "type": "debuff",
+    "tier": 1,
+    "durationMinutes": 1440,
+    "desc": "Mị lực -20, NPC xung quanh xa lánh, dễ bị thú săn lần theo mùi. (Nguồn: Lăn lộn bùn đất, chui cống rãnh, nhiều ngày không tắm rửa.)",
+    "remedy": "Tắm suối, nhảy xuống sông kỳ cọ, dùng Tịnh Y Thuật.",
+    "statMods": {
+      "charm": -20
+    }
+  },
+  "eff_thanh_khiet_thoang_mat": {
+    "id": "eff_thanh_khiet_thoang_mat",
+    "name": "Thân Tâm Thanh Sạch",
+    "type": "buff",
+    "tier": 1,
+    "durationMinutes": 720,
+    "desc": "Mị lực +10, NPC tăng 5 điểm hảo cảm khi trò chuyện. (Nguồn: Tắm gội bằng nước lá thơm, thay y phục lụa sạch sẽ.)",
+    "remedy": "Tự mất sau khi đi bụi bặm chiến đấu.",
+    "statMods": {
+      "charm": 10
+    }
+  },
+  "eff_xuoc_da_chay_mau": {
+    "id": "eff_xuoc_da_chay_mau",
+    "name": "Khí Huyết Rỉ Ra",
+    "type": "debuff",
+    "tier": 2,
+    "durationMinutes": 30,
+    "desc": "Mất máu nhẹ mỗi phút, Tốc -5. (Nguồn: Vết xước gươm đao, cành gai cào rách da.)",
+    "remedy": "Băng bó gạc vải, rắc bột Kim Sáng Dược.",
+    "statMods": {
+      "speed": -5
+    }
+  },
+  "eff_chem_sau_thau_thit": {
+    "id": "eff_chem_sau_thau_thit",
+    "name": "Vết Chém Thấu Thịt",
+    "type": "debuff",
+    "tier": 2,
+    "durationMinutes": 1440,
+    "desc": "Máu chảy đầm đìa, Công -15, Thủ -10, Tốc -15. (Nguồn: Trúng kiếm khí chém sâu, dính đao toác thịt.)",
+    "remedy": "Khâu vết thương, đắp Hồi Xuân Cao, uống Hồi Xuân Đan.",
+    "statMods": {
+      "attack": -15,
+      "defense": -10,
+      "speed": -15
+    }
+  },
+  "eff_bam_dap_nguc_suon": {
+    "id": "eff_bam_dap_nguc_suon",
+    "name": "Huyết Ứ Bầm Tím",
+    "type": "debuff",
+    "tier": 2,
+    "durationMinutes": 720,
+    "desc": "Thủ -10, hô hấp đau tức nhói. (Nguồn: Trúng quyền cước phàm võ, búa đập vào giáp ngực.)",
+    "remedy": "Rượu thuốc xoa bóp, vận chân khí làm tan máu bầm.",
+    "statMods": {
+      "defense": -10
+    }
+  },
+  "eff_trat_khop_vai": {
+    "id": "eff_trat_khop_vai",
+    "name": "Sai Khớp Vai",
+    "type": "debuff",
+    "tier": 2,
+    "durationMinutes": 180,
+    "desc": "Cánh tay tàn phế không thể cầm vũ khí, Công -40%. (Nguồn: Bị vật lộn, té ngã gãy thế võ, trúng đòn bẻ khớp.)",
+    "remedy": "Dùng tay kia nắn bẻ khớp lại (chịu đau nhói), hoặc nhờ y sư.",
+    "statMods": {
+      "attack": -40
+    }
+  },
+  "eff_thau_cot_doan_cot": {
+    "id": "eff_thau_cot_doan_cot",
+    "name": "Đoạn Cốt Gãy Xương",
+    "type": "debuff",
+    "tier": 2,
+    "durationMinutes": 4320,
+    "desc": "Tốc -30, Công -20, không thể vận sức nặng. (Nguồn: Trúng đòn chùy tạ, kích nặng, rơi từ vách núi cao.)",
+    "remedy": "Nẹp gỗ cố định, dùng Tục Cốt Cao, Hắc Ngọc Đoạn Cốt Đan.",
+    "statMods": {
+      "attack": -20,
+      "speed": -30
+    }
+  },
+  "eff_ran_nut_hop_so": {
+    "id": "eff_ran_nut_hop_so",
+    "name": "Chấn Thương Sọ Não",
+    "type": "debuff",
+    "tier": 2,
+    "durationMinutes": 2880,
+    "desc": "Choáng váng, mắt mờ, Thần thức -40, Tốc -20. (Nguồn: Bị trượng, gậy sắt phang trúng đầu rách nón bảo hộ.)",
+    "remedy": "Uống An Thần Định Phách Thang, nằm bất động 2 ngày.",
+    "statMods": {
+      "speed": -20,
+      "spiritPower": -40
+    }
+  },
+  "eff_dut_gan_chan": {
+    "id": "eff_dut_gan_chan",
+    "name": "Đoạn Cân Cước Bộ",
+    "type": "debuff",
+    "tier": 2,
+    "durationMinutes": 10080,
+    "desc": "Tốc -70%, khập khiễng lê lết bò trên đất. (Nguồn: Bị câu liêm đao móc gót, phi tiêu cắt đứt gân gót chân.)",
+    "remedy": "Nối gân bằng Huyền Châm thuật, uống Tục Cân Thần Đan.",
+    "statMods": {
+      "speed": -70
+    }
+  },
+  "eff_tho_huyet_noi_thuong": {
+    "id": "eff_tho_huyet_noi_thuong",
+    "name": "Nội Tạng Xuất Huyết",
+    "type": "debuff",
+    "tier": 2,
+    "durationMinutes": 2880,
+    "desc": "Công -25, Thể lực tụt dốc, mỗi khi ra chiêu bị thổ huyết. (Nguồn: Đỡ đòn xuyên giáp, dính chưởng lực thấm vào lục phủ ngũ tạng.)",
+    "remedy": "Ôn Dưỡng Đan, đại năng truyền chân khí điều hòa phủ tạng.",
+    "statMods": {
+      "attack": -25
+    }
+  },
+  "eff_phe_phu_ngat_khi": {
+    "id": "eff_phe_phu_ngat_khi",
+    "name": "Phế Phủ Bế Khí",
+    "type": "debuff",
+    "tier": 2,
+    "durationMinutes": 60,
+    "desc": "Thở dốc nghẹn ngào, Thể lực tiêu hao gấp 3 lần. (Nguồn: Hít phải khói độc rơm rạ, bị đấm lún ngực nghẽn khí quản.)",
+    "remedy": "Vận khí ho khạc đờm máu ra ngoài, uống Nhuận Phế Thang.",
+    "statMods": {}
+  },
+  "eff_tam_mach_kinh_gian": {
+    "id": "eff_tam_mach_kinh_gian",
+    "name": "Tâm Mạch Chấn Động",
+    "type": "debuff",
+    "tier": 2,
+    "durationMinutes": 1440,
+    "desc": "Tim đập dồn dập, máu dồn lên não, nguy cơ ngất lịm khi đánh nhau. (Nguồn: Trúng đòn Thấu Tâm Chưởng, sóng âm sư tử hống chấn động lồng ngực.)",
+    "remedy": "Ngồi xếp bằng tĩnh tọa, uống Ninh Tâm Tễ.",
+    "statMods": {}
+  },
+  "eff_dui_mu_tam_thoi": {
+    "id": "eff_dui_mu_tam_thoi",
+    "name": "Mù Mắt Tạm Thời",
+    "type": "debuff",
+    "tier": 2,
+    "durationMinutes": 1440,
+    "desc": "Thần thức khóa cứng = 1, Tốc -30, đánh mù quáng hụt 80%. (Nguồn: Vôi bột rắc mắt, trúng kiếm quang chói lòa, độc phấn hoa cúc mù.)",
+    "remedy": "Rửa mắt bằng nước suối nguồn thanh khiết, Thanh Mục Dịch.",
+    "statMods": {
+      "speed": -30
+    }
+  },
+  "eff_diec_tai_ong_ong": {
+    "id": "eff_diec_tai_ong_ong",
+    "name": "Tai Điếc Ù Ù",
+    "type": "debuff",
+    "tier": 2,
+    "durationMinutes": 120,
+    "desc": "Không nghe được tiếng động xung quanh, dễ bị đánh lén sau lưng. (Nguồn: Đứng cạnh lôi đài sét nổ, đao kiếm va chạm sát tai phát tiếng rít.)",
+    "remedy": "Bịt tai nghỉ ngơi, tự khỏi sau 2 tiếng.",
+    "statMods": {}
+  },
+  "eff_cam_lang_rach_luoi": {
+    "id": "eff_cam_lang_rach_luoi",
+    "name": "Rách Lưỡi Câm Lặng",
+    "type": "debuff",
+    "tier": 2,
+    "durationMinutes": 1440,
+    "desc": "Không thể nói chuyện đàm phán, cấm niệm chú công pháp bằng lời. (Nguồn: Cắn phải lưỡi khi bị đánh ngã, trúng độc câm phong cõi phàm.)",
+    "remedy": "Ngậm ngọc thạch giải độc, bôi thuốc sinh cơ đầu lưỡi.",
+    "statMods": {}
+  },
+  "eff_kim_cuong_than": {
+    "id": "eff_kim_cuong_than",
+    "name": "Kim Cang Hộ Cốt",
+    "type": "buff",
+    "tier": 2,
+    "durationMinutes": 30,
+    "desc": "Thủ +60, miễn dịch mọi sát thương đao kiếm phàm trần. (Nguồn: Kích hoạt Kim Cang Phù, thi triển Thiết Bố Sam đại thành.)",
+    "remedy": "Hết thời hạn phù lục hoặc bị búa nặng phá giáp.",
+    "statMods": {
+      "defense": 60
+    }
+  },
+  "eff_thanh_phong_bo": {
+    "id": "eff_thanh_phong_bo",
+    "name": "Thanh Phong Lạc Bộ",
+    "type": "buff",
+    "tier": 2,
+    "durationMinutes": 60,
+    "desc": "Tốc độ +35, bước chân không dính bụi, nhẹ bẫng. (Nguồn: Dán Thần Hành Phù lên bắp chân, vận phong hành quyết.)",
+    "remedy": "Tự hết khi bùa cháy hết chu sa.",
+    "statMods": {
+      "speed": 35
+    }
+  },
+  "eff_huyet_khi_cuong_bao": {
+    "id": "eff_huyet_khi_cuong_bao",
+    "name": "Huyết Khí Bạo Phát",
+    "type": "buff",
+    "tier": 2,
+    "durationMinutes": 60,
+    "desc": "Công +40, Tốc +20, nhưng Thủ -20, mất máu nhẹ sau khi hết. (Nguồn: Cắn Huyết Sát Ma Đan, dùng bí pháp thiêu đốt tinh huyết.)",
+    "remedy": "Hết 60 phút chuyển hóa thành trạng thái Hư Nhược kiệt sức.",
+    "statMods": {
+      "attack": 40,
+      "defense": -20,
+      "speed": 20
+    }
+  },
+  "eff_kinh_mach_be": {
+    "id": "eff_kinh_mach_be",
+    "name": "Kinh Mạch Chấn Liệt",
+    "type": "debuff",
+    "tier": 3,
+    "durationMinutes": 10080,
+    "desc": "Thần thức -30, Công -20, cấm vận hành công pháp cao cấp. (Nguồn: Gắng gượng thi triển chiêu thức vượt cảnh giới, bị phản lực chấn nứt.)",
+    "remedy": "Uống Ôn Dưỡng Đan, ngâm suối nước nóng linh mạch 7 ngày.",
+    "statMods": {
+      "attack": -20,
+      "spiritPower": -30
+    }
+  },
+  "eff_tac_nghen_kinh_lac": {
+    "id": "eff_tac_nghen_kinh_lac",
+    "name": "Kinh Lạc Tắc Nghẽn",
+    "type": "debuff",
+    "tier": 3,
+    "durationMinutes": 2880,
+    "desc": "Tốc độ vận hành chân khí giảm 50%, hồi phục linh lực -50%. (Nguồn: Tạp chất đan dược lắng đọng, trúng chưởng phong bế huyệt đạo.)",
+    "remedy": "Thông Mạch Tán, nhờ đồng đạo hỗ trợ đả thông kinh mạch.",
+    "statMods": {}
+  },
+  "eff_chan_khi_nghich_luu": {
+    "id": "eff_chan_khi_nghich_luu",
+    "name": "Chân Khí Nghịch Luân",
+    "type": "debuff",
+    "tier": 3,
+    "durationMinutes": 720,
+    "desc": "Mỗi lần tung chiêu bị trừ 10% HP do nội lực xé rách kinh lạc. (Nguồn: Bị đánh ngắt quãng khi đang bế quan tụ khí, tâm thần hoảng loạn.)",
+    "remedy": "Ngồi yên tĩnh tâm vận chuyển chu thiên thuận chiều, Bình Khí Hoàn.",
+    "statMods": {}
+  },
+  "eff_phong_be_khi_hai": {
+    "id": "eff_phong_be_khi_hai",
+    "name": "Khí Hải Bị Phong Ấn",
+    "type": "debuff",
+    "tier": 3,
+    "durationMinutes": 4320,
+    "desc": "Linh lực bị khóa cứng về 0, trở về trạng thái phàm nhân. (Nguồn: Bị cao thủ điểm phong ấn vào huyệt Đan Điền, dính Khóa Linh Cẩu.)",
+    "remedy": "Phá Phong Đan, đại năng cảnh giới cao hơn tháo gỡ ấn ký.",
+    "statMods": {}
+  },
+  "eff_can_kiet_linh_luc": {
+    "id": "eff_can_kiet_linh_luc",
+    "name": "Linh Lực Cạn Trơ",
+    "type": "debuff",
+    "tier": 3,
+    "durationMinutes": 120,
+    "desc": "Không thể dùng chiêu thức, chân tay bủn rủn, Tốc -20. (Nguồn: Đánh cạn giọt chân khí cuối cùng trong trận chiến sinh tử.)",
+    "remedy": "Cầm linh thạch hút bổ sung, uống Bổ Khí Thang, thiền định.",
+    "statMods": {
+      "speed": -20
+    }
+  },
+  "eff_linh_luc_bao_truong": {
+    "id": "eff_linh_luc_bao_truong",
+    "name": "Linh Lực Quá Tải Đầy Ứ",
+    "type": "debuff",
+    "tier": 3,
+    "durationMinutes": 60,
+    "desc": "Công +30% nhưng da thịt nứt nẻ rỉ máu, mất 2% HP/phút. (Nguồn: Nuốt thiên tài địa bảo quá hạn mức nhục thân có thể chứa.)",
+    "remedy": "Phải lập tức xuất chiêu xả năng lượng ra ngoài hoặc ngồi luyện hóa.",
+    "statMods": {
+      "attack": 30
+    }
+  },
+  "eff_linh_can_o_nhiem": {
+    "id": "eff_linh_can_o_nhiem",
+    "name": "Linh Căn Ô Nhiễm",
+    "type": "debuff",
+    "tier": 3,
+    "durationMinutes": 14400,
+    "desc": "Tốc độ hấp thu linh khí trời đất -70%, công pháp uy lực giảm sút. (Nguồn: Hút phải tà khí ô trọc cõi ma, uống nước sông pha tạp linh thạch rỉ sét.)",
+    "remedy": "Tẩy Tủy Đan, gột rửa dưới thác nước Linh Tuyền ngàn năm.",
+    "statMods": {}
+  },
+  "eff_dan_dien_lanh_leo": {
+    "id": "eff_dan_dien_lanh_leo",
+    "name": "Hàn Khí Tẩm Đan Điền",
+    "type": "debuff",
+    "tier": 3,
+    "durationMinutes": 2880,
+    "desc": "Ngọn lửa tam muội bị dập tắt, không thể luyện đan hay phóng hỏa. (Nguồn: Trúng hàn băng chưởng đâm thẳng vào bụng dưới.)",
+    "remedy": "Nuốt Hỏa Dương Đan, ngồi sưởi cạnh địa hỏa núi lửa.",
+    "statMods": {}
+  },
+  "eff_dan_doc_tram_tich": {
+    "id": "eff_dan_doc_tram_tich",
+    "name": "Đan Độc Trầm Tích",
+    "type": "debuff",
+    "tier": 3,
+    "durationMinutes": 10080,
+    "desc": "Uống thêm đan dược chỉ còn 20% tác dụng, mặt mày xám xịt. (Nguồn: Lạm dụng nuốt quá 3 viên đan trong vòng 24 giờ.)",
+    "remedy": "Bài Độc Hoàn, nhịn đan dược tĩnh dưỡng thanh lọc cơ thể 7 ngày.",
+    "statMods": {}
+  },
+  "eff_dan_doc_hoai_can": {
+    "id": "eff_dan_doc_hoai_can",
+    "name": "Đan Độc Phá Căn Cơ",
+    "type": "debuff",
+    "tier": 3,
+    "durationMinutes": 43200,
+    "desc": "Tu vi bị khóa cứng không thể tăng tiến dù có tu luyện hay ăn đồ bổ. (Nguồn: Nuốt đan dược phẩm chất đen/rác phẩm, đan dược quá hạn ngàn năm.)",
+    "remedy": "Cửu Chuyển Hoán Cốt Đan, hoặc tìm đại năng Tẩy Tủy Phạt Mao.",
+    "statMods": {}
+  },
+  "eff_tu_khi_thong_mach": {
+    "id": "eff_tu_khi_thong_mach",
+    "name": "Tụ Khí Thông Mạch",
+    "type": "buff",
+    "tier": 3,
+    "durationMinutes": 1440,
+    "desc": "Tốc độ hấp thu linh khí tăng 30%, kinh mạch trơn tru. (Nguồn: Dùng Tụ Khí Đan chuẩn chỉ đúng liều lượng.)",
+    "remedy": "Tự hết thời hạn dược lực 24 giờ.",
+    "statMods": {}
+  },
+  "eff_hoi_xuan_sinh_co": {
+    "id": "eff_hoi_xuan_sinh_co",
+    "name": "Hồi Xuân Dưỡng Thể",
+    "type": "buff",
+    "tier": 3,
+    "durationMinutes": 120,
+    "desc": "Tự động hồi phục 1% HP mỗi phút, vết thương khép miệng thần tốc. (Nguồn: Uống Hồi Xuân Đan phẩm chất tốt.)",
+    "remedy": "Tự hết sau 2 tiếng.",
+    "statMods": {}
+  },
+  "eff_truc_co_dinh_can": {
+    "id": "eff_truc_co_dinh_can",
+    "name": "Trúc Cơ Định Căn",
+    "type": "buff",
+    "tier": 3,
+    "durationMinutes": 4320,
+    "desc": "Căn cơ đan điền vững chãi, miễn nhiễm nguy cơ tụt cấp khi thất bại. (Nguồn: Uống Trúc Cơ Đan trước khi bế quan đột phá.)",
+    "remedy": "Tự hết sau khi kết thúc kỳ hạn đột phá.",
+    "statMods": {}
+  },
+  "eff_hoa_doc_thieu": {
+    "id": "eff_hoa_doc_thieu",
+    "name": "Hỏa Độc Thiêu Cốt",
+    "type": "debuff",
+    "tier": 4,
+    "durationMinutes": 2880,
+    "desc": "Thủ -20, mất máu âm ỉ theo nhiệt độ, da dẻ phồng rộp. (Nguồn: Bị dị hỏa thiêu đốt, quái thú hệ hỏa cắn trúng.)",
+    "remedy": "Băng Tinh Hoàn, ngâm mình dưới đầm nước hàn băng.",
+    "statMods": {
+      "defense": -20
+    }
+  },
+  "eff_han_bang_dong": {
+    "id": "eff_han_bang_dong",
+    "name": "Băng Phách Thấu Cốt",
+    "type": "debuff",
+    "tier": 4,
+    "durationMinutes": 2880,
+    "desc": "Tốc -30, Công -15, khớp xương đông cứng rắc rắc. (Nguồn: Trúng hàn băng kiếm khí, rơi xuống vực băng giá vạn năm.)",
+    "remedy": "Ôn Dương Đan, sưởi ấm bằng Hỏa Tinh Thạch.",
+    "statMods": {
+      "attack": -15,
+      "speed": -30
+    }
+  },
+  "eff_te_liet_loi": {
+    "id": "eff_te_liet_loi",
+    "name": "Thiên Lôi Tê Liệt",
+    "type": "debuff",
+    "tier": 4,
+    "durationMinutes": 15,
+    "desc": "Tốc độ -50, Né tránh khóa = 0, toàn thân co giật điện quang. (Nguồn: Trúng lôi pháp, bị sét đánh trúng giáp sắt.)",
+    "remedy": "Chạm chân xuống đất xả điện, Tẩy Uế Phù.",
+    "statMods": {
+      "speed": -50
+    }
+  },
+  "eff_phong_nhan_luu": {
+    "id": "eff_phong_nhan_luu",
+    "name": "Phong Nhận Cắt Thân",
+    "type": "debuff",
+    "tier": 4,
+    "durationMinutes": 60,
+    "desc": "Giáp trụ rách toạc, Thủ -15, liên tục chịu vết cắt li ti. (Nguồn: Lạc vào trận phong sát, gió xoáy cấm địa.)",
+    "remedy": "Rời khỏi vùng gió bão, kích hoạt khiên đất hộ thân.",
+    "statMods": {
+      "defense": -15
+    }
+  },
+  "eff_tho_ap_nang": {
+    "id": "eff_tho_ap_nang",
+    "name": "Trọng Nham Hóa Thạch",
+    "type": "debuff",
+    "tier": 4,
+    "durationMinutes": 120,
+    "desc": "Tốc -40, thân thể nặng tựa núi non, nhưng Thủ tạm tăng +20. (Nguồn: Trúng ma thuật hóa đá của yêu thú hệ Thổ.)",
+    "remedy": "Dùng mộc linh lực phá vỡ thổ giáp, bôi dầu bài thạch.",
+    "statMods": {
+      "speed": -40,
+      "defense": 20
+    }
+  },
+  "eff_thi_doc_cong": {
+    "id": "eff_thi_doc_cong",
+    "name": "Âm Thi Hủ Độc",
+    "type": "debuff",
+    "tier": 4,
+    "durationMinutes": 7200,
+    "desc": "Công -20, Thủ -20, thịt thối rữa bốc mùi tử khí, Tạp khí bản thân +10. (Nguồn: Cương thi cào trúng, đao kiếm tẩm mỡ người chết chém rách thịt.)",
+    "remedy": "Dán Phù Trừ Tà hút mủ đen, dùng Dương Quang Đan, Phật quang tịnh hóa.",
+    "statMods": {
+      "attack": -20,
+      "defense": -20
+    }
+  },
+  "eff_xa_doc_cong_tam": {
+    "id": "eff_xa_doc_cong_tam",
+    "name": "Hắc Xà Kịch Độc",
+    "type": "debuff",
+    "tier": 4,
+    "durationMinutes": 360,
+    "desc": "Tim đập nghẽn, môi tím tái, mất 5% HP mỗi 10 phút. (Nguồn: Rắn độc cắn ở đầm lầy, vũ khí tẩm nọc rắn hổ mang ngàn năm.)",
+    "remedy": "Huyết Kiếm Thảo, rạch vết thương hút nọc độc, Hóa Độc Hoàn.",
+    "statMods": {}
+  },
+  "eff_hu_cot_ma_doc": {
+    "id": "eff_hu_cot_ma_doc",
+    "name": "Hủ Cốt Xuyên Tủy",
+    "type": "debuff",
+    "tier": 4,
+    "durationMinutes": 14400,
+    "desc": "Ăn mòn vào tủy xương, vĩnh viễn giảm 1 điểm Thể chất mỗi ngày nếu không chữa. (Nguồn: Khí độc ở Vạn Độc U Cốc, đòn đánh của Lão Quái Vạn Độc Môn.)",
+    "remedy": "Uống Vạn Độc Hóa Cốt Thủy (dĩ độc trị độc) hoặc đại năng hoán tủy.",
+    "statMods": {}
+  },
+  "eff_me_hon_hoa_phan": {
+    "id": "eff_me_hon_hoa_phan",
+    "name": "Hoa Độc Mê Hồn",
+    "type": "debuff",
+    "tier": 4,
+    "durationMinutes": 180,
+    "desc": "Đầu óc mơ màng, nhìn địch hóa mỹ nhân, giảm 50% độ chính xác chiêu thức. (Nguồn: Hít phải phấn hoa Bách Hợp Mê Hồn trong rừng rậm.)",
+    "remedy": "Cắn vào đầu lưỡi tạo đau đớn, ngửi giấm chua, Thanh Thần Hương.",
+    "statMods": {}
+  },
+  "eff_trung_doc_sinh_soi": {
+    "id": "eff_trung_doc_sinh_soi",
+    "name": "Cổ Trùng Ký Sinh",
+    "type": "debuff",
+    "tier": 4,
+    "durationMinutes": 10080,
+    "desc": "Đau bụng quằn quại từng cơn bất chợt, cắn nuốt 30% lương thực ăn vào. (Nguồn: Bị Miêu Cương hạ cổ, uống nước có ấu trùng độc cổ cõi man hoang.)",
+    "remedy": "Trục Trùng Tán, đốt lá ngải hơ bụng ép bọ chui ra.",
+    "statMods": {}
+  },
+  "eff_thuc_hai_cuon_song": {
+    "id": "eff_thuc_hai_cuon_song",
+    "name": "Thức Hải Chấn Động",
+    "type": "debuff",
+    "tier": 5,
+    "durationMinutes": 1440,
+    "desc": "Thần thức -30, không thể phóng linh thức dò đường, đau nhói thóp đầu. (Nguồn: Đấu thần thức bị đối phương đè bẹp, trúng Diệt Hồn Châm.)",
+    "remedy": "Uống Định Thần Dịch, nằm bế quan tĩnh lặng tuyệt đối.",
+    "statMods": {
+      "spiritPower": -30
+    }
+  },
+  "eff_than_hon_ran_nut": {
+    "id": "eff_than_hon_ran_nut",
+    "name": "Hồn Phách Rạn Nứt",
+    "type": "debuff",
+    "tier": 5,
+    "durationMinutes": 28800,
+    "desc": "Toàn bộ chỉ số giảm 25%, dễ bị đoạt xá hoặc ngất lịm bất thần. (Nguồn: Trọng thương suýt chết, bị đại năng dùng bí thuật sưu hồn cưỡng ép.)",
+    "remedy": "Bổ Hồn Đan, ngậm Ôn Hồn Ngọc, đại năng hợp lực vá hồn.",
+    "statMods": {
+      "attack": -15,
+      "defense": -15,
+      "speed": -15,
+      "spiritPower": -15
+    }
+  },
+  "eff_than_niem_khuech_dai": {
+    "id": "eff_than_niem_khuech_dai",
+    "name": "Thần Niệm Thông Triệt",
+    "type": "buff",
+    "tier": 5,
+    "durationMinutes": 180,
+    "desc": "Thần thức +50, nhìn thấu tàng hình, phát hiện bẫy rập vạn dặm. (Nguồn: Uống Tinh Thần Đan, đốt Thiên Hương Lâu trầm hương.)",
+    "remedy": "Tự hết sau 3 tiếng khi hương tàn.",
+    "statMods": {
+      "spiritPower": 50
+    }
+  },
+  "eff_ta_niem_ao_giac": {
+    "id": "eff_ta_niem_ao_giac",
+    "name": "Tà Niệm Xâm Nhập",
+    "type": "debuff",
+    "tier": 5,
+    "durationMinutes": 1440,
+    "desc": "Nhìn nhầm kẻ thù thành thân nhân hoặc ngược lại, tung chiêu loạn xạ. (Nguồn: Trúng Huyễn Mộng thuật của hồ ly, đi lạc vào Hạc Quy Cốc cấm trận.)",
+    "remedy": "Đeo Ngọc Bội Hộ Tâm, dùng nước suối nguồn rửa mặt định thần.",
+    "statMods": {}
+  },
+  "eff_kinh_hoang_vo_mat": {
+    "id": "eff_kinh_hoang_vo_mat",
+    "name": "Kinh Hãi Vỡ Mật",
+    "type": "debuff",
+    "tier": 5,
+    "durationMinutes": 60,
+    "desc": "Không thể tấn công, chỉ biết quay đầu cắm đầu bỏ chạy, Thủ -30. (Nguồn: Đối mặt với Uy Áp của quái thú cấp Thần hoặc Ma Tôn thượng cổ.)",
+    "remedy": "Chạy thoát khỏi phạm vi uy áp của đối phương, uống Dũng Khí Đan.",
+    "statMods": {
+      "defense": -30
+    }
+  },
+  "eff_mi_hoac_si_tinh": {
+    "id": "eff_mi_hoac_si_tinh",
+    "name": "Mị Hoặc Điên Đảo",
+    "type": "debuff",
+    "tier": 5,
+    "durationMinutes": 720,
+    "desc": "Tự động giao nộp bảo vật nếu bị yêu cầu, không thể ra tay với kẻ mê hoặc. (Nguồn: Trúng Mị Thuật của đệ tử Hợp Hoan Tông hoặc Mị Ma.)",
+    "remedy": "Tự gây sát thương cho bản thân để tỉnh trí, Thanh Tâm Chú.",
+    "statMods": {}
+  },
+  "eff_tam_ma_am_anh": {
+    "id": "eff_tam_ma_am_anh",
+    "name": "Tâm Ma Quấn Thân",
+    "type": "debuff",
+    "tier": 5,
+    "durationMinutes": 10080,
+    "desc": "Thần thức -25, Công -15, đêm ngủ gặp ác mộng trừ tu vi. (Nguồn: Chỉ số Tâm ma > 50, lạm sát phàm nhân vô tội, bội ước thệ ngôn.)",
+    "remedy": "Tọa thiền tụng kinh, thắp Định Thần Hương, uống Thanh Tâm Đan.",
+    "statMods": {
+      "attack": -15,
+      "spiritPower": -25
+    }
+  },
+  "eff_pha_gioi_hiem": {
+    "id": "eff_pha_gioi_hiem",
+    "name": "Phá Giới Nguy Cấp",
+    "type": "debuff",
+    "tier": 5,
+    "durationMinutes": 4320,
+    "desc": "Đè ép 75% toàn bộ 4 chỉ số, hào quang Phật cốt rỉ sét. (Nguồn: Phật tu mang Tâm ma > 75%, phạm sát giới hoặc sắc giới.)",
+    "remedy": "Sám hối trước tượng Phật ở Kim Thiền Tự, hoặc buông bỏ đọa lạc Ma Tăng.",
+    "statMods": {
+      "attack": -40,
+      "defense": -40,
+      "speed": -40,
+      "spiritPower": -40
+    }
+  },
+  "eff_tau_hoa_tam_tri": {
+    "id": "eff_tau_hoa_tam_tri",
+    "name": "Tẩu Hỏa Khí Loạn",
+    "type": "debuff",
+    "tier": 5,
+    "durationMinutes": 4320,
+    "desc": "Thần thức -50%, Tốc -10, ăn nói lảm nhảm mất tự chủ. (Nguồn: Cố học công pháp vượt quá 3 lần chỉ số Ngộ Đạo hiện có.)",
+    "remedy": "Bế quan tuyệt đối, uống Thanh Luyện Thần Dịch.",
+    "statMods": {
+      "speed": -10,
+      "spiritPower": -50
+    }
+  },
+  "eff_tau_hoa_than_tri": {
+    "id": "eff_tau_hoa_than_tri",
+    "name": "Tẩu Hỏa Phệ Hồn",
+    "type": "debuff",
+    "tier": 5,
+    "durationMinutes": 14400,
+    "desc": "Thần thức -50%, Tốc -20, kinh mạch thức hải rỉ máu liên tục. (Nguồn: Mạo phạm học Thần Thông viễn cổ khi căn cốt chưa đạt chuẩn.)",
+    "remedy": "Uống Tẩy Hồn Đan, nhờ đại năng Chân Tiên khai thông thức hải.",
+    "statMods": {
+      "speed": -20,
+      "spiritPower": -50
+    }
+  },
+  "eff_tau_hoa_bao_the": {
+    "id": "eff_tau_hoa_bao_the",
+    "name": "Tẩu Hỏa Bạo Thể",
+    "type": "debuff",
+    "tier": 5,
+    "durationMinutes": 43200,
+    "desc": "Mất 90% HP tức thì, toàn bộ chỉ số -20 điểm vĩnh viễn trong 30 ngày. (Nguồn: Ép tiến độ đột phá cảnh giới vượt mức an toàn (>150%).)",
+    "remedy": "Uống Tái Tạo Thần Đan, Hoàn Hồn Đan, nằm tĩnh dưỡng cả tháng.",
+    "statMods": {
+      "attack": -20,
+      "defense": -20,
+      "speed": -20,
+      "spiritPower": -20
+    }
+  },
+  "eff_don_ngo_dao_van": {
+    "id": "eff_don_ngo_dao_van",
+    "name": "Đốn Ngộ Đạo Vận",
+    "type": "buff",
+    "tier": 5,
+    "durationMinutes": 4320,
+    "desc": "Ngộ Đạo +50%, tích lũy kinh nghiệm tu vi tăng gấp đôi (x2). (Nguồn: Nghe đại năng giảng kinh, ngắm sao ở Khâm Thiên Giám, ngộ chân lý.)",
+    "remedy": "Tự hết hạn sau 3 ngày viên mãn.",
+    "statMods": {
+      "enlightenment": 50
+    }
+  },
+  "eff_bang_thanh_ngoc_khiet": {
+    "id": "eff_bang_thanh_ngoc_khiet",
+    "name": "Băng Thanh Ngọc Khiết",
+    "type": "buff",
+    "tier": 5,
+    "durationMinutes": 2880,
+    "desc": "Miễn nhiễm hoàn toàn mọi mị thuật, huyễn thuật và tà khí mê hoặc. (Nguồn: Uống Tịnh Thần Trà, vận chuyển Băng Tâm Quyết.)",
+    "remedy": "Tự hết thời hạn tâm cảnh.",
+    "statMods": {}
+  },
+  "eff_oan_hon_bam_than": {
+    "id": "eff_oan_hon_bam_than",
+    "name": "Oán Hồn Đeo Bám",
+    "type": "debuff",
+    "tier": 6,
+    "durationMinutes": 10080,
+    "desc": "May mắn tụt dốc, giá mua đồ tăng 50%, thỉnh thoảng nghe tiếng gào khóc. (Nguồn: Đồ sát cả gia đình phàm nhân, đào mộ trộm bảo vật người chết.)",
+    "remedy": "Mời tăng nhân tụng kinh siêu độ, lập đàn cầu siêu giải oan.",
+    "statMods": {}
+  },
+  "eff_huyet_quang_sat_khi": {
+    "id": "eff_huyet_quang_sat_khi",
+    "name": "Huyết Quang Xung Thiên",
+    "type": "debuff",
+    "tier": 6,
+    "durationMinutes": 14400,
+    "desc": "Đi đến đâu trời nổi mây đỏ, chính đạo tông môn tự động xuất chiêu tấn công. (Nguồn: Giết quá 50 tu sĩ chính đạo, tàn sát tông môn đệ tử.)",
+    "remedy": "Ẩn dật trong rừng sâu tẩy rửa sát khí, dán Phù Giấu Thiên Cơ.",
+    "statMods": {}
+  },
+  "eff_thien_dao_trung_phat": {
+    "id": "eff_thien_dao_trung_phat",
+    "name": "Thiên Đạo Chán Ghét",
+    "type": "debuff",
+    "tier": 6,
+    "durationMinutes": 43200,
+    "desc": "Tỷ lệ kỳ ngộ tốt = 0%, ra đường dễ bị thiên lôi đánh trúng đỉnh đầu. (Nguồn: Điểm Karma âm sâu (> -1000), làm chuyện nghịch thiên hại lý diệt tộc.)",
+    "remedy": "Hành thiện tích đức cực lớn, phóng sinh vạn thú, xây chùa cứu trợ bần hàn.",
+    "statMods": {}
+  },
+  "eff_cong_duc_kim_quang": {
+    "id": "eff_cong_duc_kim_quang",
+    "name": "Công Đức Kim Quang",
+    "type": "buff",
+    "tier": 6,
+    "durationMinutes": 43200,
+    "desc": "Giảm 30% sát thương từ ma đạo, yêu quái tự động né tránh không dám hại. (Nguồn: Điểm Karma dương cao (> 1000), cứu tế trăm họ khỏi dịch bệnh.)",
+    "remedy": "Tự mất dần nếu làm chuyện tà ác trừ điểm Karma.",
+    "statMods": {}
+  },
+  "eff_huyet_khe_sinh_tu": {
+    "id": "eff_huyet_khe_sinh_tu",
+    "name": "Huyết Khế Sinh Tử",
+    "type": "debuff",
+    "tier": 6,
+    "durationMinutes": 99999999,
+    "desc": "Chia sẻ 50% sát thương cùng bạn đời/linh thú; đối phương chết bị phạt rớt 3 cấp. (Nguồn: Nhỏ máu lập huyết thề đồng sinh cộng tử với đạo lữ hoặc linh thú bổn mạng.)",
+    "remedy": "Nuốt Tuyệt Tình Đan, Đoạn Duyên Nghịch Thiên Hoàn.",
+    "statMods": {}
+  },
+  "eff_no_le_an_ky": {
+    "id": "eff_no_le_an_ky",
+    "name": "Nô Dịch Hồn Ấn",
+    "type": "debuff",
+    "tier": 6,
+    "durationMinutes": 99999999,
+    "desc": "Cấm phản kháng lệnh chủ nhân, chủ nhân niệm chú là đau đầu đứt ruột. (Nguồn: Bị bắt làm tù binh, bị khắc ấn nô lệ vào thần hồn.)",
+    "remedy": "Chủ nhân chủ động giải trừ, hoặc chủ nhân bị kẻ khác giết chết.",
+    "statMods": {}
+  },
+  "eff_the_ngon_can_tra": {
+    "id": "eff_the_ngon_can_tra",
+    "name": "Thệ Ngôn Phản Phệ",
+    "type": "debuff",
+    "tier": 6,
+    "durationMinutes": 14400,
+    "desc": "Chân khí tắc nghẽn, mỗi ngày hộc máu 3 lần, tâm ma tăng vọt. (Nguồn: Lập lời thề độc trước Thiên Đạo rồi lật lọng tráo trở nuốt lời.)",
+    "remedy": "Hoàn thành lời hứa đã phản bội, hoặc quỳ tạ tội trước linh đài.",
+    "statMods": {}
+  },
+  "eff_long_khi_kinh_do": {
+    "id": "eff_long_khi_kinh_do",
+    "name": "Hoàng Triều Long Uy",
+    "type": "buff",
+    "tier": 6,
+    "durationMinutes": 1440,
+    "desc": "Giảm 20% sát thương từ yêu ma quỷ quái, tinh thần minh mẫn. (Nguồn: Đi lại trong thành Càn Long Kinh Đô có long mạch bảo hộ.)",
+    "remedy": "Rời khỏi kinh đô tự động tiêu biến.",
+    "statMods": {}
+  },
+  "eff_truy_na_quan_phu": {
+    "id": "eff_truy_na_quan_phu",
+    "name": "Lệnh Bài Truy Nã",
+    "type": "debuff",
+    "tier": 6,
+    "durationMinutes": 10080,
+    "desc": "Lính gác cổng thành bắt giữ ngay lập tức, phu xe từ chối chở đi. (Nguồn: Giết quan sai, cướp ngục Thiên Lao, quỵt nợ thương hội phàm trần.)",
+    "remedy": "Đút lót bạc xóa án, nhờ quý nhân gỡ lệnh, hoặc vượt ngục trốn xa.",
+    "statMods": {}
+  },
+  "eff_mon_quy_giam_cam": {
+    "id": "eff_mon_quy_giam_cam",
+    "name": "Tư Quá Nhai Sám Hối",
+    "type": "debuff",
+    "tier": 6,
+    "durationMinutes": 1440,
+    "desc": "Khóa chặt tại vách đá hối lỗi, cấm dùng pháp bảo, cấm bay lượn. (Nguồn: Vi phạm giới luật tông môn (trộm thuốc, đánh đồng môn).)",
+    "remedy": "Ngồi đủ số ngày phạt bế quan sám hối của Chưởng Môn.",
+    "statMods": {}
+  },
+  "eff_kiem_y_buc_nguoi": {
+    "id": "eff_kiem_y_buc_nguoi",
+    "name": "Kiếm Ý Sát Thân",
+    "type": "debuff",
+    "tier": 7,
+    "durationMinutes": 1440,
+    "desc": "Người không tu kiếm bị trừ 20% Thủ do kiếm khí vô hình cứa rách da. (Nguồn: Bước vào Thanh Vân Kiếm Tông (Kiếm Trủng).)",
+    "remedy": "Bước ra khỏi Kiếm Trủng, hoặc mang Khí vận Tuyệt Thế Kiếm Tu.",
+    "statMods": {}
+  },
+  "eff_duoc_huong_bo_khi": {
+    "id": "eff_duoc_huong_bo_khi",
+    "name": "Linh Điền Dược Hương",
+    "type": "buff",
+    "tier": 7,
+    "durationMinutes": 1440,
+    "desc": "Thể lực hồi nhanh gấp đôi, tâm thần thư thái. (Nguồn: Tĩnh tọa tại ruộng thuốc ngàn năm Hạc Quy Cốc.)",
+    "remedy": "Rời khỏi Hạc Quy Cốc.",
+    "statMods": {}
+  },
+  "eff_sinh_co_than_moc": {
+    "id": "eff_sinh_co_than_moc",
+    "name": "Thần Mộc Thọ Mạch",
+    "type": "buff",
+    "tier": 7,
+    "durationMinutes": 1440,
+    "desc": "Máu hồi phục tự nhiên x3, tuổi thọ sinh cơ dồi dào. (Nguồn: Nằm nghỉ dưới bóng râm Tiếp Thiên Thần Mộc.)",
+    "remedy": "Rời khỏi Thần Mộc Thôn.",
+    "statMods": {}
+  },
+  "eff_chuong_khi_u_coc": {
+    "id": "eff_chuong_khi_u_coc",
+    "name": "Vạn Độc Chướng Khí",
+    "type": "debuff",
+    "tier": 7,
+    "durationMinutes": 1440,
+    "desc": "Giảm 50% hiệu quả đan dược hồi máu, da dẻ chuyển xanh thẫm. (Nguồn: Hít thở không khí tại Vạn Độc U Cốc hoặc Đầm Lầy Hắc Thủy.)",
+    "remedy": "Đeo Tị Độc Châu, uống Thanh Độc Hoàn trước khi vào.",
+    "statMods": {}
+  },
+  "eff_cam_linh_co_thap": {
+    "id": "eff_cam_linh_co_thap",
+    "name": "Viễn Cổ Tuyệt Linh",
+    "type": "debuff",
+    "tier": 7,
+    "durationMinutes": 60,
+    "desc": "Linh lực bị khóa 50%, cấm ngự kiếm phi hành, chỉ dựa vào cận chiến. (Nguồn: Tầng sâu phong ấn Cổ Ma Tháp.)",
+    "remedy": "Bước ra khỏi cổng Cổ Ma Tháp.",
+    "statMods": {}
+  },
+  "eff_cuc_han_bang_phach": {
+    "id": "eff_cuc_han_bang_phach",
+    "name": "Băng Cực Thấu Tủy",
+    "type": "debuff",
+    "tier": 7,
+    "durationMinutes": 60,
+    "desc": "Tốc -40, tiêu hao thể lực gấp đôi khi bước đi trên tuyết. (Nguồn: Gió tuyết vĩnh cửu tại Băng Phách Tuyệt Lĩnh và Băng Cốt Cung.)",
+    "remedy": "Mặc áo lông thú quý, uống Liệt Hỏa Tửu sưởi ấm.",
+    "statMods": {
+      "speed": -40
+    }
+  },
+  "eff_oan_sat_huyet_hai": {
+    "id": "eff_oan_sat_huyet_hai",
+    "name": "Huyết Ma Hủ Thần",
+    "type": "debuff",
+    "tier": 7,
+    "durationMinutes": 60,
+    "desc": "Mỗi ngày tăng 5 điểm Tâm Ma, thần trí luôn nghe tiếng gầm rú đòi máu. (Nguồn: Khí sát lục bốc lên từ Huyết Hải Ma Uyên và Thi Âm Tông.)",
+    "remedy": "Đeo Phật Châu trừ tà, hoặc rời cấm địa sang vùng đất thánh.",
+    "statMods": {}
+  },
+  "eff_loan_luu_thoi_khong": {
+    "id": "eff_loan_luu_thoi_khong",
+    "name": "Thời Không Đảo Lộn",
+    "type": "debuff",
+    "tier": 7,
+    "durationMinutes": 60,
+    "desc": "Đồng hồ cõi phàm mất tác dụng, tuổi tác dao động bất định. (Nguồn: Bão thời gian trên Đảo Mây Lơ Lửng.)",
+    "remedy": "Rời khỏi đảo mây trở về đất liền.",
+    "statMods": {}
+  },
+  "eff_man_hoang_uy_ap": {
+    "id": "eff_man_hoang_uy_ap",
+    "name": "Đại Sơn Thú Uy",
+    "type": "debuff",
+    "tier": 7,
+    "durationMinutes": 60,
+    "desc": "Giảm 15% uy lực đòn đánh của phàm nhân do khí thế yêu thú viễn cổ. (Nguồn: Rừng rậm Thập Vạn Đại Sơn.)",
+    "remedy": "Săn giết 1 Yêu Vương để đoạt uy thế chấn áp ngược lại.",
+    "statMods": {}
+  },
+  "eff_loi_kiep_chay": {
+    "id": "eff_loi_kiep_chay",
+    "name": "Lôi Hỏa Thiêu Khắc",
+    "type": "debuff",
+    "tier": 8,
+    "durationMinutes": 10080,
+    "desc": "Max HP giảm 30%, toàn thân cháy xém đen thui như khúc gỗ. (Nguồn: Độ kiếp chịu sấm sét đánh trúng nhục thân không đỡ nổi.)",
+    "remedy": "Cửu Chuyển Tục Mệnh Hoàn, ngâm Mộc Dịch hồi sinh.",
+    "statMods": {}
+  },
+  "eff_loi_kiep_toi_the": {
+    "id": "eff_loi_kiep_toi_the",
+    "name": "Lôi Đình Tôi Thể",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 14400,
+    "desc": "Nhục thân cứng như sắt, Thủ +30, Công +20 đòn đánh mang điện tích. (Nguồn: Vượt qua lôi kiếp thành công trọn vẹn không tì vết.)",
+    "remedy": "Tự dung hòa vào căn cơ sau 10 ngày.",
+    "statMods": {
+      "attack": 20,
+      "defense": 30
+    }
+  },
+  "eff_tam_ma_kiep_khang": {
+    "id": "eff_tam_ma_kiep_khang",
+    "name": "Trảm Ma Chứng Đạo",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 43200,
+    "desc": "Khóa cứng Tâm Ma = 0, miễn nhiễm hoàn toàn mọi đòn tâm linh. (Nguồn: Chém chết Tâm Ma phân thân trong vòng lôi kiếp Độ Kiếp kỳ.)",
+    "remedy": "Tự hết hạn sau 1 tháng.",
+    "statMods": {}
+  },
+  "eff_hoang_co_chi_ton": {
+    "id": "eff_hoang_co_chi_ton",
+    "name": "Hoang Cổ Khai Thiên Uy",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 60,
+    "desc": "Giảm 60% tốc độ địch thủ, đòn đánh nổ 30% sát thương chuẩn theo máu địch. (Nguồn: Thể chất `Hoang Cổ Chí Tôn Thể` kích hoạt thiên phú.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_hon_don_ban_co": {
+    "id": "eff_hon_don_ban_co",
+    "name": "Bàn Cổ Bất Hoại Trọng Lực",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Chuyển sát thương phép thành huyết khí, đánh vỡ nát hư không. (Nguồn: Thể chất `Hỗn Độn Bàn Cổ Khu`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_thai_hu_than_binh": {
+    "id": "eff_thai_hu_than_binh",
+    "name": "Vô Hình Kiếm Khí",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 45,
+    "desc": "Kiếm khí xuyên giáp 100%, cấm kẻ địch hồi phục sinh lực trong 2 hiệp. (Nguồn: Thể chất `Thái Hư Thần Binh Chi Khu`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_am_duong_thai_cuc": {
+    "id": "eff_am_duong_thai_cuc",
+    "name": "Thái Cực Luân Chuyển",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Ngày thiêu đốt thần hồn, đêm đóng băng chân khí, miễn dịch Hỏa và Băng. (Nguồn: Thể chất `Hỗn Độn Thái Cực Thần Thể`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_loi_than_moc_sinh": {
+    "id": "eff_loi_than_moc_sinh",
+    "name": "Lôi Mộc Niết Bàn",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Khóa máu 2% không chết; đón nhận sét đánh hồi 50% HP. (Nguồn: Thể chất `Vạn Cổ Lôi Thần Mộc Khu`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_bo_de_ma_la": {
+    "id": "eff_bo_de_ma_la",
+    "name": "Nhất Niệm Ma Phật",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Giảm 50% sát thương vật lý, miễn nhiễm Quang/Ám, hưởng lợi cả Karma Âm/Dương. (Nguồn: Thể chất `Bồ Đề Ma La Bất Hoại Thân`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_van_co_hu_cot": {
+    "id": "eff_van_co_hu_cot",
+    "name": "Thực Cốt Hủ Thiết",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 60,
+    "desc": "Cắn nuốt quặng khoáng tăng độc; đối thủ đánh cận chiến bị gãy nát vũ khí. (Nguồn: Thể chất `Vạn Cổ Hủ Cốt Ma Độc Thể`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_cuu_u_minh_mi": {
+    "id": "eff_cuu_u_minh_mi",
+    "name": "Mị Ảnh Vong Hồn",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 60,
+    "desc": "Đoạt nguyên khí người sống lẫn ma; phân thân thi khôi gây ảo giác chiến trường. (Nguồn: Thể chất `Cửu U Minh Mị Thể`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_van_yeu_thanh_hoang": {
+    "id": "eff_van_yeu_thanh_hoang",
+    "name": "Thống Ngự Muôn Thú",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Dung hợp 3 Yêu Linh nhận trọn đặc kỹ; yêu thú đồng giai không tấn công. (Nguồn: Thể chất `Vạn Yêu Thánh Hoàng Thể`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_thao_thiet_co_ma": {
+    "id": "eff_thao_thiet_co_ma",
+    "name": "Thôn Thiên Phệ Địa",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 30,
+    "desc": "Xóa bỏ kén ăn; há mồm nuốt trọn năng lượng chiêu thức địch hồi thể lực. (Nguồn: Thể chất `Thao Thiết Ma Độc Cổ Thể`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_thap_nhi_do_thien": {
+    "id": "eff_thap_nhi_do_thien",
+    "name": "Đô Thiên Sát Khí",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 45,
+    "desc": "Thân hóa khổng lồ, miễn dịch 70% ngũ hành, áp chế uy áp cùng bậc. (Nguồn: Thể chất `Thập Nhị Đô Thiên Thần Sát Chân Thân`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_co_gioi_hac_quang": {
+    "id": "eff_co_gioi_hac_quang",
+    "name": "Hoạt Kim Chi Thể",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Ăn cỏ cây lẫn khoáng thạch tăng chỉ số; biến đổi tứ chi thành vũ khí. (Nguồn: Thể chất `Cơ Giới Hắc Quang Thể`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_chung_yen_diem_ky_di": {
+    "id": "eff_chung_yen_diem_ky_di",
+    "name": "Hư Không Diệt Phách",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 30,
+    "desc": "Đòn đánh phân rã vật chất cấp độ nguyên tử, bỏ qua toàn bộ khiên chắn hộ giáp. (Nguồn: Thể chất `Chung Yên Điểm Kỳ Dị Thể`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_hach_tam_co_than": {
+    "id": "eff_hach_tam_co_than",
+    "name": "Hồng Lô Đại Tạo Hóa",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Miễn nhiễm 100% Tâm Ma; không tốn thể lực; bắn tia plasma phá hủy trận pháp. (Nguồn: Thể chất `Hạch Tâm Cơ Thần Khôi Lỗi`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_van_kiep_chan_ton": {
+    "id": "eff_van_kiep_chan_ton",
+    "name": "Chưởng Khống Sinh Tử",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Chết lập tức niết bàn hồi sinh 100% HP (1 lần/kiếp); cướp đoạt thọ nguyên địch. (Nguồn: Thể chất `Vạn Kiếp Chân Tôn Thể`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_chan_menh_de_vuong": {
+    "id": "eff_chan_menh_de_vuong",
+    "name": "Chân Mệnh Chí Tôn",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Tăng 50% xuất hiện kỳ ngộ cực phẩm; kẻ địch tu vi thấp hơn bị giảm 20% công. (Nguồn: Thể chất `Đại Đạo Chân Mệnh Đế Vương`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_hu_vong_chan_the": {
+    "id": "eff_hu_vong_chan_the",
+    "name": "Chân Ngụy Điên Đảo",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 45,
+    "desc": "Biến đòn chí tử vừa nhận thành ảo giác; tạo phân thân thừa hưởng 100% lực chiến. (Nguồn: Thể chất `Hư Vọng Chân Đế Thể`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_bach_thao_bat_tu": {
+    "id": "eff_bach_thao_bat_tu",
+    "name": "Thần Nông Bách Thảo",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Ăn thảo dược trực tiếp tăng tu vi không dính đan độc; máu giải trừ bách độc. (Nguồn: Thể chất `Tiên Thiên Bách Thảo Bất Tử Khu`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_van_tran_quy_tong": {
+    "id": "eff_van_tran_quy_tong",
+    "name": "Trận Khắc Cốt Tủy",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Bố trận tức thời không cần trận kỳ; phản 30% sát thương phép về kẻ địch. (Nguồn: Thể chất `Vạn Trận Quy Tông Thể`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_van_khi_quy_nguyen": {
+    "id": "eff_van_khi_quy_nguyen",
+    "name": "Lưỡng Khí Tề Phi",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Chạy song song hai dòng Linh Lực và Ma Khí không xung đột; công pháp +40% uy lực. (Nguồn: Thể chất `Vạn Khí Quy Nguyên Thể`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_dao_to_toan_tri": {
+    "id": "eff_dao_to_toan_tri",
+    "name": "Ngôn Xuất Pháp Tùy",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Miễn 100% Tâm Ma; học tiên thuật không bao giờ hỏng; khẩu xuất thành pháp chấn áp địch. (Nguồn: Thể chất `Đạo Tổ Toàn Tri Thể`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_thai_so_tich_diet": {
+    "id": "eff_thai_so_tich_diet",
+    "name": "Thời Không Đóng Băng",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 30,
+    "desc": "Phong tỏa dòng thời gian, tước đoạt hoàn toàn lượt hành động kế tiếp của kẻ địch. (Nguồn: Thể chất `Thái Sơ Tịch Diệt Băng Hỏa Căn`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_hon_don_van_khi_cot": {
+    "id": "eff_hon_don_van_khi_cot",
+    "name": "Hỗn Độn Thần Quang",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 45,
+    "desc": "Bắn tia thần quang phá hủy lập tức lớp phòng ngự và khiên chắn đối phương. (Nguồn: Thể chất `Hỗn Độn Vạn Khí Cốt`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_cuc_dao_ma_hoang": {
+    "id": "eff_cuc_dao_ma_hoang",
+    "name": "Ma Hoàng Vô Ngại",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 99999999,
+    "desc": "Sát sinh không tăng Tâm Ma (khóa cứng = 0); đồ sát nhận lượng Exp bộc phát. (Nguồn: Thể chất `Cực Đạo Ma Hoàng Khí Vận`.)",
+    "remedy": "",
+    "statMods": {}
+  },
+  "eff_suong_viem_luyen_nguc": {
+    "id": "eff_suong_viem_luyen_nguc",
+    "name": "Sương Viêm Hủ Thiêu",
+    "type": "buff",
+    "tier": 8,
+    "durationMinutes": 60,
+    "desc": "Đòn đánh gây trạng thái Sương Viêm (vừa đốt máu theo % vừa làm chậm 80% tốc độ). (Nguồn: Thể chất `Sương Viêm Luyện Ngục Thể`.)",
+    "remedy": "",
+    "statMods": {}
+  }
+};
+
+export const OPPOSITION_EFFECT_PAIRS: Record<string, string> = {
+  "eff_hoa_doc_thieu": "eff_han_bang_dong",
+  "eff_han_bang_dong": "eff_hoa_doc_thieu",
+  "eff_doi_bung_cao_cao": "eff_am_ap_da_day",
+  "eff_am_ap_da_day": "eff_doi_bung_cao_cao",
+  "eff_hoi_ham_do_ban": "eff_thanh_khiet_thoang_mat",
+  "eff_thanh_khiet_thoang_mat": "eff_hoi_ham_do_ban",
+  // V1.22.11b FIX: Thêm 5 cặp triệt tiêu tự nhiên
+  "eff_thieu_ngu_trien_mien": "eff_ngu_ngon_phuc_hoi",
+  "eff_ngu_ngon_phuc_hoi": "eff_thieu_ngu_trien_mien",
+  "eff_tam_ma_am_anh": "eff_tam_ma_kiep_khang",
+  "eff_tam_ma_kiep_khang": "eff_tam_ma_am_anh",
+  "eff_ta_niem_ao_giac": "eff_than_niem_khuech_dai",
+  "eff_than_niem_khuech_dai": "eff_ta_niem_ao_giac",
+  "eff_loi_kiep_chay": "eff_loi_kiep_toi_the",
+  "eff_loi_kiep_toi_the": "eff_loi_kiep_chay",
+  "eff_phong_han_cam_mao": "eff_thu_nhiet_say_nang",
+  "eff_thu_nhiet_say_nang": "eff_phong_han_cam_mao"
+};
+
+export const resolveCanonicalEffect = (inputNameOrId: string, currentStageId: number = 1, bgId: string = '') => {
+  if (!inputNameOrId) return null;
+  const raw = String(inputNameOrId).trim().toLowerCase();
+  
+  if (MASTER_EFFECTS_REGISTRY[raw]) {
+    const def = MASTER_EFFECTS_REGISTRY[raw];
+    const isImmune = def.tier === 1 && def.type !== 'buff' && (currentStageId >= 3 || ['bg_20', 'bg_21', 'bg_22', 'bg_ctan', 'bg_undead'].includes(bgId));
+    return { effect: def, isImmune };
+  }
+  
+  for (const k in MASTER_EFFECTS_REGISTRY) {
+    const def = MASTER_EFFECTS_REGISTRY[k];
+    const dName = def.name.toLowerCase();
+    if (dName === raw || raw.includes(dName) || dName.includes(raw)) {
+      const isImmune = def.tier === 1 && def.type !== 'buff' && (currentStageId >= 3 || ['bg_20', 'bg_21', 'bg_22', 'bg_ctan', 'bg_undead'].includes(bgId));
+      return { effect: def, isImmune };
+    }
+  }
+  
+  return null;
+};
+
+// V9.38 FIX: THUẬT TOÁN NHÓM MẢNG CHỐNG TRÙNG LẶP RÁC NGHỀ NGHIỆP
+const ECO_ALL = [1701, 1702, 1703, 1704, 1705, 1706, 1707, 1708, 1709, 1710, 1711, 1712];
+const ALC_ALL = [1801, 1802, 1803, 1804, 1805, 1806, 1807, 1808, 1809, 1810, 1811, 1813, 1814, 1815, 1816, 1817];
+const SMI_ALL = [1901, 1902, 1903, 1904, 1905, 1906, 1907, 1908, 1909, 1910, 1911, 1912, 1913, 1914, 1915, 1916, 1917];
+const PHU_ALL = [1951, 1952, 1953, 1954, 1955, 1956, 1957, 1958, 1959, 1960, 1961, 1962, 1963, 1964, 1965, 1966, 1967];
+const TRAN_ALL = [901, 1972, 1973, 1974, 902, 1976, 1977, 1978, 1979, 1980, 903, 1982, 1983, 1984, 1985, 904, 905];
+const NGO_ALL = [407, 104, 804, 402]; // Cây tiến hóa Ngộ Tính
+

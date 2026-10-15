@@ -1,0 +1,322 @@
+      {isKnowledgeModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[var(--bg-overlay)] p-2 md:p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--bg-panel)] w-full max-w-4xl h-[90vh] rounded-2xl flex flex-col border border-emerald-500/40 shadow-[0_0_50px_rgba(16,185,129,0.15)] relative overflow-hidden">
+            <div className="p-4 md:p-5 border-b border-[var(--border-main)] flex justify-between items-center bg-[#07130e] shrink-0">
+               <div className="flex items-center gap-3">
+                   <div className="bg-emerald-900/30 p-2 rounded-full border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                       <BookOpen className="text-emerald-400" size={24} />
+                   </div>
+                   <div>
+                       <h3 className="text-lg md:text-xl font-bold text-emerald-400 uppercase tracking-widest">Tàng Thư Bản Ngã</h3>
+                       <p className="text-[10px] md:text-xs text-emerald-500/70 mt-0.5">Kho tri thức, kinh nghiệm sinh tồn, điểm yếu quái vật và thảo dược đã tích lũy</p>
+                   </div>
+               </div>
+               <div className="flex items-center gap-3">
+                   <button 
+                       onClick={() => {
+                           const raw = gameState.mcKnowledge || '';
+                           const lines = raw.split('\n');
+                           const rumorCount = lines.filter((l: string) => l.includes('[Tin Đồn]') || l.includes('🟡')).length;
+                           if (rumorCount === 0) {
+                               return showAlert("Trong Tàng Thư hiện không có mẩu tin đồn nào cần xóa!");
+                           }
+                           showConfirm(`Phát hiện ${rumorCount} mẩu tin đồn trong Tàng Thư.\n\nĐạo hữu có chắc muốn xóa sạch toàn bộ các Tin Đồn để thanh lọc tâm trí và giải phóng bộ nhớ không?`, () => {
+                               const filtered = lines.filter((l: string) => !l.includes('[Tin Đồn]') && !l.includes('🟡'));
+                               setGameState((prev: any) => ({ ...prev, mcKnowledge: filtered.join('\n').trim() }));
+                               showAlert(`Đã xóa sạch ${rumorCount} mẩu tin đồn khỏi Tàng Thư Bản Ngã!`);
+                           });
+                       }}
+                       className="px-2.5 py-1.5 bg-yellow-950/40 hover:bg-yellow-900/60 border border-yellow-600/50 hover:border-yellow-500 rounded-lg text-yellow-400 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                       title="Xóa sạch toàn bộ các tin đồn chưa kiểm chứng để giảm dung lượng Tàng Thư"
+                   >
+                       <Trash2 size={14} /> Xóa Tin Đồn
+                   </button>
+                   <span className="text-xs font-mono font-bold bg-[var(--bg-body)] px-3 py-1.5 rounded-lg border border-emerald-900/50 text-emerald-400">
+                       Dung lượng: {(gameState.mcKnowledge || '').length.toLocaleString('vi-VN')} / 50.000 ký tự
+                   </span>
+                   <button onClick={() => setIsKnowledgeModalOpen(false)} className="p-2 bg-[var(--bg-body)] hover:bg-[var(--bg-hover)] border border-[var(--border-main)] rounded-lg text-[var(--text-muted)] transition-colors"><X size={20}/></button>
+               </div>
+            </div>
+
+            {/* Thanh Tìm Kiếm & Bộ Lọc Nhãn */}
+            <div className="p-4 border-b border-[var(--border-main)] bg-[var(--bg-body)] flex flex-col sm:flex-row gap-3 shrink-0">
+                <div className="relative flex-1">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                    <input 
+                        type="text" 
+                        placeholder="Tìm kiếm mẩu tri thức, điểm yếu quái vật, địa danh..." 
+                        value={knowledgeSearch} 
+                        onChange={e => setKnowledgeSearch(e.target.value)} 
+                        className="w-full bg-[var(--bg-surface)] border border-[var(--border-main)] rounded-xl pl-9 pr-8 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:border-emerald-500 transition-colors shadow-inner" 
+                    />
+                    {knowledgeSearch && (
+                        <button onClick={() => setKnowledgeSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] p-0.5" title="Xóa tìm kiếm">
+                            <X size={16} />
+                        </button>
+                    )}
+                </div>
+                <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1 sm:pb-0 shrink-0">
+                    <button onClick={() => setKnowledgeFilter('all')} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border transition-colors ${knowledgeFilter === 'all' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-[var(--bg-surface)] border-[var(--border-main)] text-[var(--text-muted)] hover:text-[var(--text-bold)]'}`}>Tất Cả</button>
+                    <button onClick={() => setKnowledgeFilter('Đã Kiểm Chứng')} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border transition-colors flex items-center gap-1 ${knowledgeFilter === 'Đã Kiểm Chứng' ? 'bg-emerald-700 border-emerald-500 text-white' : 'bg-emerald-950/20 border-emerald-900/40 text-emerald-400'}`}>🟢 Đã Kiểm Chứng</button>
+                    <button onClick={() => setKnowledgeFilter('Tin Đồn')} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border transition-colors flex items-center gap-1 ${knowledgeFilter === 'Tin Đồn' ? 'bg-yellow-700 border-yellow-500 text-white' : 'bg-yellow-950/20 border-yellow-900/40 text-yellow-400'}`}>🟡 Tin Đồn</button>
+                    <button onClick={() => setKnowledgeFilter('Nguy Cơ Lỗi Thời')} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border transition-colors flex items-center gap-1 ${knowledgeFilter === 'Nguy Cơ Lỗi Thời' ? 'bg-red-700 border-red-500 text-white' : 'bg-red-950/20 border-red-900/40 text-red-400'}`}>🔴 Nguy Cơ Lỗi Thời</button>
+                    <button onClick={() => setKnowledgeFilter('Đã Đính Chính')} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border transition-colors flex items-center gap-1 ${knowledgeFilter === 'Đã Đính Chính' ? 'bg-purple-700 border-purple-500 text-white' : 'bg-purple-950/20 border-purple-900/40 text-purple-400'}`}>🟣 Đã Đính Chính</button>
+                </div>
+            </div>
+            
+            {/* Danh Sách Mẩu Tri Thức */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[var(--bg-body)] space-y-3">
+                {(() => {
+                    const parsedList = parseKnowledgeLines(gameState.mcKnowledge, Math.floor(gameState.age)).slice().reverse();
+                    
+                    let filteredList = parsedList;
+                    if (knowledgeFilter !== 'all') {
+                        filteredList = filteredList.filter(item => item.status === knowledgeFilter);
+                    }
+                    if (knowledgeSearch.trim()) {
+                        const q = knowledgeSearch.toLowerCase().trim();
+                        filteredList = filteredList.filter(item => item.content.toLowerCase().includes(q) || item.timeTag.toLowerCase().includes(q) || item.chapterTag.toLowerCase().includes(q));
+                    }
+
+                    if (filteredList.length === 0) {
+                        return (
+                            <div className="text-center py-20 flex flex-col items-center justify-center opacity-60">
+                                <BookOpen size={48} className="text-emerald-500 mb-3 opacity-30" />
+                                <p className="text-base text-[var(--text-muted)] italic">Tàng thư chưa có ghi chép nào phù hợp với bộ lọc này.</p>
+                                <p className="text-xs text-[var(--text-muted)] mt-1">Hãy thám hiểm, điều tra, bái sư hoặc sưu hồn để bổ sung tri thức bản ngã!</p>
+                            </div>
+                        );
+                    }
+
+                    return filteredList.map(entry => (
+                        <div key={entry.id} className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] hover:border-emerald-500/40 transition-colors shadow-sm relative overflow-hidden group">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded border shadow-sm ${entry.statusColor}`}>
+                                    {entry.statusTag}
+                                </span>
+                                <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--text-muted)]">
+                                    {entry.timeTag && <span className="bg-[var(--bg-body)] px-2 py-0.5 rounded border border-[var(--border-main)]">{entry.timeTag}</span>}
+                                    {entry.chapterTag && <span className="bg-teal-950/30 text-teal-400 px-2 py-0.5 rounded border border-teal-800/30">{entry.chapterTag}</span>}
+                                    {entry.status === 'Tin Đồn' && (
+                                        <button 
+                                            onClick={() => {
+                                                const raw = gameState.mcKnowledge || '';
+                                                const lines = raw.split('\n');
+                                                const filtered = lines.filter((l: string) => l.trim() !== entry.raw.trim());
+                                                setGameState((prev: any) => ({ ...prev, mcKnowledge: filtered.join('\n').trim() }));
+                                            }}
+                                            className="text-[10px] text-yellow-500 hover:text-red-400 p-1 rounded hover:bg-yellow-950/30 transition-colors flex items-center gap-0.5 border border-yellow-700/30"
+                                            title="Xóa mẩu tin đồn này"
+                                        >
+                                            <Trash2 size={11} /> Xóa
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="text-sm text-[var(--text-main)] leading-relaxed whitespace-pre-wrap mt-2 pl-1 border-l-2 border-emerald-500/30">
+                                {entry.content}
+                            </div>
+                            {entry.status === 'Nguy Cơ Lỗi Thời' && (
+                                <div className="mt-2.5 pt-2 border-t border-red-900/30 flex items-center gap-1.5 text-[10px] text-red-400/90 italic font-bold">
+                                    <AlertTriangle size={12} className="shrink-0 animate-pulse"/> Thông tin này đã biết hơn 30 năm trước mà chưa kiểm tra lại, thực tại xung quanh có thể đã biến động hoặc lụi tàn!
+                                </div>
+                            )}
+                            {entry.status === 'Tin Đồn' && (
+                                <div className="mt-2.5 pt-2 border-t border-yellow-900/30 flex items-center gap-1.5 text-[10px] text-yellow-400/90 italic font-bold">
+                                    <Info size={12} className="shrink-0"/> Tin tức nghe lỏm từ giang hồ, chưa được kiểm chứng trực tiếp, cẩn thận cạm bẫy hoặc tin giả thổi phồng!
+                                </div>
+                            )}
+                        </div>
+                    ));
+                })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
+      {/* V1.77 & V2.38 FIX: MODAL TỬ VONG LUÂN HỒI & TÍCH HỢP NGHỊCH CHUYỂN THỜI KHÔNG (BÁO LỖI YANG) */}
+      {(coopDeathModal?.isOpen || (gameState.health <= 0 && !isGameOverDismissed)) && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-[var(--bg-surface)] border-2 border-red-800/80 rounded-2xl w-full max-w-lg p-6 shadow-[0_0_50px_rgba(239,68,68,0.3)] relative overflow-hidden text-center">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-600 via-rose-500 to-purple-600"></div>
+            
+            {/* V2.38 FIX: Nút thu gọn / đóng tạm modal để đọc lại diễn biến cốt truyện */}
+            <button 
+              onClick={() => setIsGameOverDismissed(true)} 
+              className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+              title="Thu gọn để đọc lại diễn biến chương"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="w-16 h-16 rounded-full bg-red-950/60 border border-red-500/50 flex items-center justify-center mx-auto mb-4 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)]">
+              <Skull size={36} className="animate-pulse" />
+            </div>
+
+            <h3 className="text-xl md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-rose-300 to-orange-400 uppercase tracking-widest mb-2">
+              Vẫn Lạc Tiên Hữu
+            </h3>
+            
+            <p className="text-xs md:text-sm text-[var(--text-muted)] mb-6 leading-relaxed">
+              Thân xác đã hóa cát bụi, linh lực quy hoàn thiên địa. Đứng trước ngưỡng cửa vô thường, ngươi có thể định đoạt nhân quả hoặc nghịch chuyển thời không:
+            </p>
+
+            {/* Check Luân Hồi Chí Tôn indicator */}
+            {(() => {
+              const hasLuanHoi = (gameState.traits || []).some(t => t && (t.name === 'Luân Hồi Chí Tôn' || t.name === 'Luân Hồi Chi Tôn' || t.id === 702));
+              if (hasLuanHoi) {
+                return (
+                  <div className="mb-6 p-3.5 bg-purple-950/40 border border-purple-500/40 rounded-xl text-left flex items-start gap-2.5">
+                    <Sparkles size={20} className="text-purple-400 shrink-0 mt-0.5 animate-pulse" />
+                    <div>
+                      <span className="text-xs font-bold text-purple-300 block">Khí Vận [Luân Hồi Chí Tôn] Phát Quang!</span>
+                      <span className="text-[11px] text-purple-200/90 leading-tight block mt-0.5">Sở hữu <strong className="text-yellow-400 font-black">70% tỷ lệ giữ nguyên cảnh giới [{gameState.cultivationLevel}]</strong> và toàn bộ tu vi khi chọn Luân Hồi!</span>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div className="mb-6 p-3 bg-[var(--bg-body)] border border-[var(--border-main)] rounded-xl text-xs text-[var(--text-muted)] text-left flex items-center gap-2">
+                  <RotateCcw size={16} className="text-teal-400 shrink-0" />
+                  <span>Luân hồi sẽ chuyển sinh làm lại từ <strong className="text-teal-300">Phàm Nhân</strong> (bảo toàn đạo tâm và bản ngã).</span>
+                </div>
+              );
+            })()}
+
+            <div className="space-y-3">
+              {/* V2.38 FIX: Nút Nghịch Chuyển (Lùi 1 Lượt) trực tiếp ngay trên Modal Luân Hồi */}
+              {Boolean(timeMachineBuffer[currentProfileId] || (typeof localStorage !== 'undefined' && localStorage.getItem(`tuTienSnapshot_${currentProfileId}`))) && gameState.gameMode !== 'coop' && gameState.gameMode !== 'lien_gioi' && (
+                <button 
+                  onClick={() => {
+                    handleTimeReversal();
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-700 via-indigo-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-500 text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all transform active:scale-95 border border-blue-400/40"
+                >
+                  <RotateCcw size={16} className="animate-spin-slow" /> Nghịch Chuyển Thời Không (Lùi 1 Lượt)
+                </button>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button 
+                  onClick={handleCoopRebirth}
+                  className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-teal-700 to-emerald-600 hover:from-teal-600 hover:to-emerald-500 text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all transform active:scale-95"
+                >
+                  <RotateCcw size={16} /> Tiếp Tục Luân Hồi
+                </button>
+
+                <button 
+                  onClick={handleCoopPermanentDeath}
+                  className="flex-1 py-3 px-4 rounded-xl bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-800/80 font-bold text-sm shadow-md flex items-center justify-center gap-2 transition-all transform active:scale-95"
+                >
+                  <Skull size={16} /> Vĩnh Viễn Chết
+                </button>
+              </div>
+
+              {/* V2.38 FIX: Nút Đọc Lại Diễn Biến */}
+              <button 
+                onClick={() => setIsGameOverDismissed(true)}
+                className="w-full py-2 px-4 rounded-xl bg-[var(--bg-body)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-main)] font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <BookOpen size={14} /> Thu Gọn / Xem Lại Diễn Biến Cốt Truyện
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* V2.38 FIX: Floating Banner khi thu gọn Modal Tử Vong để người chơi đọc truyện */}
+      {gameState.health <= 0 && isGameOverDismissed && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[80] bg-red-950/95 border-2 border-red-500/80 rounded-2xl px-5 py-3 shadow-[0_0_30px_rgba(239,68,68,0.5)] backdrop-blur-md flex flex-wrap items-center justify-between gap-3 max-w-xl w-[92vw] animate-in slide-in-from-bottom duration-300">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Skull size={20} className="text-red-500 animate-pulse shrink-0" />
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-red-300 uppercase tracking-wider">Đã Thân Tử Đạo Tiêu</div>
+              <div className="text-[11px] text-red-200/80 truncate max-w-[200px] md:max-w-xs">{gameState.deathReason || 'Nhân vật đã vẫn lạc.'}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {Boolean(timeMachineBuffer[currentProfileId] || (typeof localStorage !== 'undefined' && localStorage.getItem(`tuTienSnapshot_${currentProfileId}`))) && gameState.gameMode !== 'coop' && gameState.gameMode !== 'lien_gioi' && (
+              <button 
+                onClick={handleTimeReversal}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow transition-colors"
+              >
+                <RotateCcw size={14} /> Lùi 1 Lượt
+              </button>
+            )}
+            <button 
+              onClick={() => setIsGameOverDismissed(false)}
+              className="px-3 py-1.5 bg-gradient-to-r from-teal-700 to-emerald-600 hover:from-teal-600 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow transition-colors"
+            >
+              <Sparkles size={14} /> Mở Bảng Luân Hồi
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* V1.77: MODAL TẶNG BẢO VẬT CHO TIÊN HỮU GẦN */}
+      {coopGiftModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[var(--bg-surface)] border border-teal-500/50 rounded-2xl w-full max-w-md p-5 shadow-2xl relative">
+            <div className="flex justify-between items-center mb-4 border-b border-[var(--border-main)] pb-3">
+              <h4 className="font-bold text-teal-400 text-sm flex items-center gap-2">
+                <Gift size={16} /> Trao Tặng Bảo Vật cho [{coopGiftModal.player.characterName || coopGiftModal.player.name}]
+              </h4>
+              <button onClick={() => { setCoopGiftModal(null); setSelectedGiftItem(null); }} className="text-[var(--text-muted)] hover:text-white p-1"><X size={18}/></button>
+            </div>
+
+            <p className="text-xs text-[var(--text-muted)] mb-3">
+              Chọn một vật phẩm từ túi đồ để chuyển giao cho đạo hữu:
+            </p>
+
+            <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1.5 mb-4 pr-1">
+              {(gameState.inventory || []).length === 0 ? (
+                <div className="text-xs text-[var(--text-muted)] italic text-center py-4">Túi đồ rỗng.</div>
+              ) : (
+                gameState.inventory.map((item, idx) => (
+                  <div 
+                    key={idx} 
+                    onClick={() => { setSelectedGiftItem(item); setGiftQuantity(1); }}
+                    className={`p-2.5 rounded-lg border text-xs cursor-pointer flex justify-between items-center transition-all ${selectedGiftItem?.name === item.name ? 'bg-teal-900/40 border-teal-400 text-white shadow-inner' : 'bg-[var(--bg-body)] border-[var(--border-main)] text-[var(--text-muted)] hover:border-teal-500/50'}`}
+                  >
+                    <span className="font-bold">{item.name} <span className="text-[10px] text-gray-500">[{item.rarity || 'Thường'}]</span></span>
+                    <span className="text-[11px] font-mono text-teal-300 font-bold">x{item.quantity || 1}</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {selectedGiftItem && (
+              <div className="mb-4 p-2.5 bg-[var(--bg-body)] rounded-xl border border-[var(--border-main)] flex items-center justify-between">
+                <span className="text-xs text-[var(--text-muted)]">Số lượng tặng:</span>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="number" 
+                    min={1} 
+                    max={selectedGiftItem.quantity || 1} 
+                    value={giftQuantity} 
+                    onChange={e => setGiftQuantity(Math.max(1, Math.min(selectedGiftItem.quantity || 1, parseInt(e.target.value) || 1)))} 
+                    className="w-16 bg-[var(--bg-surface)] border border-[var(--border-main)] text-center text-xs py-1 rounded font-bold text-white outline-none"
+                  />
+                  <span className="text-xs text-gray-500">/ {selectedGiftItem.quantity || 1}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button onClick={() => { setCoopGiftModal(null); setSelectedGiftItem(null); }} className="flex-1 py-2 rounded-xl bg-gray-800 text-gray-300 font-bold text-xs hover:bg-gray-700">Hủy</button>
+              <button 
+                disabled={!selectedGiftItem}
+                onClick={handleSendCoopGift}
+                className="flex-1 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all"
+              >
+                Xác Nhận Trao Tặng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

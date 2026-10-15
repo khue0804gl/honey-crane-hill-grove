@@ -1,0 +1,282 @@
+  const handleUpgradeTavern = () => {
+    const tv = getTavern(gameState);
+    if (tv.level >= 5) {
+      return showAlert("[TỬU LÂU CỰC ĐẠI] Tửu quán của bạn đã đạt Cấp 5: Vạn Giới Đệ Nhất Lâu, chấn nhiếp chư thiên!");
+    }
+    const nextCfg = TAVERN_TIERS[tv.level];
+    const cost = nextCfg.upgradeCost;
+    if ((Number(gameState.spiritStones) || 0) < cost) {
+      return showAlert(`Không đủ Linh Thạch! Cần ${cost.toLocaleString()} Linh Thạch trong túi để nâng cấp lên [${nextCfg.name}].`);
+    }
+
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      return {
+        ...prev,
+        spiritStones: Math.max(0, (Number(prev.spiritStones) || 0) - cost),
+        tavern: {
+          ...curTv,
+          level: curTv.level + 1,
+          tier: nextCfg.name,
+          tables: nextCfg.maxTables,
+          reputation: curTv.reputation + 100,
+          dailyRevenue: curTv.dailyRevenue + nextCfg.baseIncome,
+          financeLogs: [
+            { time: `Năm ${prev.age || 18}`, type: 'Chi', amount: cost, desc: `Nâng cấp tửu quán lên [${nextCfg.name}]` },
+            ...(curTv.financeLogs || [])
+          ].slice(0, 30)
+        }
+      };
+    });
+    showAlert(`[THĂNG CẤP TỬU LÂU] Chúc mừng! Tửu quán đã nâng cấp lên Cấp ${nextCfg.level}: [${nextCfg.name}]! Tăng lên ${nextCfg.maxTables} bàn khách và mở rộng quy mô.`);
+  };
+
+  const handleDepositTavernVault = (amount: number) => {
+    if ((Number(gameState.spiritStones) || 0) < amount) {
+      return showAlert(`Không đủ Linh Thạch! Túi đồ chỉ có ${Number(gameState.spiritStones || 0).toLocaleString()} Linh Thạch.`);
+    }
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      return {
+        ...prev,
+        spiritStones: Math.max(0, (Number(prev.spiritStones) || 0) - amount),
+        tavern: {
+          ...curTv,
+          vault: (Number(curTv.vault) || 0) + amount,
+          financeLogs: [
+            { time: `Năm ${prev.age || 18}`, type: 'Thu', amount, desc: `Chủ nhân nạp ${amount.toLocaleString()} Linh Thạch vào ngân quỹ tửu quán` },
+            ...(curTv.financeLogs || [])
+          ].slice(0, 30)
+        }
+      };
+    });
+    showAlert(`Đã nạp ${amount.toLocaleString()} Linh Thạch vào Ngân Quỹ Tửu Quán thành công!`);
+  };
+
+  const handleWithdrawTavernVault = (amount: number) => {
+    const tv = getTavern(gameState);
+    if ((Number(tv.vault) || 0) < amount) {
+      return showAlert(`Ngân quỹ tửu quán không đủ! Hiện chỉ có ${Number(tv.vault || 0).toLocaleString()} Linh Thạch.`);
+    }
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      return {
+        ...prev,
+        spiritStones: (Number(prev.spiritStones) || 0) + amount,
+        tavern: {
+          ...curTv,
+          vault: Math.max(0, (Number(curTv.vault) || 0) - amount),
+          financeLogs: [
+            { time: `Năm ${prev.age || 18}`, type: 'Chi', amount, desc: `Chủ nhân rút ${amount.toLocaleString()} Linh Thạch từ ngân quỹ tửu quán` },
+            ...(curTv.financeLogs || [])
+          ].slice(0, 30)
+        }
+      };
+    });
+    showAlert(`Đã rút ${amount.toLocaleString()} Linh Thạch từ Ngân Quỹ Tửu Quán về túi đồ thành công!`);
+  };
+
+  const handleDrinkWine = (wineId: string) => {
+    const tv = getTavern(gameState);
+    const wine = (tv.wines || []).find((w: any) => w.id === wineId);
+    if (!wine || (wine.stock || 0) <= 0) {
+      return showAlert("Loại rượu này trong hầm đã cạn bình! Hãy ủ thêm mẻ mới.");
+    }
+
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      const updatedWines = curTv.wines.map((w: any) => w.id === wineId ? { ...w, stock: Math.max(0, w.stock - 1) } : w);
+      let hpBuff = 0;
+      let mpBuff = 0;
+      let expBuff = 0;
+      let corruptionReduce = 0;
+
+      if (wine.name === 'Trúc Diệp Thanh') {
+        mpBuff = Math.floor((Number(prev.maxSpiritualEnergy) || 50) * 0.15);
+      } else if (wine.name === 'Bách Thảo Quỳnh Tương') {
+        hpBuff = Math.floor((Number(prev.maxHealth) || 100) * 0.25);
+        corruptionReduce = 5;
+      } else if (wine.name === 'Cửu Chuyển Tiên Tửu') {
+        expBuff = 100;
+      }
+
+      return {
+        ...prev,
+        health: Math.min(Number(prev.maxHealth) || 100, (Number(prev.health) || 0) + hpBuff),
+        spiritualEnergy: Math.min(Number(prev.maxSpiritualEnergy) || 50, (Number(prev.spiritualEnergy) || 0) + mpBuff),
+        cultivationProgress: (Number(prev.cultivationProgress) || 0) + expBuff,
+        corruption: Math.max(0, (Number(prev.corruption) || 0) - corruptionReduce),
+        tavern: {
+          ...curTv,
+          wines: updatedWines
+        }
+      };
+    });
+    showAlert(`[THƯỞNG TỬU GIANG HỒ]
+Bạn nhấp một ngụm [${wine.name}] (${wine.ageYears} năm ủ).
+• Hương vị: ${wine.potency}
+• Công hiệu: ${wine.effect}`);
+  };
+
+  const handleBrewWine = (wineName: string) => {
+    const tv = getTavern(gameState);
+    if ((Number(tv.vault) || 0) < 50) {
+      return showAlert("Ngân quỹ tửu quán không đủ 50 Linh Thạch để mua men rượu và dược dẫn ủ mới!");
+    }
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      const updatedWines = curTv.wines.map((w: any) => {
+        if (w.name === wineName) {
+          return { ...w, stock: (w.stock || 0) + 5, ageYears: (w.ageYears || 1) + 2 };
+        }
+        return w;
+      });
+      return {
+        ...prev,
+        tavern: {
+          ...curTv,
+          vault: Math.max(0, (Number(curTv.vault) || 0) - 50),
+          wines: updatedWines,
+          financeLogs: [
+            { time: `Năm ${prev.age || 18}`, type: 'Chi', amount: 50, desc: `Ủ thêm 5 vò [${wineName}] vào hầm rượu` },
+            ...(curTv.financeLogs || [])
+          ].slice(0, 30)
+        }
+      };
+    });
+    showAlert(`[Ủ RƯỢU THÀNH CÔNG] Đã ủ thành công thêm 5 vò [${wineName}] lưu vào Hầm Rượu của tửu quán!`);
+  };
+
+  const handleSlaughterBeast = (beastId: string) => {
+    const tv = getTavern(gameState);
+    const beast = (tv.beasts || []).find((b: any) => b.id === beastId);
+    if (!beast || (beast.count || 0) <= 0) {
+      return showAlert("Khu chuồng trại hiện không còn linh thú loại này!");
+    }
+
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      const updatedBeasts = curTv.beasts.map((b: any) => b.id === beastId ? { ...b, count: Math.max(0, b.count - 1) } : b);
+      const meatYield = beast.tier * 8 + 10;
+      const updatedIngredients = curTv.ingredients.map((ing: any) => {
+        if (ing.type === 'Thịt Yêu Thú') {
+          return { ...ing, quantity: (ing.quantity || 0) + meatYield };
+        }
+        return ing;
+      });
+
+      return {
+        ...prev,
+        tavern: {
+          ...curTv,
+          beasts: updatedBeasts,
+          ingredients: updatedIngredients
+        }
+      };
+    });
+    showAlert(`[CHẾ BIẾN LINH THÚ] Đã đưa 1 con [${beast.name}] vào phòng bếp! Thu được thêm ${beast.tier * 8 + 10} Cân Thịt Yêu Thú nhập kho.`);
+  };
+
+  const handleHarvestFruit = (fruitId: string) => {
+    const tv = getTavern(gameState);
+    const fruit = (tv.fruits || []).find((f: any) => f.id === fruitId);
+    if (!fruit) return;
+
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      const updatedFruits = curTv.fruits.map((f: any) => {
+        if (f.id === fruitId) {
+          return { ...f, count: (f.count || 0) + (f.yieldPerHarvest || 5), harvestDaysLeft: 3 };
+        }
+        return f;
+      });
+      return {
+        ...prev,
+        tavern: {
+          ...curTv,
+          fruits: updatedFruits
+        }
+      };
+    });
+    showAlert(`[THU HOẠCH LINH QUẢ] Vườn quả đã thu hoạch thêm +${fruit.yieldPerHarvest || 5} quả [${fruit.name}] tươi mọng!`);
+  };
+
+  const handleScoutNews = () => {
+    const tv = getTavern(gameState);
+    if ((Number(tv.vault) || 0) < 20) {
+      return showAlert("Ngân quỹ tửu quán không đủ 20 Linh Thạch để thưởng cho tiểu nhị đi dò la tin tức!");
+    }
+    const sampleRumors = [
+      { source: 'Khách Qua Đường', title: 'Thiên Hỏa Lạc Xuống Hoang Mạc', content: 'Có tu sĩ trông thấy thiên thạch bốc cháy rơi xuống biên giới phía tây, bên trong nghi có dị hỏa bản nguyên.', type: 'Kỳ Ngộ' },
+      { source: 'Thương Nhân Bắc Vực', title: 'Giá Linh Phù & Khôi Lỗi Biến Động', content: 'Do chiến sự ma đạo bùng nổ, các phường thị lớn đang khan hiếm Truyền Tống Phù và Đan Dược trị thương.', type: 'Thị Trường' },
+      { source: 'Tán Tu Bí Ẩn', title: 'Yêu Thú Thức Tỉnh Tại U Ám Cốc', content: 'Một đầu Xích Diễm Hổ Ngũ Giai vừa xuất hiện ở sâu trong sơn mạch, đả thương nhiều toán thợ săn.', type: 'Biến Cố' },
+      { source: 'Lão Già Say Rượu', title: 'Bí Mật Động Phủ Đạo Tổ', content: 'Nghe đồn ngọc giản ghi chép truyền thừa của Cửu Tiêu Kiếm Tôn đã thất lạc vào tay một gã phàm nhân may mắn.', type: 'Bảo Vật' }
+    ];
+    const picked = sampleRumors[Math.floor(Math.random() * sampleRumors.length)];
+    const newEntry = {
+      id: `nw_${Date.now()}`,
+      time: `Vừa xong`,
+      source: picked.source,
+      title: picked.title,
+      content: picked.content,
+      type: picked.type as any
+    };
+
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      return {
+        ...prev,
+        tavern: {
+          ...curTv,
+          vault: Math.max(0, (Number(curTv.vault) || 0) - 20),
+          news: [newEntry, ...(curTv.news || [])].slice(0, 20),
+          financeLogs: [
+            { time: `Năm ${prev.age || 18}`, type: 'Chi', amount: 20, desc: `Thưởng tiểu nhị nghe ngóng tin tức giang hồ` },
+            ...(curTv.financeLogs || [])
+          ].slice(0, 30)
+        }
+      };
+    });
+    showAlert(`[TIN TỨC MỚI THU THẬP]
+Tiểu nhị vừa dò la được tin:
+"${newEntry.title}"
+${newEntry.content}`);
+  };
+
+  const handleRewardStaff = (staffId: string) => {
+    const tv = getTavern(gameState);
+    if ((Number(tv.vault) || 0) < 30) {
+      return showAlert("Ngân quỹ tửu quán không đủ 30 Linh Thạch để ban thưởng nhân sự!");
+    }
+    setGameState((prev: any) => {
+      const curTv = getTavern(prev);
+      const updatedStaff = curTv.staff.map((st: any) => {
+        if (st.id === staffId) {
+          return { ...st, loyalty: Math.min(100, (st.loyalty || 80) + 10) };
+        }
+        return st;
+      });
+      return {
+        ...prev,
+        tavern: {
+          ...curTv,
+          vault: Math.max(0, (Number(curTv.vault) || 0) - 30),
+          staff: updatedStaff,
+          financeLogs: [
+            { time: `Năm ${prev.age || 18}`, type: 'Chi', amount: 30, desc: `Ban thưởng nhân sự trong tửu quán` },
+            ...(curTv.financeLogs || [])
+          ].slice(0, 30)
+        }
+      };
+    });
+    showAlert("Đã ban thưởng 30 Linh Thạch! Lòng trung thành của nhân sự tăng thêm +10 điểm.");
+  };
+
+  const [isChaosTowerModalOpen, setIsChaosTowerModalOpen] = useState(false);
+  const [towerFontSize, setTowerFontSize] = useState(16);
+  const [chaosTowerState, setChaosTowerState] = useState({
+      targetFloor: 1, status: 'lobby', logs: [], myHP: 100, myMaxHP: 100, myMP: 50, myMaxMP: 50, myStamina: 100, myMaxStamina: 100,
+      oppName: '', oppLevel: '', oppHP: 100, oppMaxHP: 100, oppMP: 50, oppMaxMP: 50, oppStamina: 100, oppMaxStamina: 100,
+      oppAtk: 10, oppDef: 10, oppSpd: 10, oppSpp: 10, oppDesc: '', oppStrategy: '', oppPersonality: '', oppSkills: [],
+      isGenerating: false, customAction: '', options: []
+  });

@@ -1,0 +1,465 @@
+      {/* V6.94: STAT HISTORY & BREAKDOWN MODAL */}
+      {statHistoryModal.isOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[var(--bg-overlay)] p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--bg-panel)] p-0 rounded-2xl max-w-2xl w-full border border-[var(--border-main)] shadow-2xl flex flex-col overflow-hidden max-h-[85vh]">
+            <div className="p-4 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-surface)] shrink-0">
+               <div className="flex items-center gap-3">
+                   {statHistoryModal.activeRecord ? (
+                       <button onClick={() => setStatHistoryModal(p => ({...p, activeRecord: null}))} className="text-teal-500 hover:text-teal-400 bg-teal-900/20 p-2 rounded-lg transition-colors"><RotateCcw size={20}/></button>
+                   ) : (
+                       <Activity className="text-teal-500" size={24} />
+                   )}
+                   <h3 className="text-lg font-bold text-teal-500 uppercase tracking-widest">Lịch Sử: {statHistoryModal.title}</h3>
+               </div>
+               <button onClick={() => setStatHistoryModal({isOpen: false, title: '', history: [], activeRecord: null})} className="p-2 hover:bg-[var(--bg-hover)] rounded text-[var(--text-muted)]"><X size={20}/></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-[var(--bg-body)]">
+                {statHistoryModal.activeRecord ? (
+                    /* VIEW 2: CHI TIẾT BÓC TÁCH (BREAKDOWN) */
+                    <div className="animate-in slide-in-from-right-4">
+                        <div className="text-center mb-6">
+                            <span className="text-[10px] text-[var(--text-muted)] font-mono uppercase tracking-widest">{String(statHistoryModal.activeRecord.time || '')}</span>
+                            <div className={`text-4xl font-black mt-2 font-mono ${statHistoryModal.activeRecord.change > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                {statHistoryModal.activeRecord.change > 0 ? '+' : ''}{String(statHistoryModal.activeRecord.change || 0)}
+                            </div>
+                        </div>
+
+                        <div className="relative">
+                            {/* Đường thời gian */}
+                            <div className="absolute top-0 bottom-0 left-[23px] w-0.5 bg-[var(--border-main)]"></div>
+                            
+                            {(statHistoryModal.activeRecord.breakdown && statHistoryModal.activeRecord.breakdown.length > 0) ? (
+                                <div className="space-y-6 relative z-10">
+                                    {statHistoryModal.activeRecord.breakdown.map((item, idx) => {
+                                        const isPositive = String(item.change).includes('+') || Number(item.change) > 0;
+                                        return (
+                                        <div key={idx} className="flex gap-4 items-center group">
+                                            <div className={`w-12 h-12 rounded-full shrink-0 flex items-center justify-center font-bold text-sm shadow-md border-2 z-10 transition-transform group-hover:scale-110 ${isPositive ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/50' : 'bg-red-900/30 text-red-400 border-red-500/50'}`}>
+                                                {String(item.change || '')}
+                                            </div>
+                                            <div className="bg-[var(--bg-surface)] border border-[var(--border-main)] p-4 rounded-xl flex-1 shadow-sm relative overflow-hidden">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <div className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest">Bước {idx + 1}</div>
+                                                    {item.time && <div className="text-[10px] font-mono text-teal-500/70">{String(item.time)}</div>}
+                                                </div>
+                                                <div className="text-[var(--text-main)] text-sm leading-relaxed">{String(item.action || '')}</div>
+                                            </div>
+                                        </div>
+                                    )})}
+                                </div>
+                            ) : (
+                                <div className="text-center py-10 text-[var(--text-muted)] italic">
+                                    Thiên Đạo không có ghi chép bóc tách chi tiết cho lượt diễn hóa này.<br/><br/>
+                                    <span className="text-xs">Lý do tổng: {String(statHistoryModal.activeRecord.reason || '')}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    /* VIEW 1: DANH SÁCH LỊCH SỬ CHUNG */
+                    <div className="space-y-4 animate-in slide-in-from-left-4">
+                        {statHistoryModal.introText && (
+                            <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-teal-500/30 text-sm text-[var(--text-main)] whitespace-pre-wrap shadow-inner mb-4 leading-relaxed">
+                                {statHistoryModal.introText}
+                            </div>
+                        )}
+                        {statHistoryModal.history.length === 0 ? (
+                            <div className="text-center py-10 text-[var(--text-muted)] italic">
+                                Chưa có ghi chép lịch sử nào.
+                            </div>
+                        ) : statHistoryModal.history.map((h, i) => (
+                            <div key={i} className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] flex justify-between items-center group hover:border-teal-500/50 transition-all">
+                                <div className="flex-1 pr-4">
+                                    <div className="text-[10px] font-mono text-[var(--text-muted)] mb-1.5">{String(h.time || '')}</div>
+                                    <div className="text-sm text-[var(--text-main)] line-clamp-2">"{String(h.reason || '')}"</div>
+                                </div>
+                                <div className="flex flex-col items-end shrink-0 gap-2">
+                                    <div className={`text-xl font-black font-mono ${h.change > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                        {h.change > 0 ? '+' : ''}{String(h.change || 0)}
+                                    </div>
+                                    {/* Chỉ hiện nút bóc tách nếu AI có trả về mảng breakdown */}
+                                    {(h.breakdown && h.breakdown.length > 0) && (
+                                        <button onClick={() => setStatHistoryModal(p => ({...p, activeRecord: h}))} className="text-[10px] uppercase font-bold bg-teal-900/20 text-teal-400 border border-teal-500/30 px-3 py-1.5 rounded-lg shadow-sm hover:bg-teal-600 hover:text-white transition-colors">
+                                            Xem Bóc Tách
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DISCARD MODAL */}
+      {discardItemModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] p-4">
+          <div className="bg-[var(--bg-panel)] p-6 rounded-2xl max-w-sm w-full border border-[var(--border-main)] shadow-2xl">
+            <h3 className="text-xl font-bold mb-4 text-[var(--text-bold)]">Vứt bỏ vật phẩm</h3>
+            <p className="mb-4 text-[var(--text-muted)]">Bạn muốn vứt bao nhiêu <span className="font-bold text-teal-500">{discardItemModal.name}</span>?</p>
+            <input type="number" min="1" max={discardItemModal.quantity} value={discardAmount} onChange={e => setDiscardAmount(Math.min(discardItemModal.quantity, Math.max(1, parseInt(e.target.value)||1)))} className="w-full bg-[var(--bg-surface)] p-3 rounded-lg mb-4 border border-[var(--border-main)] text-[var(--text-main)]" />
+            <div className="flex gap-3">
+              <button onClick={() => setDiscardItemModal(null)} className="flex-1 p-3 rounded-lg border border-[var(--border-main)] hover:bg-[var(--bg-surface)] font-bold text-[var(--text-main)]">Hủy</button>
+              <button onClick={() => {
+                  const loc = (gameState.currentLocation || '').toLowerCase();
+                  let lossChance = 0.4; 
+                  let locType = "Nơi hoang dã";
+                  if (/(phố|trấn|thành|chợ|phường|các|lâu|quán|môn|phái|tông|hội)/.test(loc)) { lossChance = 0.8; locType = "Chốn đông người"; }
+                  else if (/(phòng|động phủ|mật thất|viện|nhà|chòi|thất)/.test(loc)) { lossChance = 0.0; locType = "Khu vực riêng tư / Động phủ"; } // V1.25.8: Động phủ có cấm chế an toàn 100%
+
+                  const isLost = Math.random() < lossChance;
+
+                  setGameState(prev => {
+                      let newInv = [...prev.inventory];
+                      let newStones = prev.spiritStones;
+                      let newContainers = prev.containers ? [...prev.containers] : [];
+                      let logMsg = "";
+
+                      if (isLost) {
+                          if (discardItemModal.type === 'currency') {
+                              newStones = Math.max(0, newStones - (discardAmount * (discardItemModal.multiplier||1)));
+                          } else {
+                              const idx = newInv.findIndex(i => i.name === discardItemModal.name && i.containerId === discardItemModal.containerId);
+                              if (idx >= 0) {
+                                  newInv[idx].quantity -= discardAmount;
+                                  if (newInv[idx].quantity <= 0) newInv.splice(idx, 1);
+                              }
+                          }
+                          logMsg = `[Hệ Thống] Ngươi vứt ${discardAmount} [${discardItemModal.name}] ra ngoài tại ${prev.currentLocation}. Do đây là ${locType}, vật phẩm vừa rời tay chẳng mấy chốc đã bị kẻ gian nẫng mất / dã thú tha đi! Đã mất vĩnh viễn.`;
+                      } else if (discardItemModal.savedId === 'ground' || String(discardItemModal.name || '').includes('Mặt Đất') || String(discardItemModal.name || '').includes('Góc Phòng')) {
+                          // V2.80 FIX (GÓP Ý VŨ ĐỨC): Tiêu hủy vĩnh viễn không gian ma Mặt Đất khi người chơi vứt bỏ
+                          const idx = newInv.findIndex(i => i.name === discardItemModal.name && i.containerId === discardItemModal.containerId);
+                          if (idx >= 0) newInv.splice(idx, 1);
+                          if (!newInv.some(i => i.containerId === 'ground')) {
+                              newContainers = newContainers.filter(c => c.id !== 'ground');
+                              if (activeContainerId === 'ground') setActiveContainerId('default');
+                          }
+                          logMsg = `[Hệ Thống] Đã tiêu hủy vĩnh viễn không gian ma [${discardItemModal.name}]!`;
+                      } else {
+                          // Tạo không gian Mặt đất nếu chưa có
+                          let groundContainer = newContainers.find(c => c.id === 'ground');
+                          if (!groundContainer) {
+                              groundContainer = { id: 'ground', name: 'Mặt Đất / Góc Phòng', capacity: 999999, desc: 'Vật phẩm đặt nơi phong thổ. Khi rời đi, bảo vật quý giá vẫn lưu lại nơi đây chờ ngày tương phùng (Duyên Khởi Lưu Chuyển).', rarity: 'Đen', isGround: true };
+                              newContainers.push(groundContainer);
+                          }
+
+                          if (discardItemModal.type === 'currency') {
+                              newStones = Math.max(0, newStones - (discardAmount * (discardItemModal.multiplier||1)));
+                              const exist = newInv.find(i => i.name === discardItemModal.name && i.containerId === 'ground');
+                              if (exist) exist.quantity += discardAmount;
+                              else newInv.push({ name: discardItemModal.name, quantity: discardAmount, type: 'currency', rarity: 'Trắng', tier: 'Tiền Tệ', desc: 'Tiền bị vứt lăn lóc.', containerId: 'ground' });
+                          } else {
+                              const idx = newInv.findIndex(i => i.name === discardItemModal.name && i.containerId === discardItemModal.containerId);
+                              if (idx >= 0) {
+                                  const itemToDrop = { ...newInv[idx], quantity: discardAmount, containerId: 'ground' };
+                                  newInv[idx].quantity -= discardAmount;
+                                  if (newInv[idx].quantity <= 0) newInv.splice(idx, 1);
+
+                                  const exist = newInv.find(i => i.name === itemToDrop.name && i.containerId === 'ground');
+                                  if (exist) exist.quantity += discardAmount;
+                                  else newInv.push(itemToDrop);
+                              }
+                          }
+                          logMsg = `[Hệ Thống] Đã vứt ${discardAmount} [${discardItemModal.name}] xuống mặt đất (${locType}). Hiện vẫn chưa bị ai lấy mất, Đạo hữu có thể mở Túi đồ để nhặt lại nếu chưa rời khỏi khu vực này.`;
+                      }
+
+                      setStoryLog(logs => {
+                          const newLog = [...logs, { type: 'system', text: logMsg, chapter: prev.chapterCount }];
+                          return newLog.length > 50 ? newLog.slice(-50) : newLog;
+                      });
+
+                      return {...prev, inventory: newInv, spiritStones: newStones, containers: newContainers};
+                  });
+                  setDiscardItemModal(null);
+              }} className="flex-1 p-3 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold">Vứt Bỏ</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TRAITS LIST MODAL */}
+      {isTraitsListOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] p-4">
+              <div className="bg-[var(--bg-panel)] w-full max-w-4xl max-h-[80vh] rounded-2xl flex flex-col border border-[var(--border-main)] shadow-2xl relative">
+                  <div className="p-5 border-b border-[var(--border-main)] flex justify-between items-center shrink-0">
+                      <h3 className="text-xl font-bold flex items-center gap-2 text-[var(--text-main)]">
+                          <Library className="text-purple-500"/> {'Bách Khoa Khí Vận'}
+                          {gameState.gameMode !== 'mong_ao' && (
+                              <span className={`ml-3 px-3 py-1 text-sm font-mono font-bold rounded-lg border shadow-sm ${luanHoiPoints < 0 ? 'bg-red-900/20 text-red-500 border-red-500/50 animate-pulse' : 'bg-teal-900/20 text-teal-500 border-teal-500/50'}`}>{'Điểm Luân Hồi'}: {luanHoiPoints}</span>
+                          )}
+                      </h3>
+                      <button onClick={() => setIsTraitsListOpen(false)} className="p-2 hover:bg-[var(--bg-surface)] rounded text-[var(--text-muted)]"><X size={20}/></button>
+                  </div>
+                  
+                  {/* THANH TÌM KIẾM VÀ SẮP XẾP KHÍ VẬN */}
+                  <div className="p-4 border-b border-[var(--border-main)] bg-[var(--bg-body)] flex flex-col sm:flex-row gap-3 shrink-0">
+                      <div className="relative flex-1">
+                          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                          <input 
+                              type="text" 
+                              placeholder="Tìm tên khí vận, mô tả, điểm số..." 
+                              value={traitSearch} 
+                              onChange={e => setTraitSearch(e.target.value)} 
+                              className="w-full bg-[var(--bg-surface)] border border-[var(--border-main)] rounded-xl pl-10 pr-10 py-2.5 text-sm text-[var(--text-main)] focus:outline-none focus:border-purple-500 transition-colors" 
+                          />
+                          {traitSearch && (
+                              <button onClick={() => setTraitSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] p-1">
+                                  <X size={16} />
+                              </button>
+                          )}
+                      </div>
+                      <select value={traitSort} onChange={e => setTraitSort(e.target.value)} className="bg-[var(--bg-surface)] text-[var(--text-main)] border border-[var(--border-main)] rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-purple-500 cursor-pointer shrink-0">
+                          <option value="rarity">Sắp xếp: Từng phẩm chất</option>
+                          <option value="cost_desc">Sắp xếp: Điểm giảm dần (Cao -{'>'} Thấp)</option>
+                          <option value="cost_asc">Sắp xếp: Điểm tăng dần (Thấp -{'>'} Cao)</option>
+                          <option value="name_asc">Sắp xếp: Tên A -{'>'} Z</option>
+                      </select>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-5 custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 content-start">
+                      {(() => {
+                          let displayTraits = [...sortedTraitsPool];
+                          
+                          if (traitSearch.trim() !== '') {
+                              const query = traitSearch.toLowerCase().trim();
+                              if (/^-?\d+$/.test(query)) {
+                                  const numQuery = Math.abs(parseInt(query, 10));
+                                  displayTraits = displayTraits.filter(t => Math.abs(t.cost || 0) === numQuery);
+                              } else {
+                                  const stripAccents = (s: string) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+                                  const normVi = (s: string) => (s || "").toLowerCase().normalize("NFC").replace(/đoạ/g, "đọa").replace(/hoà/g, "hòa").replace(/uỷ/g, "ủy");
+                                  const qNorm = normVi(query);
+                                  const qStrip = stripAccents(query);
+                                  displayTraits = displayTraits.filter(t => {
+                                      const nNorm = normVi(t.name);
+                                      const dNorm = normVi(t.desc);
+                                      const nStrip = stripAccents(t.name);
+                                      const dStrip = stripAccents(t.desc);
+                                      return nNorm.includes(qNorm) || dNorm.includes(qNorm) || nStrip.includes(qStrip) || dStrip.includes(qStrip);
+                                  });
+                              }
+                          }
+                          
+                          if (traitSort === 'cost_desc') {
+                              displayTraits.sort((a, b) => (b.cost || 0) - (a.cost || 0));
+                          } else if (traitSort === 'cost_asc') {
+                              displayTraits.sort((a, b) => (a.cost || 0) - (b.cost || 0));
+                          } else if (traitSort === 'name_asc') {
+                              displayTraits.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+                          }
+
+                          if (displayTraits.length === 0) return <div className="col-span-full text-center py-10 text-[var(--text-muted)] italic">Không tìm thấy khí vận nào phù hợp.</div>;
+
+                          return displayTraits.map(trait => {
+                              const isSelected = selectedTraitIds.includes(trait.id);
+                              const isLocked = lockedTraitIds.includes(trait.id) && !isSelected; // V7.87 Lưới khóa chéo
+                              return (
+                              <div key={trait.id} onClick={() => { if(!isLocked) toggleQuickSelect(trait.id); }} className={`p-4 rounded-xl border transition-all relative flex flex-col ${isSelected ? `${RARITY_COLORS[trait.rarity]?.bg || 'bg-[var(--bg-surface)]'} ${RARITY_COLORS[trait.rarity]?.border || 'border-[var(--border-light)]'} shadow-md cursor-pointer` : isLocked ? 'bg-[var(--bg-body)] border-gray-700/50 opacity-60 cursor-not-allowed grayscale' : 'bg-[var(--bg-surface)] border-[var(--border-main)] hover:border-gray-500 cursor-pointer'}`}>
+                                  {isSelected && <div className="absolute top-0 right-0 bg-teal-500 text-white p-1 rounded-bl-lg z-30"><Check size={14} strokeWidth={4}/></div>}
+                                  
+                                  {/* V7.87 FIX: Giao diện Xích Chéo & Ổ Khóa */}
+                                  {isLocked && (
+                                      <div className="absolute inset-0 z-20 bg-gray-950/75 flex items-center justify-center rounded-xl overflow-hidden">
+                                          <div className="absolute w-[150%] h-1 bg-gradient-to-r from-transparent via-gray-400 to-transparent rotate-45 opacity-40 shadow-[0_0_5px_#000]"></div>
+                                          <div className="absolute w-[150%] h-1 bg-gradient-to-r from-transparent via-gray-400 to-transparent -rotate-45 opacity-40 shadow-[0_0_5px_#000]"></div>
+                                          <div className="bg-[var(--bg-body)] p-2.5 rounded-full border border-gray-600 shadow-[0_0_15px_rgba(0,0,0,0.8)] z-10" title="Xung khắc với Khí vận đã chọn">
+                                              <Lock size={24} className="text-gray-400"/>
+                                          </div>
+                                      </div>
+                                  )}
+
+                                  <div className="flex justify-between items-start mb-2 relative z-10">
+                                      <div className="flex items-center gap-1.5">
+                                          <div className={`font-bold text-base ${RARITY_COLORS[trait.rarity]?.text || 'text-gray-400'}`}>{trait.name}</div>
+                                          <button onClick={(e) => { e.stopPropagation(); showAlert(`CHI TIẾT KHÍ VẬN: ${trait.name}\n\nPhẩm chất: ${trait.rarity}\nTiêu hao: ${trait.cost > 0 ? '-' + trait.cost : '+' + Math.abs(trait.cost)} ${'Điểm Luân Hồi'}\n\nMiêu tả chi tiết:\n${trait.desc}`); }} className="text-[var(--text-muted)] hover:text-purple-400 transition-colors p-0.5" title="Xem chi tiết"><Info size={16}/></button>
+                                      </div>
+                                      <div className={`font-mono text-xs font-bold ${trait.cost > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{trait.cost > 0 ? `-${trait.cost}` : `+${Math.abs(trait.cost)}`}</div>
+                                  </div>
+                                  <div className="relative z-10 mt-auto">
+                                      <div className="text-[var(--text-muted)] text-sm line-clamp-3">{trait.desc}</div>
+                                  </div>
+                              </div>
+                              );
+                          });
+                      })()}
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* SYSTEM CATEGORY MODAL */}
+      {isSystemModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] p-4">
+              <div className="bg-[var(--bg-panel)] w-full max-w-4xl max-h-[80vh] rounded-2xl flex flex-col border border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.3)] relative">
+                  <div className="p-5 border-b border-red-900/50 flex justify-between items-center bg-[var(--bg-body)] shrink-0">
+                      <h3 className="text-xl font-bold flex items-center gap-2 text-red-500"><Settings className="text-red-500 animate-spin-slow"/> Lựa Chọn Hệ Thống Đồng Hành</h3>
+                      <button onClick={() => setIsSystemModalOpen(false)} className="p-2 hover:bg-[var(--bg-surface)] rounded text-[var(--text-muted)]"><X size={20}/></button>
+                  </div>
+                  <div className="p-4 text-center bg-red-900/10 border-b border-red-900/30 text-sm text-red-300 italic">
+                      Lưu ý: Bạn chỉ được phép kích hoạt DUY NHẤT 1 Hệ thống hỗ trợ cho mỗi kiếp luân hồi. {'Điểm Luân Hồi'} sẽ thay đổi tương ứng.
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-5 custom-scrollbar grid grid-cols-1 md:grid-cols-2 gap-4 content-start bg-[var(--bg-body)]">
+                      {TRAITS_POOL.filter(t => t.isSystemChild).map(sys => (
+                          <div key={sys.id} onClick={() => selectSystemChild(sys.id)} className="p-5 rounded-xl border border-red-900/50 bg-[var(--bg-body)] hover:border-red-500 hover:bg-red-900/20 cursor-pointer transition-all shadow-md group">
+                              <div className="flex justify-between items-start mb-3">
+                                  <div className="font-bold text-lg text-red-400 group-hover:text-red-300">{sys.name}</div>
+                                  <div className="font-mono text-sm font-bold text-red-500 bg-red-900/30 px-2 py-0.5 rounded border border-red-500/30">-{sys.cost} Điểm</div>
+                              </div>
+                              <div className="text-[var(--text-main)] text-sm leading-relaxed whitespace-pre-wrap">
+                                  {sys.desc}
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* WEAPON CATEGORY MODAL */}
+      {isWeaponModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] p-4">
+              <div className="bg-[var(--bg-panel)] w-full max-w-4xl max-h-[80vh] rounded-2xl flex flex-col border border-yellow-500/50 shadow-[0_0_30px_rgba(234,179,8,0.3)] relative">
+                  <div className="p-5 border-b border-yellow-900/50 flex justify-between items-center bg-[var(--bg-body)] shrink-0">
+                      <h3 className="text-xl font-bold flex items-center gap-2 text-yellow-500"><Swords className="text-yellow-500 animate-spin-slow"/> Lựa Chọn Thiên Phú Binh Khí</h3>
+                      <button onClick={() => setIsWeaponModalOpen(false)} className="p-2 hover:bg-[var(--bg-surface)] rounded text-[var(--text-muted)]"><X size={20}/></button>
+                  </div>
+                  <div className="p-4 text-center bg-yellow-900/10 border-b border-yellow-900/30 text-sm text-yellow-300 italic">
+                      Lưu ý: Bạn chỉ được phép chọn DUY NHẤT 1 loại Binh Khí Bổn Mạng. {'Điểm Luân Hồi'} sẽ thay đổi tương ứng.
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-5 custom-scrollbar grid grid-cols-1 md:grid-cols-2 gap-4 content-start bg-[var(--bg-body)]">
+                      {TRAITS_POOL.filter(t => t.isWeaponChild).map(sys => (
+                          <div key={sys.id} onClick={() => selectWeaponChild(sys.id)} className="p-5 rounded-xl border border-yellow-900/50 bg-[var(--bg-body)] hover:border-yellow-500 hover:bg-yellow-900/20 cursor-pointer transition-all shadow-md group">
+                              <div className="flex justify-between items-start mb-3">
+                                  <div className="font-bold text-lg text-yellow-400 group-hover:text-yellow-300">{sys.name}</div>
+                                  <div className="font-mono text-sm font-bold text-yellow-500 bg-yellow-900/30 px-2 py-0.5 rounded border border-yellow-500/30">-{sys.cost} Điểm</div>
+                              </div>
+                              <div className="text-[var(--text-main)] text-sm leading-relaxed whitespace-pre-wrap">
+                                  {sys.desc}
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* BACKGROUND MODAL */}
+      {isBgSelectOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] p-4">
+              <div className="bg-[var(--bg-panel)] w-full max-w-4xl max-h-[80vh] rounded-2xl flex flex-col border border-[var(--border-main)] shadow-2xl relative">
+                  <div className="p-5 border-b border-[var(--border-main)] flex justify-between items-center shrink-0">
+                      <h3 className="text-xl font-bold flex items-center gap-2 text-[var(--text-main)]"><Map className="text-blue-500"/> Chọn Nơi Sinh</h3>
+                      <button onClick={() => setIsBgSelectOpen(false)} className="p-2 hover:bg-[var(--bg-surface)] rounded text-[var(--text-muted)]"><X size={20}/></button>
+                  </div>
+
+                  {/* THANH TÌM KIẾM VÀ SẮP XẾP NƠI SINH / XUẤT THÂN */}
+                  <div className="p-4 border-b border-[var(--border-main)] bg-[var(--bg-body)] flex flex-col sm:flex-row gap-3 shrink-0">
+                      <div className="relative flex-1">
+                          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                          <input 
+                              type="text" 
+                              placeholder="Tìm tên nơi sinh, xuất thân, lộ trình..." 
+                              value={bgSearch} 
+                              onChange={e => setBgSearch(e.target.value)} 
+                              className="w-full bg-[var(--bg-surface)] border border-[var(--border-main)] rounded-xl pl-10 pr-10 py-2.5 text-sm text-[var(--text-main)] focus:outline-none focus:border-blue-500 transition-colors" 
+                          />
+                          {bgSearch && (
+                              <button onClick={() => setBgSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] p-1">
+                                  <X size={16} />
+                              </button>
+                          )}
+                      </div>
+                      <select 
+                          value={bgSort} 
+                          onChange={e => setBgSort(e.target.value)} 
+                          className="bg-[var(--bg-surface)] text-[var(--text-main)] border border-[var(--border-main)] rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-blue-500 cursor-pointer shrink-0"
+                      >
+                          <option value="default">Sắp xếp: Mặc định</option>
+                          <option value="cost_desc">Sắp xếp: Điểm giảm dần (Cao -{'>'} Thấp)</option>
+                          <option value="cost_asc">Sắp xếp: Điểm tăng dần (Thấp -{'>'} Cao)</option>
+                          <option value="name_asc">Sắp xếp: Tên A -{'>'} Z</option>
+                      </select>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-5 custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 content-start">
+                      {(() => {
+                          let displayBgs = [...BACKGROUNDS_POOL];
+                          if (bgSearch.trim() !== '') {
+                              const q = bgSearch.toLowerCase().trim();
+                              if (/^-?\d+$/.test(q)) {
+                                  const num = parseInt(q, 10);
+                                  displayBgs = displayBgs.filter(b => b.cost === num || Math.abs(b.cost || 0) === Math.abs(num));
+                              } else {
+                                  displayBgs = displayBgs.filter(b => 
+                                      String(b.name).toLowerCase().includes(q) ||
+                                      String(b.pro || '').toLowerCase().includes(q) ||
+                                      String(b.con || '').toLowerCase().includes(q) ||
+                                      String(b.hidden || '').toLowerCase().includes(q)
+                                  );
+                              }
+                          }
+                          if (bgSort === 'cost_desc') {
+                              displayBgs.sort((a, b) => (b.cost || 0) - (a.cost || 0));
+                          } else if (bgSort === 'cost_asc') {
+                              displayBgs.sort((a, b) => (a.cost || 0) - (b.cost || 0));
+                          } else if (bgSort === 'name_asc') {
+                              displayBgs.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+                          }
+
+                          if (displayBgs.length === 0) {
+                              return <div className="col-span-full text-center py-10 text-[var(--text-muted)] italic">Không tìm thấy nơi sinh nào phù hợp.</div>;
+                          }
+
+                          return displayBgs.map(bg => {
+                              const isSelected = selectedBgId === bg.id;
+                              return (
+                              <div key={bg.id} onClick={() => {
+                                  setSelectedBgId(bg.id);
+                                  setIsBgSelectOpen(false);
+                                  if (bg.id === 'bg_thien_dao_khuoc_tu') {
+                                      setSelectedTraitIds(prev => {
+                                          const cleaned = prev.filter(tid => {
+                                              const t = TRAITS_POOL.find(x => x.id === tid);
+                                              return !isForbiddenThienDaoKhuocTuTrait(t);
+                                          });
+                                          if (cleaned.length < prev.length) {
+                                              showAlert("Xuất thân Thiên Đạo Khước Từ đã tự động thanh lọc và loại bỏ các Khí Vận may mắn / hệ thống và debuff phế phẩm trùng lặp (Thiên Đạo Áp Chế, Thiên Sinh Phế Vật, Thiên Sinh Rác Rưởi)!");
+                                          }
+                                          return cleaned;
+                                      });
+                                  } else if (isPureYeuTocBg(bg.id)) {
+                                      setSelectedTraitIds(prev => {
+                                          const cleaned = prev.filter(tid => {
+                                              const t = TRAITS_POOL.find(x => x.id === tid);
+                                              return !(tid === 504 || tid === 605 || tid === 803 || tid === 701 || (t && (t.isSystemParent || t.isSystemChild)));
+                                          });
+                                          if (cleaned.length < prev.length) {
+                                              showAlert("Xuất thân Yêu Tộc Thuần Chủng đã tự động loại bỏ các Khí Vận tương khắc (Kẻ Ăn Mày, Ngự Yêu, Hệ Thống)!");
+                                          }
+                                          return cleaned;
+                                      });
+                                  }
+                              }} className={`p-4 rounded-xl cursor-pointer border transition-all relative flex flex-col ${isSelected ? 'bg-blue-900/20 border-blue-500 shadow-md' : 'bg-[var(--bg-surface)] border-[var(--border-main)] hover:border-blue-400/50'}`}>
+                                  {isSelected && <div className="absolute top-0 right-0 bg-blue-500 text-white p-1 rounded-bl-lg"><Check size={14} strokeWidth={4}/></div>}
+                                  <div className="flex justify-between items-start mb-2">
+                                      <div className="flex items-center gap-1.5">
+                                          <div className="font-bold text-base text-[var(--text-bold)]">{bg.name}</div>
+                                          <button onClick={(e) => { e.stopPropagation(); showAlert(`CHI TIẾT XUẤT THÂN: ${bg.name}\n\nƯu điểm: ${bg.pro}\nNhược điểm: ${bg.con}\n\nHiệu ứng ngầm / Kịch bản:\n${bg.hidden || 'Không có'}`); }} className="text-[var(--text-muted)] hover:text-blue-400 transition-colors p-0.5" title="Xem chi tiết"><Info size={16}/></button>
+                                      </div>
+                                      <div className={`font-mono text-xs font-bold ${bg.cost > 0 ? 'text-red-500' : bg.cost < 0 ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`}>{bg.cost > 0 ? `-${bg.cost}` : bg.cost < 0 ? `+${Math.abs(bg.cost)}` : '0'}</div>
+                                  </div>
+                                  <div className="text-[var(--text-muted)] text-sm mb-1"><span className="text-emerald-500">Ưu:</span> {bg.pro}</div>
+                                  <div className="text-[var(--text-muted)] text-sm mb-1"><span className="text-red-500">Nhược:</span> {bg.con}</div>
+                                  <div className="text-[var(--text-muted)] text-xs italic opacity-80 line-clamp-2 mt-2">{bg.hidden}</div>
+                              </div>
+                              );
+                          });
+                      })()}
+                  </div>
+              </div>
+          </div>
+      )}
+

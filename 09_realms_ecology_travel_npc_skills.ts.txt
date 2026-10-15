@@ -1,0 +1,744 @@
+export const getRealmTierByStageId = (stageId: number) => {
+    if (stageId >= 20) return BASE_REALM_TIERS[3]; // Chí Cao Vị Diện
+    if (stageId >= 18) return BASE_REALM_TIERS[2]; // Thượng Vị Diện
+    if (stageId >= 11) return BASE_REALM_TIERS[1]; // Trung Vị Diện
+    return BASE_REALM_TIERS[0]; // Hạ Vị Diện
+};
+
+// V3.28 (LỆNH TOÀ ÁN TỐI CAO - THÀNH KHÔN & DARK): TỰ ĐỘNG PHÂN LOẠI ĐẲNG CẤP VI DIỆN & CÕI DLC
+const getRealmTierInfo = (locationName: any, worldOrFlag: any = '') => {
+    const worldName = typeof worldOrFlag === 'string' ? worldOrFlag : '';
+    const loc = (String(locationName || '') + ' ' + worldName).toLowerCase();
+
+    // 1. Kiểm tra 5 Cõi Đa Chiều DLC
+    if (/(tầng tự sự|tầng tác giả|alpha layer|meta-fiction|không gian khái niệm|azathoth|cổ trần sa|sailor galaxia|boss tier 0|tier 0)/i.test(loc)) {
+        return {
+            name: "Tầng Tự Sự (Tầng Boss)",
+            tearLevel: "Thực Thể Khái Niệm Tier 0",
+            capacity: "Không Gian Tác Giả",
+            desc: "Không gian khái niệm Boss Tier 0, miễn nhiễm đòn thường, chỉ đấu logic bản nguyên.",
+            isDlcDimension: true,
+            dlcDimensionId: "tang_tu_su"
+        };
+    }
+    if (/(tầng ngoài|outer|ngoài màng bọc|ngoài thiên đạo|cổ thần|c'tan|cự thú không gian|hư vô vô tận)/i.test(loc)) {
+        return {
+            name: "Tầng Ngoài (Outer)",
+            tearLevel: "Cổ Thần / C'tan / Cự Thú Không Gian",
+            capacity: "Vô Tận Ngoài Thiên Đạo",
+            desc: "Cõi vô tận ngoài màng bọc thiên đạo ngũ hành, nơi Cổ Thần và C'tan ngự trị.",
+            isDlcDimension: true,
+            dlcDimensionId: "tang_ngoai"
+        };
+    }
+    if (/(tầng ảo|warp|phi vật lý|hành lang nhảy vọt|ác ma warp|cõi tâm ma|tổ ấm ác ma)/i.test(loc)) {
+        return {
+            name: "Tầng Ảo (Warp)",
+            tearLevel: "Ác Ma / Tâm Ma / Biến Dị Thời Không",
+            capacity: "Cõi Phi Vật Lý",
+            desc: "Cõi phi vật lý kết tinh từ cảm xúc và tâm ma; hành lang nhảy vọt và tổ ấm ác ma.",
+            isDlcDimension: true,
+            dlcDimensionId: "tang_ao"
+        };
+    }
+    if (/(tầng dưới|tầng tối|chiều không gian ngược|tà khí ăn mòn|cthulhu|vặn vẹo|tà giáo tha hóa|vực tối)/i.test(loc)) {
+        return {
+            name: "Tầng Dưới (Tầng Tối)",
+            tearLevel: "Cthulhu / Tà Thần Tha Hóa",
+            capacity: "Không Gian Ngược",
+            desc: "Chiều không gian ngược chứa năng lượng ô nhiễm, tà khí ăn mòn tu vi và cthulhu.",
+            isDlcDimension: true,
+            dlcDimensionId: "tang_duoi"
+        };
+    }
+
+    // 2. Kiểm tra 4 Tầng Vị Diện Base Game (Chuẩn Cấp 1 đến Cấp 20)
+    if (/(thần giới|hỗn độn|hồng hoang|chí cao|tối cao|sáng thế|đại vũ trụ|nguồn cội|khởi nguyên|nguyên thủy|vạn cổ|tiamat|chaos|đạo tổ|cực cảnh đạo nguyên)/.test(loc)) {
+        return { 
+            name: "Chí Cao Vi Diện", 
+            tearLevel: "Chúa Tể / Sáng Thế / Đạo Tổ (Cấp 20+)", 
+            capacity: "Tuyệt Đối Bất Biến",
+            desc: "Cực Cảnh Đạo Nguyên, duy nhất Đạo Tổ tọa trấn điều khiển quy luật, cách biệt tuyệt đối." 
+        };
+    }
+    if (/(tiên giới|thượng giới|thượng vị diện|cửu thiên|đại la|tiên vực|thần vực|tiên sơn|thánh địa|giới vương|ngân hà|galaxy|thiên đường|thiên giới|phạn thiên|thánh vực|vực thẳm|hư không|tiên vương|tiên đế)/.test(loc)) {
+        return { 
+            name: "Thượng Vị Diện", 
+            tearLevel: "Tiên Vương / Tiên Đế (Cấp 18-19)", 
+            capacity: "Không Gian Hỗn Độn",
+            desc: "Chạm ngưỡng quy tắc bản nguyên, không gian Hỗn Độn chịu được uy áp cấp Tiên Đế." 
+        };
+    }
+    if (/(linh giới|trung giới|trung vị diện|đại thế giới|tinh không|bát hoang|yêu giới|ma giới|hành tinh|vũ trụ|thiên hà|trục|hệ|hư tiên|chân tiên|huyền tiên|kim tiên|thái ất|tiên tôn)/.test(loc)) {
+        return { 
+            name: "Trung Vị Diện", 
+            tearLevel: "Hư Tiên đến Tiên Tôn (Cấp 11-17)", 
+            capacity: "Không Gian Kiên Cố",
+            desc: "Tiên khí dồi dào, không gian kiên cố, là chiến trường Chân Tiên, Kim Tiên, Đại La, Tiên Tôn." 
+        };
+    }
+    return { 
+        name: "Hạ Vị Diện", 
+        tearLevel: "Phàm Nhân đến Độ Kiếp (Cấp 1-10)", 
+        capacity: "Chịu Tải Yếu",
+        desc: "Không gian mỏng manh chịu tải yếu, cấm Tiên Nhân giao tranh làm vỡ thế giới. Phải qua Độ Kiếp tẩy trần mới phi thăng." 
+    };
+};
+
+const getLocationEcoConfig = (locationName, realmTierName) => {
+    const loc = String(locationName || '').toLowerCase();
+    
+    // Hệ số cấp vị diện (Hạ Vị Diện: 1x, Trung Vị Diện: 3x, Thượng Vị Diện: 10x, Chí Cao: 50x)
+    let tierMult = 1;
+    if (realmTierName === "Trung Vị Diện") tierMult = 3;
+    else if (realmTierName === "Thượng Vị Diện") tierMult = 10;
+    else if (realmTierName === "Chí Cao Vi Diện") tierMult = 50;
+
+    let baseMaxAura = 5000 * tierMult;
+    let baseMaxDemonicQi = 0;
+    let baseMaxIntegrity = 8000 * tierMult;
+    let monthlyAuraRegen = 50 * tierMult; // Linh khí tự phục hồi mỗi tháng
+    let monthlyDemonicQiDecay = 20 * tierMult; // Ma khí tự nhiên bị thanh lọc nếu không có nguồn nuôi
+    let monthlyIntegrityRegen = 20 * tierMult; // Độ bền tự tu bổ mỗi tháng
+    let typeName = "Hoang Dã";
+
+    if (/(ma vực|ma giới|u minh|âm tào|vạn kiếp|huyết hải|thi cốt|loạn táng|ma động|quỷ trủng|ma đài)/.test(loc)) {
+        // Ma Vực, Cổ Ma Địa, Quỷ Trủng: Nơi Ma Khí/Âm Khí uẩn kết ngàn năm
+        baseMaxAura = 2000 * tierMult;
+        baseMaxDemonicQi = 30000 * tierMult;
+        baseMaxIntegrity = 35000 * tierMult;
+        monthlyAuraRegen = 10 * tierMult;
+        monthlyDemonicQiDecay = 0; // Ma vực tự sinh Ma Khí (+100/tháng)
+        monthlyIntegrityRegen = 30 * tierMult;
+        typeName = "Ma Vực / Quỷ Cảnh";
+    } else if (/(tông|phái|viện|cung|đỉnh|thần sơn|thánh địa|linh sơn|động phủ|tiên phủ|long mạch)/.test(loc)) {
+        // Đại Tông Môn, Linh Sơn, Tiên Phủ: Tụ linh đại trận, linh mạch sâu rộng ngàn năm
+        baseMaxAura = 30000 * tierMult;
+        baseMaxDemonicQi = 0;
+        baseMaxIntegrity = 50000 * tierMult;
+        monthlyAuraRegen = 300 * tierMult;
+        monthlyDemonicQiDecay = 100 * tierMult; // Trận pháp hộ sơn thanh tẩy ma khí cực mạnh
+        monthlyIntegrityRegen = 100 * tierMult;
+        typeName = "Tông Môn / Thánh Địa";
+    } else if (/(phường thị|tiên thành|thương hội|tiên trấn|kinh đô|hoàng thành|chợ tiên)/.test(loc)) {
+        // Phường Thị, Tiên Thành: Nơi giao thương hàng vạn tu sĩ, có trận pháp duy trì linh khí ổn định
+        baseMaxAura = 15000 * tierMult;
+        baseMaxDemonicQi = 300 * tierMult;
+        baseMaxIntegrity = 25000 * tierMult;
+        monthlyAuraRegen = 150 * tierMult;
+        monthlyDemonicQiDecay = 50 * tierMult;
+        monthlyIntegrityRegen = 80 * tierMult;
+        typeName = "Phường Thị / Tiên Thành";
+    } else if (/(làng|thôn|ấp|bản|xóm|gia trang)/.test(loc)) {
+        // Thôn Làng Phàm Nhân: Linh mạch phàm trần mỏng manh, dân cư tự tu bổ nhà cửa
+        baseMaxAura = 3000 * tierMult;
+        baseMaxDemonicQi = 0;
+        baseMaxIntegrity = 5000 * tierMult;
+        monthlyAuraRegen = 30 * tierMult;
+        monthlyDemonicQiDecay = 15 * tierMult;
+        monthlyIntegrityRegen = 25 * tierMult;
+        typeName = "Thôn Làng Phàm Trần";
+    } else if (/(cấm địa|bí cảnh|di tích|phế tích|hư không|hỗn độn)/.test(loc)) {
+        // Cấm Địa, Bí Cảnh: Không gian dị biến, linh khí dồi dào hoặc hỗn tạp
+        baseMaxAura = 40000 * tierMult;
+        baseMaxDemonicQi = 8000 * tierMult;
+        baseMaxIntegrity = 60000 * tierMult;
+        monthlyAuraRegen = 200 * tierMult;
+        monthlyDemonicQiDecay = 30 * tierMult;
+        monthlyIntegrityRegen = 50 * tierMult;
+        typeName = "Bí Cảnh / Cấm Địa";
+    }
+
+    return { baseMaxAura, baseMaxDemonicQi, baseMaxIntegrity, monthlyAuraRegen, monthlyDemonicQiDecay, monthlyIntegrityRegen, typeName };
+};
+
+// V1.29.6: QUY LUẬT DUYÊN KHỞI & VÔ NGÃ — NĂNG LƯỢNG TƯƠNG SINH TƯƠNG KHẮC 7 HỆ PHÁI
+const computePathEnergyInteraction = (cultivationPath, stageId, monthsPassed, actionText, currentAura, currentDemonicQi) => {
+    const act = String(actionText || '').toLowerCase();
+    const isDevour = /(thôn phệ|hút cạn|cướp đoạt|ma công|hóa công|huyết tế|thao thiết|vạn ác)/.test(act);
+    const isPeaceful = /(bế quan|tu luyện|đả tọa|nghỉ ngơi|dưỡng thương|chữa trị|hồi phục|luyện đan|chế phù|vẽ bùa|đọc sách|uống trà|ngủ|tĩnh tâm)/.test(act);
+
+    // Tiêu chuẩn tiêu hao theo cảnh giới (Luyện Khí 2, Trúc Cơ 8, Kim Đan 30, Nguyên Anh 120, Hóa Thần 500)
+    let baseRate = 2;
+    if (stageId === 1) baseRate = 2;
+    else if (stageId === 2) baseRate = 8;
+    else if (stageId === 3) baseRate = 30;
+    else if (stageId === 4) baseRate = 120;
+    else if (stageId === 5) baseRate = 500;
+    else baseRate = Math.floor(1500 * Math.pow(2.2, Math.max(0, stageId - 6)));
+
+    let auraChange = 0;
+    let demonicQiChange = 0;
+    let pollutionChange = 0;
+    let pathLog = "";
+
+    const path = cultivationPath || 'tu_tien';
+    const effectiveMonths = Math.max(0.1, monthsPassed);
+
+    if (path === 'the_tu') {
+        // Thể Tu: Dĩ khí huyết nhục thân vi bản, chỉ tiêu hao vi lượng 20% linh khí thiên địa
+        if (isPeaceful) {
+            auraChange = -Math.ceil(baseRate * 0.2 * effectiveMonths);
+        }
+    } else if (path === 'ma_tu') {
+        // Ma Tu: Ưu tiên cắn nuốt Ma Khí. Nếu thiếu Ma Khí, cắn nuốt Linh Khí và chuyển hóa thải ra Ma Khí/Trọc Khí
+        const totalDemand = Math.ceil(baseRate * (isDevour ? 3 : 1) * effectiveMonths);
+        if (currentDemonicQi >= totalDemand) {
+            demonicQiChange = -totalDemand;
+        } else {
+            const auraDrain = Math.min(currentAura, totalDemand);
+            auraChange = -auraDrain;
+            // Duyên khởi: Ma công thải trọc — 25% linh khí bị biến chất thành ma khí phóng xuất ra môi trường
+            demonicQiChange = Math.floor(auraDrain * 0.25);
+            pollutionChange = Math.floor(auraDrain * 0.05);
+            if (demonicQiChange >= 15) {
+                pathLog = `[Ma Khí Tán Phát] Ma công uẩn chuyển đã làm biến chất một phần địa mạch, ma khí tăng thêm +${demonicQiChange}.`;
+            }
+        }
+    } else if (path === 'quy_tu') {
+        // Quỷ Tu: Tiêu hao âm khí, nếu ở nơi linh khí thuần dương cao (> 15000) bị áp chế nhẹ
+        const demand = Math.ceil(baseRate * 0.8 * effectiveMonths);
+        if (currentDemonicQi > 0) {
+            demonicQiChange = -Math.min(currentDemonicQi, demand);
+        } else {
+            auraChange = -Math.ceil(demand * 0.5);
+        }
+    } else if (path === 'nho_tu') {
+        // Nho Tu: Hạo Nhiên Chính Khí tự động tịnh hóa tạp khí và tiêu trừ ma khí xung quanh
+        const demand = Math.ceil(baseRate * effectiveMonths);
+        auraChange = -demand;
+        if (currentDemonicQi > 0) {
+            demonicQiChange = -Math.min(currentDemonicQi, Math.ceil(baseRate * 0.5 * effectiveMonths));
+        }
+    } else if (path === 'phat_tu') {
+        // Phật Tu: Công đức tịnh hóa, siêu độ ma khí chuyển hóa thành linh khí lành tính trả về đất trời
+        const demand = Math.ceil(baseRate * effectiveMonths);
+        auraChange = -demand;
+        if (currentDemonicQi > 0) {
+            const purifyAmount = Math.min(currentDemonicQi, Math.ceil(baseRate * 0.8 * effectiveMonths));
+            demonicQiChange = -purifyAmount;
+            // Duyên khởi: Oán niệm tiêu trừ thì đất mẹ hồi sinh, 50% ma khí hóa thành linh khí
+            auraChange += Math.floor(purifyAmount * 0.5);
+            pathLog = `[Tịnh Hóa Đạo Trường] Phạm âm phổ độ chúng sinh, thanh tẩy -${purifyAmount} Ma Khí và chuyển hóa thành linh khí trả về cho sơn hà!`;
+        }
+    } else {
+        // Tiên Tu / Yêu Tu: Hấp thu linh khí thanh tịnh bình thường
+        if (isPeaceful) {
+            auraChange = -Math.ceil(baseRate * effectiveMonths);
+        }
+    }
+
+    return { auraChange, demonicQiChange, pollutionChange, pathLog };
+};
+
+// V3.97: TỌA ĐỘ VÀ KHOẢNG CÁCH DẶM THỰC TẾ DỰA TRÊN ĐỒ THỊ CỐ ĐỊNH (FIXED TOPOLOGY GRAPH)
+const getLocationCoords = (nameOrId, timelineId) => {
+    if (!nameOrId) return { x: 0, y: 0, z: 0 };
+    const activeGraph = getActiveWorldGraph(timelineId);
+    const node = activeGraph[nameOrId] || Object.values(activeGraph).find(n => n.name === nameOrId);
+    if (node) return node.coordinates;
+    return { x: 0, y: 0, z: 0 };
+};
+
+const getDistance = (loc1, loc2, timelineId) => {
+    if (!loc1 || !loc2 || loc1 === loc2) return 0;
+    const activeGraph = getActiveWorldGraph(timelineId);
+    const node1 = activeGraph[loc1] || Object.values(activeGraph).find(n => n.name === loc1);
+    const node2 = activeGraph[loc2] || Object.values(activeGraph).find(n => n.name === loc2);
+
+    if (node1 && node2) {
+        // Nếu có tuyến đường nối trực tiếp trong đồ thị, dùng đúng cự ly dặm định sẵn
+        const directPath = (node1.connectedPaths || []).find(p => p.targetId === node2.id);
+        if (directPath) return directPath.distanceLi;
+
+        // Nếu không nối trực tiếp, tính cự ly không gian thực theo tọa độ
+        const dx = node1.coordinates.x - node2.coordinates.x;
+        const dy = node1.coordinates.y - node2.coordinates.y;
+        return Math.floor(Math.sqrt(dx * dx + dy * dy));
+    }
+    return 100;
+};
+
+const formatTravelTime = (distance, speed) => {
+    if (distance === 0) return "Đang ở đây";
+    if (speed <= 0) return "Không thể di chuyển";
+    const hours = distance / speed;
+    if (hours < 0.016) return "Thuấn di (Nháy mắt)";
+    if (hours < 1) return `${Math.ceil(hours * 60)} phút`;
+    if (hours < 24) return `${Math.floor(hours)} giờ ${Math.ceil((hours%1)*60)} phút`;
+    const days = Math.floor(hours / 24);
+    const remHours = Math.floor(hours % 24);
+    if (days > 365) return `${Math.floor(days/365)} năm ${days%365} ngày`;
+    return `${days} ngày ${remHours > 0 ? remHours + ' giờ' : ''}`;
+};
+
+// V10.03: Nâng cấp hàm đọc trạng thái Quan hệ (Phủ màu Hồng Trần Lục)
+// V1.94 KHA: Helper nhận diện và khởi sinh Linh Căn cho NPC
+// V1.94 KHA: Helper nhận diện và khởi sinh Linh Căn cho NPC
+// V2.4 KHA FIX & V2.60 DARK FIX: Chống lạm phát linh căn ở cấp thấp & Khóa cứng Linh Căn Đại Năng Cấp 10+
+const getNpcSpiritualRoots = (npc: any): string => {
+  if (!npc) return "Phàm Thể Vô Căn";
+  
+  const levelStr = String(npc.level || npc.realLevel || '').toLowerCase();
+  const roleStr = String(npc.role || npc.title || '').toLowerCase();
+  const stCfg = typeof getStageConfig === 'function' ? getStageConfig(npc.level || npc.realLevel || 'Phàm Nhân') : { id: 1 };
+  const stageId = Number(npc.stageId) || (stCfg ? stCfg.id : 1);
+  const isHighLevel = stageId >= 10 || /(hóa thần|luyện hư|đại thừa|hợp thể|độ kiếp|chân tiên|kim tiên|thái ất|đại la|tiên vương|tiên hoàng|tiên tôn|tiên đế|đạo tổ|chuẩn đế)/i.test(levelStr);
+  const isElite = /(chân truyền|trưởng lão|tông chủ|đại trưởng lão|phó tông chủ|đại sư huynh|thái thượng|đại năng|kim đan chân nhân|nguyên anh chân nhân|hóa thần|luyện hư|đại thừa|hợp thể|độ kiếp|chân tiên|kim tiên|thái ất|đại la|tiên vương|tiên hoàng|tiên tôn|tiên đế|đạo tổ)/i.test(roleStr);
+
+  // V2.60 LỆNH THÉP DARK: NPC CẢNH GIỚI CAO TỪ LV 10 (ĐỘ KIẾP / ĐỊA TIÊN TRỞ LÊN) TUYỆT ĐỐI CẤM LÀ VÔ LINH CĂN / PHÀM THỂ VÔ CĂN!
+  if (npc.spiritualRoots) {
+    const curRoot = String(Array.isArray(npc.spiritualRoots) ? npc.spiritualRoots.join(', ') : npc.spiritualRoots).trim();
+    const isVoLinhCan = /(phàm thể vô căn|vô linh căn|tạp căn|không có linh căn|vô căn|chưa có)/i.test(curRoot) || curRoot === '' || curRoot === 'null' || curRoot === 'undefined';
+    
+    // Nếu là NPC cảnh giới cao mà dính Vô Linh Căn / Tạp Căn -> CƯỠNG CHẾ BỎ QUA ĐỂ THĂNG HOA LINH CĂN ĐẠI NĂNG
+    if (!isHighLevel || !isVoLinhCan) {
+        return curRoot;
+    }
+  }
+
+  // Ưu tiên 1: Traits đặc biệt cực phẩm (chỉ NPC có trait huyền thoại mới có Thiên/Dị Linh Căn)
+  const traits = Array.isArray(npc.traits) ? npc.traits.map((t: any) => typeof t === 'string' ? t : (t.name || '')) : [];
+  if (traits.some(t => t.includes('Tuyệt Thế Kiếm Tu'))) return "Thiên Linh Căn (Kim)";
+  if (traits.some(t => t.includes('Thiên Lôi Thể'))) return "Dị Linh Căn (Lôi)";
+  if (traits.some(t => t.includes('Thủy Băng Hàn Thể'))) return "Dị Linh Căn (Băng)";
+  if (traits.some(t => t.includes('Hạn Bạt Viêm Thể'))) return "Thiên Linh Căn (Hỏa)";
+  if (traits.some(t => t.includes('Phong Ảnh Thể'))) return "Dị Linh Căn (Phong)";
+  if (traits.some(t => t.includes('Địa Thổ Mộc Thể'))) return "Song Linh Căn (Thổ, Mộc)";
+  if (traits.some(t => t.includes('Thánh Quang Thần Thể'))) return "Dị Linh Căn (Quang)";
+  if (traits.some(t => t.includes('Thiên Ma Thể') || t.includes('Vạn Ác Tội Thể'))) return "Dị Linh Căn (Ám)";
+
+  // Ưu tiên 2: Cấp độ tu vi quyết định (Đại năng / cấp cao / chức vụ elite / Cấp 10+)
+  if (isHighLevel || isElite || stageId >= 10) {
+    const highPool = stageId >= 16 ? [
+      "Hỗn Độn Linh Căn", "Cực Lôi Tiên Căn", "Thái Âm Thần Căn", "Thái Dương Thần Căn",
+      "Thiên Đạo Bản Nguyên Căn", "Thiên Cơ Thần Căn", "Hư Không Tiên Căn", "Cửu Thiên Huyền Căn"
+    ] : [
+      "Thiên Linh Căn (Kim)", "Thiên Linh Căn (Mộc)", "Thiên Linh Căn (Thủy)",
+      "Thiên Linh Căn (Hỏa)", "Thiên Linh Căn (Thổ)", "Dị Linh Căn (Lôi)",
+      "Dị Linh Căn (Băng)", "Dị Linh Căn (Phong)", "Song Linh Căn (Kim, Thủy)",
+      "Song Linh Căn (Mộc, Hỏa)", "Thiên Linh Căn Cực Phẩm"
+    ];
+    let hash = 0;
+    const nameStr = String(npc.name || 'NPC');
+    for (let i = 0; i < nameStr.length; i++) { hash = (hash << 5) - hash + nameStr.charCodeAt(i); hash |= 0; }
+    return highPool[Math.abs(hash) % highPool.length];
+  }
+
+  // Ưu tiên 3: Trung cấp (Kim Đan / Nguyên Anh)
+  const isMidLevel = /(nguyên anh|kim đan)/i.test(levelStr) || stageId === 4 || stageId === 5;
+  if (isMidLevel) {
+    let hash = 0;
+    const nameStr = String(npc.name || 'NPC');
+    for (let i = 0; i < nameStr.length; i++) { hash = (hash << 5) - hash + nameStr.charCodeAt(i); hash |= 0; }
+    const roll = Math.abs(hash) % 6;
+    const midPool = ["Song Linh Căn (Kim, Thủy)", "Song Linh Căn (Mộc, Hỏa)", "Song Linh Căn (Thổ, Mộc)",
+                     "Tam Linh Căn (Kim, Mộc, Thổ)", "Tứ Linh Căn", "Ngũ Linh Căn"];
+    return midPool[roll];
+  }
+
+  // Logic phân phối: phàm nhân / NPC cấp thấp = Phàm Thể Vô Căn hoặc Tạp Căn
+  let hash = 0;
+  const nameStr = String(npc.name || 'NPC');
+  for (let i = 0; i < nameStr.length; i++) { hash = (hash << 5) - hash + nameStr.charCodeAt(i); hash |= 0; }
+  const roll = Math.abs(hash) % 10;
+  if (roll < 6) return "Phàm Thể Vô Căn";
+  if (roll < 9) return "Tạp Căn (Ngũ Hành Lộn Xộn)";
+  return "Ngũ Linh Căn";
+};
+
+const extractNpcSpiritualRootFromStory = (npcName: string, textToScan: string, currentNpc: any): string | null => {
+  if (!npcName || !textToScan) return null;
+  const cleanName = String(npcName).replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
+  if (!cleanName || cleanName.length < 2) return null;
+
+  // V2.55 CHỐT CHẶN: PHẠM VI HẸP THEO ĐOẠN (Tránh lây nhiễm toàn bộ Hồng Trần Lục thành Thiên Linh Căn - Báo lỗi Ori)
+  const escName = cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const nameIdx = textToScan.indexOf(cleanName);
+  if (nameIdx === -1) return null;
+
+  // Chỉ quét trong cửa sổ cục bộ 200 ký tự xung quanh tên NPC
+  const startIdx = Math.max(0, nameIdx - 200);
+  const endIdx = Math.min(textToScan.length, nameIdx + cleanName.length + 200);
+  const localSnippet = textToScan.slice(startIdx, endIdx);
+
+  // Phải có hành động đúc / tạo / tẩy tủy / ban linh căn TRỰC TIẾP trong phạm vi cục bộ của NPC
+  const localActionRegex = new RegExp(`(?:đúc|tạo|đúc tạo|ngưng tụ|khai mở|tẩy tủy|thăng cấp|thăng tiến|tiến hóa|thức tỉnh|chuyển hóa|ban|khôi phục|tái tạo|đúc lại|biến dị|đột biến|thăng hoa|tinh thuần|hóa thành|chuyển biến)\\s+(?:cho|thành|được|lại)?\\s*.*?(?:linh căn|căn cơ)`, 'i');
+  if (!localActionRegex.test(localSnippet)) return null;
+
+  // 2. Tìm kiếm tên linh căn cụ thể trong phạm vi cục bộ
+  const rootSpecificPatterns = [
+    new RegExp(`\\[?${escName}\\]?.*?(?:thành|lên|được|có|ngưng tụ thành|đúc thành)\\s+([A-Za-zÀ-ỹ\\s\\(\\),]+?Linh Căn(?:\\s*\\([A-Za-zÀ-ỹ\\s,]+\\))?)`, 'i'),
+    new RegExp(`(?:đúc|tạo|khai mở|ngưng tụ|ban cho|ban)\\s+([A-Za-zÀ-ỹ\\s\\(\\),]+?Linh Căn(?:\\s*\\([A-Za-zÀ-ỹ\\s,]+\\))?)\\s+(?:cho|vào|lên)?\\s*\\[?${escName}\\]?`, 'i'),
+    new RegExp(`(?:thành|lên|đạt được|sang|là|ngưng tụ thành|đúc thành)\\s+((?:Thiên|Dị|Song|Tam|Tứ|Ngũ|Cực Phẩm|Hỗn Độn|Thuần Dương|Thái Âm|Tiên Thiên|Huyền Thiên|Bát Hoang|Đơn)?\\s*[A-Za-zÀ-ỹ\\s\\(\\),]+?\\s*Linh Căn(?:\\s*\\([A-Za-zÀ-ỹ\\s,]+\\))?)`, 'i'),
+    new RegExp(`((?:Thiên|Dị|Song|Tam|Tứ|Ngũ|Cực Phẩm|Hỗn Độn|Thuần Dương|Thái Âm|Tiên Thiên|Huyền Thiên|Bát Hoang)?\\s*(?:Kim|Mộc|Thủy|Hỏa|Thổ|Lôi|Băng|Phong|Quang|Ám|Độc|Kiếm|Hỗn Độn|Âm|Dương)\\s*Linh Căn(?:\\s*\\([A-Za-zÀ-ỹ\\s,]+\\))?)`, 'i')
+  ];
+
+  for (const pat of rootSpecificPatterns) {
+    const m = localSnippet.match(pat);
+    if (m && m[1]) {
+      let extracted = m[1].trim().replace(/\\s+/g, ' ');
+      extracted = extracted.replace(/^(?:được|thành|lên|sang|là|ra|cho|một|chiếc|đạo)\\s+/i, '').trim();
+      if (/linh căn/i.test(extracted) && extracted.length >= 8 && extracted.length <= 40) {
+        return extracted.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      }
+    }
+  }
+
+  // 3. Nếu không bắt được tên chi tiết trong phạm vi cục bộ, dò hệ nguyên tố trong snippet cục bộ
+  const elementMatches = [
+    { re: /(?:hỏa|lửa|viêm|chúc dung)/i, name: "Thiên Linh Căn (Hỏa)" },
+    { re: /(?:lôi|sấm|sét|thiên lôi)/i, name: "Dị Linh Căn (Lôi)" },
+    { re: /(?:băng|hàn|tuyết)/i, name: "Dị Linh Căn (Băng)" },
+    { re: /(?:thủy|nước|hải|đại dương)/i, name: "Thiên Linh Căn (Thủy)" },
+    { re: /(?:mộc|cây|rừng|thảo)/i, name: "Thiên Linh Căn (Mộc)" },
+    { re: /(?:kim|kiếm|sắt|vàng)/i, name: "Thiên Linh Căn (Kim)" },
+    { re: /(?:thổ|đất|địa|nham)/i, name: "Thiên Linh Căn (Thổ)" },
+    { re: /(?:phong|gió)/i, name: "Dị Linh Căn (Phong)" },
+    { re: /(?:quang|ánh sáng)/i, name: "Dị Linh Căn (Quang)" },
+    { re: /(?:ám|bóng tối|ma)/i, name: "Dị Linh Căn (Ám)" }
+  ];
+
+  for (const elem of elementMatches) {
+    if (elem.re.test(localSnippet)) {
+      return elem.name;
+    }
+  }
+
+  return null;
+};
+
+// V2.81: Helper Nội Thiên Địa NPC đã được vô hiệu hóa theo phán quyết Toà Án & Dark
+const hasNpcInnerWorld = (_npc: any): boolean => false;
+const getNpcInnerWorldStage = (_npc: any): string => "";
+
+const getRelationStatus = (npc, corruption = 0) => {
+  if (!npc || typeof npc !== 'object') return { desc: "Người dưng", color: "text-[var(--text-muted)]", icon: <Users size={14}/>, border: "border-[var(--border-main)] bg-[var(--bg-surface)]" };
+  const aff = Number(npc.affinity) || 0;
+  const hos = Number(npc.hostility) || 0;
+  const rType = npc.relationType || '';
+
+  // HOANG TƯỞNG (Paranoia - Giai đoạn 3 của Tâm Ma). Biến Bạn thành Thù trên UI.
+  if (corruption >= 60 && aff >= 40 && true) {
+      return { desc: "Ảo Giác: Muốn hại ta!", color: "text-red-600 animate-pulse", icon: <ShieldAlert size={14} className="animate-bounce"/>, border: "border-red-600/80 bg-red-900/20 shadow-[0_0_15px_rgba(220,38,38,0.5)]" };
+  }
+
+  // Trạng thái Ái Hận
+  if (aff >= 70 && hos >= 70) return { desc: "Ái Hận Đan Xen", color: "text-fuchsia-500", icon: <Heart size={14} className="fill-fuchsia-500 animate-pulse"/>, border: "border-fuchsia-500/80 bg-fuchsia-900/10" };
+  
+  // Tình cảm nam nữ / Đạo lữ
+  if (/(Thê tử|Phu quân|Đạo lữ)/i.test(rType)) return { desc: rType, color: "text-pink-500", icon: <Heart size={14} className="fill-pink-500 animate-bounce"/>, border: "border-pink-500/60 bg-pink-900/10 shadow-[0_0_15px_rgba(236,72,153,0.3)]" };
+  if (/(Hồng nhan|Người thương)/i.test(rType)) return { desc: rType, color: "text-rose-400", icon: <Heart size={14}/>, border: "border-rose-400/50 bg-rose-900/10" };
+
+  // Quan hệ thù địch
+  if (hos >= 80) return { desc: rType || "Huyết hải thâm cừu", color: "text-red-600", icon: <ShieldAlert size={14}/>, border: "border-red-600/70 bg-red-950/40" };
+  if (hos >= 50) return { desc: rType || "Tử địch", color: "text-red-500", icon: <ShieldAlert size={14}/>, border: "border-red-500/50 bg-red-900/20" };
+  if (hos >= 20) return { desc: rType || "Ác cảm / Bất đồng", color: "text-orange-500", icon: <AlertTriangle size={14}/>, border: "border-orange-500/40 bg-orange-900/10" };
+  
+  // Quan hệ bằng hữu
+  if (aff >= 90) return { desc: rType || "Sinh tử chi giao", color: "text-emerald-500", icon: <Smile size={14}/>, border: "border-emerald-500/50 bg-emerald-900/10" };
+  if (aff >= 40) return { desc: rType || "Bằng hữu / Hữu hảo", color: "text-teal-400", icon: <Smile size={14}/>, border: "border-teal-400/50 bg-teal-900/10" };
+  if (aff >= 10) return { desc: rType || "Quen biết", color: "text-blue-400", icon: <Smile size={14}/>, border: "border-blue-500/30 bg-blue-900/10" };
+  
+  return { desc: rType || "Người dưng", color: "text-[var(--text-muted)]", icon: <Users size={14}/>, border: "border-[var(--border-main)] bg-[var(--bg-surface)]" };
+};
+
+const getSkillLevelColor = (level) => {
+  if (!level) return 'text-yellow-600';
+  const lv = String(level).toLowerCase();
+  if (lv.includes('nhập môn')) return 'text-[var(--text-muted)]';
+  if (lv.includes('tiểu thành')) return 'text-green-500';
+  if (lv.includes('đại thành')) return 'text-blue-500';
+  if (lv.includes('viên mãn')) return 'text-purple-500';
+  if (lv.includes('phá cảnh')) return 'text-red-500 font-bold animate-pulse';
+  return 'text-yellow-600';
+};
+
+// V9.41 FIX: Phân loại Icon Đa Vũ Trụ & Đẹp Mắt
+const getSkillTypeIcon = (type) => {
+    const t = String(type).toLowerCase();
+    if (t.includes('tâm pháp')) return <Brain size={12} className="mr-1 inline text-amber-500"/>;
+    if (t.includes('khinh công')) return <Wind size={12} className="mr-1 inline text-emerald-400"/>;
+    if (t.includes('thần thông')) return <Sparkles size={12} className="mr-1 inline text-purple-400 animate-pulse"/>;
+    if (t.includes('bách nghệ')) return <Shield size={12} className="mr-1 inline text-blue-400"/>;
+    return <Swords size={12} className="mr-1 inline text-red-500"/>; // Võ kỹ mặc định
+};
+
+const getSkillElementStyle = (element) => {
+    const e = String(element).toLowerCase();
+    if (e.includes('hỏa')) return 'text-red-400 bg-red-900/20 border-red-800/50';
+    if (e.includes('thủy') || e.includes('băng')) return 'text-blue-400 bg-blue-900/20 border-blue-800/50';
+    if (e.includes('mộc')) return 'text-green-400 bg-green-900/20 border-green-800/50';
+    if (e.includes('lôi')) return 'text-purple-400 bg-purple-900/20 border-purple-800/50';
+    if (e.includes('thổ')) return 'text-yellow-600 bg-yellow-900/20 border-yellow-800/50';
+    if (e.includes('kim')) return 'text-yellow-400 bg-yellow-500/20 border-yellow-500/50';
+    if (e.includes('âm') || e.includes('ám') || e.includes('ma')) return 'text-gray-400 bg-gray-800/50 border-gray-600/50';
+    if (e.includes('dương') || e.includes('quang') || e.includes('phật')) return 'text-orange-400 bg-orange-900/20 border-orange-800/50';
+    if (e.includes('không gian') || e.includes('thời gian')) return 'text-teal-300 bg-teal-900/30 border-teal-500/50';
+    return 'text-[var(--text-muted)] bg-[var(--bg-body)] border-[var(--border-main)]'; 
+};
+
+// V2.61: HỆ THỐNG 10 BẬC PHẨM GIAI CÔNG PHÁP & MÀU SẮC ĐỘC BẢN (BÁO LỖI ETHAN195)
+// 10 Bậc thang: Ngụy -> Phỏng -> Phàm -> Ngân -> Hoàng -> Địa -> Thiên -> Tiên -> Thần -> Đạo
+const SKILL_TIER_CONFIG: Record<string, { name: string; label: string; mult: number; color: string; badgeColor: string }> = {
+    'Ngụy': { 
+        name: 'Ngụy Giai', 
+        label: 'Ngụy', 
+        mult: 0.6, 
+        color: 'text-stone-400 border-stone-500/40 bg-stone-500/10',
+        badgeColor: 'bg-stone-800/80 text-stone-300 border-stone-600/50'
+    },
+    'Phỏng': { 
+        name: 'Phỏng Giai', 
+        label: 'Phỏng', 
+        mult: 0.8, 
+        color: 'text-slate-400 border-slate-500/40 bg-slate-500/10',
+        badgeColor: 'bg-slate-800/80 text-slate-300 border-slate-600/50'
+    },
+    'Phàm': { 
+        name: 'Phàm Giai', 
+        label: 'Phàm', 
+        mult: 1.0, 
+        color: 'text-gray-300 border-gray-400/40 bg-gray-500/10',
+        badgeColor: 'bg-gray-800/80 text-gray-200 border-gray-500/50'
+    },
+    'Ngân': { 
+        name: 'Ngân Giai', 
+        label: 'Ngân', 
+        mult: 1.3, 
+        color: 'text-zinc-100 border-zinc-300/50 bg-zinc-300/20 shadow-sm',
+        badgeColor: 'bg-zinc-700/80 text-zinc-100 border-zinc-400/60'
+    },
+    'Hoàng': { 
+        name: 'Hoàng Giai', 
+        label: 'Hoàng', 
+        mult: 1.7, 
+        color: 'text-amber-400 border-amber-500/40 bg-amber-500/15',
+        badgeColor: 'bg-amber-950/80 text-amber-300 border-amber-600/60'
+    },
+    'Địa': { 
+        name: 'Địa Giai', 
+        label: 'Địa', 
+        mult: 2.2, 
+        color: 'text-orange-400 border-orange-500/40 bg-orange-500/15',
+        badgeColor: 'bg-orange-950/80 text-orange-300 border-orange-600/60'
+    },
+    'Thiên': { 
+        name: 'Thiên Giai', 
+        label: 'Thiên', 
+        mult: 2.8, 
+        color: 'text-cyan-400 border-cyan-500/40 bg-cyan-500/15',
+        badgeColor: 'bg-cyan-950/80 text-cyan-300 border-cyan-500/60'
+    },
+    'Tiên': { 
+        name: 'Tiên Giai', 
+        label: 'Tiên', 
+        mult: 3.5, 
+        color: 'text-purple-400 border-purple-500/40 bg-purple-500/20',
+        badgeColor: 'bg-purple-950/80 text-purple-300 border-purple-500/60'
+    },
+    'Thần': { 
+        name: 'Thần Giai', 
+        label: 'Thần', 
+        mult: 4.3, 
+        color: 'text-rose-400 border-rose-500/40 bg-rose-500/20',
+        badgeColor: 'bg-rose-950/80 text-rose-300 border-rose-500/60'
+    },
+    'Đạo': { 
+        name: 'Đạo Giai', 
+        label: 'Đạo', 
+        mult: 5.5, 
+        color: 'text-yellow-300 border-yellow-400/60 bg-yellow-400/25 font-black shadow-sm shadow-yellow-500/20',
+        badgeColor: 'bg-yellow-950/90 text-yellow-300 border-yellow-400/70'
+    },
+};
+
+const SKILL_TIER_ORDER: Record<string, number> = {
+    'Ngụy': 1, 'Phỏng': 2, 'Phàm': 3, 'Ngân': 4, 'Hoàng': 5,
+    'Địa': 6, 'Thiên': 7, 'Tiên': 8, 'Thần': 9, 'Đạo': 10
+};
+
+const normalizeSkillTier = (rawTier?: string): string => {
+    if (!rawTier) return 'Phàm';
+    const s = String(rawTier).trim().toLowerCase();
+    if (s.includes('nguỵ') || s.includes('ngụy')) return 'Ngụy';
+    if (s.includes('phỏng')) return 'Phỏng';
+    if (s.includes('ngân') || s.includes('bạch ngân')) return 'Ngân';
+    if (s.includes('hoàng')) return 'Hoàng';
+    if (s.includes('địa')) return 'Địa';
+    if (s.includes('huyền') || s.includes('linh')) return 'Ngân';
+    if (s.includes('thiên')) return 'Thiên';
+    if (s.includes('tiên') || s.includes('thánh')) return 'Tiên';
+    if (s.includes('đạo') || s.includes('đại đạo')) return 'Đạo';
+    if (s.includes('thần') || s.includes('chí tôn') || s.includes('hỗn độn')) return 'Thần';
+    if (s.includes('phàm')) return 'Phàm';
+    return 'Phàm';
+};
+
+const getSkillTierRank = (tier?: string): number => {
+    const t = normalizeSkillTier(tier);
+    return SKILL_TIER_ORDER[t] || 3;
+};
+
+// Bóc tách tên công pháp gốc và phẩm giai chuẩn xác, chống cắt xén mất tên (Báo lỗi Ethan195)
+const parseSkillNameAndTier = (rawName: string, fallbackTier?: string): { baseName: string; tier: string; fullName: string } => {
+    let s = String(rawName || '').trim();
+    s = s.replace(/nguỵ/gi, 'Ngụy');
+    
+    // Dạng tiền tố: "Ngụy - Hư Không Nhất Niệm" hoặc "Ngụy: Hư Không Nhất Niệm"
+    const prefixMatch = s.match(/^(Ngụy|Phỏng|Phàm|Ngân|Hoàng|Địa|Thiên|Tiên|Thần|Đạo)\s*[\-:]\s*(.+)$/i);
+    if (prefixMatch) {
+        let t = prefixMatch[1].charAt(0).toUpperCase() + prefixMatch[1].slice(1).toLowerCase();
+        if (t.toLowerCase() === 'nguỵ') t = 'Ngụy';
+        const b = prefixMatch[2].replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
+        return { baseName: b, tier: t, fullName: `${b} - ${t}` };
+    }
+    
+    // Dạng hậu tố: "Hư Không Nhất Niệm - Ngụy" hoặc "Hư Không Nhất Niệm (Ngụy)"
+    const suffixMatch = s.match(/^(.+?)\s*[\-:\(\[]\s*(Ngụy|Nguỵ|Phỏng|Phàm|Ngân|Hoàng|Địa|Thiên|Tiên|Thần|Đạo)[\)\]]?$/i);
+    if (suffixMatch) {
+        const b = suffixMatch[1].replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
+        let t = suffixMatch[2].trim();
+        if (t.toLowerCase() === 'nguỵ') t = 'Ngụy';
+        else t = t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+        return { baseName: b, tier: t, fullName: `${b} - ${t}` };
+    }
+    
+    // Nếu tên bị rỗng hoặc chỉ còn duy nhất 1 chữ trong 10 tier (như save lỗi của Ethan195)
+    if (/^(Ngụy|Nguỵ|Phỏng|Phàm|Ngân|Hoàng|Địa|Thiên|Tiên|Thần|Đạo)$/i.test(s)) {
+        let t = s.toLowerCase() === 'nguỵ' ? 'Ngụy' : (s.charAt(0).toUpperCase() + s.slice(1).toLowerCase());
+        return { baseName: '', tier: t, fullName: t };
+    }
+    
+    // Tên thông thường không kèm hậu tố tier
+    const cleanBase = s.replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
+    const t = normalizeSkillTier(fallbackTier);
+    return { baseName: cleanBase, tier: t, fullName: `${cleanBase} - ${t}` };
+};
+
+const getSkillTierInfo = (skill: any) => {
+    if (!skill) return { name: 'Phàm Giai', label: 'Phàm', mult: 1.0, color: 'text-gray-400 border-gray-500/30 bg-gray-500/10', badgeColor: 'bg-gray-800/80 text-gray-200 border-gray-500/50' };
+    
+    // Ưu tiên trích xuất từ tên hoặc tier của skill
+    const parsed = parseSkillNameAndTier(skill.name, skill.tier);
+    const tierKey = parsed.tier;
+    if (SKILL_TIER_CONFIG[tierKey]) {
+        return SKILL_TIER_CONFIG[tierKey];
+    }
+    
+    const t = normalizeSkillTier(skill.tier || parsed.tier);
+    return SKILL_TIER_CONFIG[t] || SKILL_TIER_CONFIG['Phàm'];
+};
+
+// V2.14 YANG GÓP Ý: Bóc tách & Phân Loại Hệ Thống Scaling Chiêu Thức Theo Bản Chất Võ Học
+const getSkillScalingInfo = (skill, cultivationPath = 'tu_tien') => {
+    if (!skill) {
+        return {
+            scalingText: '1.0 Công',
+            weights: { atk: 1.0, def: 0, spd: 0, spp: 0 },
+            sumWeights: 1.0,
+            primaryStat: 'atk',
+            primaryName: 'Công'
+        };
+    }
+    const nameL = String(skill.name || '').toLowerCase();
+    const typeL = String(skill.type || '').toLowerCase();
+    const descL = String(skill.desc || '').toLowerCase();
+    const fullText = `${nameL} ${typeL} ${descL}`;
+
+    // 1. Thần thông / Trận pháp / Chú thuật / Huyễn ảo / Tâm trí / Tinh thần / Hồn
+    const isMental = /(thần thông|huyễn|mộng|ảo|chú|nguyền|hồn|đọc tâm|tinh thần|trận pháp|tâm ma|niệm lực|phù chú)/.test(fullText);
+    
+    // 2. Thân pháp / Tốc độ / Độn thuật / Bộ pháp / Khinh công / Tránh né / Lôi độn / Phong độn
+    const isSpeed = /(thân pháp|độn thuật|bộ pháp|khinh công|phi hành|tốc độ|chớp nhoáng|quang độn|lôi độn|phong độn|huyết độn|hư không độn|di hình|hoán vị|quy ảnh|du long)/.test(fullText);
+    
+    // 3. Hộ thể / Phòng ngự / Ngạnh công / Giáp / Khiên / Kim chung / Bất diệt
+    const isDefense = /(hộ thể|phòng ngự|ngạnh công|kim chung|quy giáp|bất diệt|toái ngọc|huyền giáp|kiên bích|hộ thân|hóa kình|chắn|khiên)/.test(fullText);
+    
+    // 4. Sát phạt / Đao kiếm / Quyền cước / Thương kích / Trảm kích / Công kích
+    const isOffensive = /(kiếm|đao|thương|kích|quyền|cước|chưởng|chỉ|trảm|sát|công|phá|liệt|bạo|huyết sát|thôn phệ)/.test(fullText);
+    
+    // 5. Cân bằng / Toàn diện / Hỗn độn / Căn cơ / Cửu chuyển / Vô cực
+    const isAllAround = /(quân bình|toàn diện|hỗn độn|căn cơ|cửu chuyển|vô cực|thái cực|bàn cổ|đại đạo)/.test(fullText);
+
+    let weights = { atk: 1.0, def: 0, spd: 0, spp: 0 };
+    let scalingText = '1.0 Công';
+    let primaryStat = 'atk';
+    let primaryName = 'Công';
+
+    if (isMental) {
+        if (isSpeed) {
+            weights = { atk: 0.3, def: 0, spd: 0.8, spp: 1.5 };
+            scalingText = '1.5 Thức, 0.8 Tốc';
+            primaryStat = 'spp';
+            primaryName = 'Thần Thức & Tốc';
+        } else {
+            weights = { atk: 0.5, def: 0, spd: 0, spp: 1.5 };
+            scalingText = '1.5 Thức, 0.5 Công';
+            primaryStat = 'spp';
+            primaryName = 'Thần Thức';
+        }
+    } else if (isSpeed) {
+        if (/(hư không|không gian|thuấn di|thần)/.test(fullText)) {
+            weights = { atk: 0.4, def: 0, spd: 1.5, spp: 0.5 };
+            scalingText = '1.5 Tốc, 0.5 Thức';
+            primaryStat = 'spd';
+            primaryName = 'Tốc Độ & Thần Thức';
+        } else {
+            weights = { atk: 0.5, def: 0, spd: 1.5, spp: 0 };
+            scalingText = '1.5 Tốc, 0.5 Công';
+            primaryStat = 'spd';
+            primaryName = 'Tốc Độ';
+        }
+    } else if (isDefense) {
+        weights = { atk: 0.5, def: 1.5, spd: 0, spp: 0 };
+        scalingText = '1.5 Thủ, 0.5 Công';
+        primaryStat = 'def';
+        primaryName = 'Phòng Thủ';
+    } else if (isAllAround && cultivationPath === 'tu_tien') {
+        weights = { atk: 1.0, def: 1.0, spd: 1.0, spp: 1.0 };
+        scalingText = '1.0 Công, 1.0 Thủ, 1.0 Tốc, 1.0 Thức';
+        primaryStat = 'all';
+        primaryName = 'Bình Quân Căn Cơ';
+    } else if (isOffensive) {
+        if (/(kiếm ý|đao ý|ý cảnh|tâm kiếm|ngự kiếm)/.test(fullText)) {
+            weights = { atk: 1.4, def: 0, spd: 0.3, spp: 0.6 };
+            scalingText = '1.4 Công, 0.6 Thức';
+            primaryStat = 'atk';
+            primaryName = 'Công & Kiếm Ý';
+        } else {
+            weights = { atk: 1.5, def: 0, spd: 0.5, spp: 0 };
+            scalingText = '1.5 Công, 0.5 Tốc';
+            primaryStat = 'atk';
+            primaryName = 'Tấn Công';
+        }
+    } else {
+        if (cultivationPath === 'tu_tien') {
+            weights = { atk: 1.2, def: 0.4, spd: 0.4, spp: 0.4 };
+            scalingText = '1.2 Công, 0.4 Căn Cơ';
+            primaryStat = 'atk';
+            primaryName = 'Công';
+        } else {
+            weights = { atk: 1.5, def: 0, spd: 0.5, spp: 0 };
+            scalingText = '1.5 Công, 0.5 Tốc';
+            primaryStat = 'atk';
+            primaryName = 'Tấn Công';
+        }
+    }
+
+    const sumWeights = weights.atk + weights.def + weights.spd + weights.spp;
+    return {
+        scalingText,
+        weights,
+        sumWeights: sumWeights > 0 ? sumWeights : 1.0,
+        primaryStat,
+        primaryName
+    };
+};
+
+// ============================================================================
+// V2.15 YANG GÓP Ý: TỪ ĐIỂN ĐẶC TÍNH TRANG BỊ & KHÍ CỤ (ITEM PERK DICTIONARY)
+// ============================================================================
+// ============================================================================
+// V2.16 ETSUO GÓP Ý: HỆ THỐNG BẠI GIA VÒNG 2 (SHOP, LEVEL & LŨY TIẾN ĐỘT PHÁ)
+// ============================================================================

@@ -1,0 +1,561 @@
+  const generateArenaNPCs = () => {
+      const isDbz = false;
+
+      // Danh sách tên mang phong cách người chơi (Tiếng Anh, Số, Viết liền, Trẻ trâu...)
+      const playerNames = [
+          "DarkSlayer99", "VipPro2000", "HeoMoiTapBay", "KiemKhachZ", "BoyKute", 
+          "WibuChua", "FakerVN", "NoobMaster", "ThienDao789", "NhinCaiGhi", 
+          "AoTuongSucManh", "TrumCuoiServer", "GhostRider", "Top1TheGioi", 
+          "GanhTeamVn", "DragonSlayer", "GaMoiTapChoi", "LangTuVoTinh", 
+          "AnhDaVe", "SatThuBongDem", "KietDz", "Namthan123", "GodOfWar", 
+          "OnePunchMan", "ChuaTeHacAm", "BaoChua69", "LoliHunter", 
+          "YasuoMain", "TrumPk", "NinjaRua", "GiaCatLuong", "PhongVan",
+          "KieuPhong9x", "DocCo9Kiem", "NgaoTheGiai", "VoDanhKhach",
+          "SieuNhanGao", "HacLong", "BachHo", "ChuTuoc01"
+      ];
+
+      // Thuật toán xáo trộn mảng (Shuffle) để đảm bảo bốc ra 8 tên KHÔNG BAO GIỜ TRÙNG NHAU
+      const shuffledNames = [...playerNames].sort(() => 0.5 - Math.random());
+      const selectedNames = shuffledNames.slice(0, 8);
+
+      const levels = ["Độ Kiếp Kỳ", "Đại Thừa Kỳ", "Hợp Thể Kỳ", "Luyện Hư Kỳ", "Hóa Thần Kỳ", "Nguyên Anh Kỳ", "Kim Đan Kỳ", "Trúc Cơ Kỳ", "Luyện Khí Kỳ"];
+      
+      const strats = isDbz ? [
+          "Bạo lực tuyệt đối, dồn toàn bộ Ki vào một đòn Kamehameha hủy diệt.",
+          "Tốc độ ánh sáng, liên tục dùng Khinh Công (Afterimage) né đòn và phản công bằng Thể Thuật.",
+          "Phòng thủ tuyệt đối, gồng Ki tạo lá chắn, chờ đối thủ cạn kiệt năng lượng rồi phản kích.",
+          "Chiến đấu điên cuồng, không màng phòng thủ, lấy công làm thủ ép chết đối phương."
+      ] : [
+          "Bạo lực tuyệt đối, tế máu nhục thân thi triển cấm thuật diệt sát trong 1 đòn.",
+          "Kiếm đạo vô ngã, tốc độ quỷ mị, chém ngàn nhát trước khi kẻ địch kịp chớp mắt.",
+          "Pháp thuật oanh tạc, đứng từ xa gọi sấm sét và hỏa thiên thạch hủy diệt diện rộng.",
+          "Sử dụng Huyễn thuật mê hoặc, độc dược ăn mòn, cấu rỉa sinh lực kẻ địch đến chết.",
+          "Thể tu kim cang, phòng thủ tuyệt đối, mượn lực đánh trả cực kỳ thâm độc."
+      ];
+
+      const npcs = [];
+      for (let i = 0; i < 8; i++) { 
+          const name = selectedNames[i]; // Lấy tên đã xáo trộn bảo đảm duy nhất
+          const levelIdx = Math.floor(Math.random() * levels.length);
+          const stratIdx = Math.floor(Math.random() * strats.length);
+          
+          const level = levels[levelIdx];
+          const stConfig = getStageConfig(level);
+          const mHP = Math.floor(150 * stConfig.statMult * Math.pow(1.15, stConfig.id - 1)); 
+          const mMP = Math.floor(100 * stConfig.statMult * Math.pow(1.15, stConfig.id - 1));
+          
+          const pvpData = {
+              name: name,
+              level: level, bgId: 'bg_19',
+              atk: 25 * stConfig.statMult, def: 20 * stConfig.statMult, spd: 22 * stConfig.statMult, spp: 25 * stConfig.statMult,
+              hp: mHP, maxHp: mHP, mp: mMP, maxMp: mMP, sta: 9999, maxSta: 9999,
+              skills: [{name: 'Thiên Địa Pháp Tắc', level: 'Viên Mãn', desc: 'Sức mạnh hủy diệt của hệ thống'}], 
+              items: [], traits: [{name: 'Bất Diệt Cổ Thể', rarity: 'Đỏ'}], strategy: strats[stratIdx]
+          };
+          npcs.push({ 
+              id: `npc_${i}_${Date.now()}`, uid: `npc_${i}`, name: name, level: level, 
+              rankPosition: 999999, wins: 0, losses: 0, matchHistory: [],
+              lastUpdated: Date.now() - Math.floor(Math.random() * 86400000), // Random thời gian update trong vòng 1 ngày qua
+              pvpDataStr: LZString.compressToBase64(JSON.stringify(pvpData)) 
+          });
+      }
+      return npcs;
+  };
+
+  const GLOBAL_ARENA_STORAGE_KEY = 'ttk_global_arena_board_v1';
+
+  const saveBoardToLocal = (board) => {
+      try {
+          if (Array.isArray(board) && board.length > 0) {
+              const toSave = board.slice(0, 50);
+              localStorage.setItem(GLOBAL_ARENA_STORAGE_KEY, LZString.compressToBase64(JSON.stringify(toSave)));
+          }
+      } catch (e) {
+          console.warn('Lỗi lưu cache arena local:', e);
+      }
+  };
+
+  const loadBoardFromLocal = () => {
+      try {
+          const raw = localStorage.getItem(GLOBAL_ARENA_STORAGE_KEY);
+          if (!raw) return null;
+          const decomp = safeDecompress(raw);
+          return Array.isArray(decomp) && decomp.length > 0 ? decomp : null;
+      } catch (e) {
+          return null;
+      }
+  };
+
+  const fetchLeaderboard = async () => {
+      setArenaState(prev => ({ ...prev, isLoadingBoard: true }));
+      try {
+          const snap = await getDocs(collection(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena'));
+          let board = [];
+          snap.forEach(d => board.push({ id: d.id, ...d.data() }));
+          
+          const globalRef = doc(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena_meta', 'global_state');
+          const globalSnap = await getDoc(globalRef);
+          let lastSimulation = globalSnap.exists() ? globalSnap.data().lastSimulationTime : 0;
+          let needsUpdateToCloud = false;
+
+          if (board.length === 0) {
+              const cachedBoard = loadBoardFromLocal();
+              if (cachedBoard && cachedBoard.length > 0) {
+                  board = cachedBoard;
+                  needsUpdateToCloud = true;
+              } else {
+                  board = generateArenaNPCs();
+                  board.forEach((p, i) => { p.rankPosition = i + 1; });
+                  needsUpdateToCloud = true;
+              }
+          } else {
+              saveBoardToLocal(board);
+          }
+
+          // V6.5 FIX LỖI ẢO TƯỞNG SỨC MẠNH: Tính toán lực chiến THỰC TẾ
+          const now = Date.now();
+          if (now - lastSimulation > 3600000 && board.length > 1) { // 1 Giờ
+              for (let i = 0; i < 3; i++) {
+                  const sorted = [...board].sort((a, b) => a.rankPosition - b.rankPosition);
+                  const idxChallenger = Math.floor(Math.random() * (sorted.length - 1)) + 1; 
+                  const idxDefender = Math.floor(Math.random() * idxChallenger); 
+                  
+                  const p1 = sorted[idxChallenger];
+                  const p2 = sorted[idxDefender];
+                  
+                  if (String(p1.id).startsWith('npc_')) {
+                      // Giải mã thông số ẩn để tính sức mạnh thực
+                      let p1Data = safeDecompress(p1.pvpDataStr) || { atk: 10, def: 10, spd: 10, spp: 10, maxHp: 100 };
+                      let p2Data = safeDecompress(p2.pvpDataStr) || { atk: 10, def: 10, spd: 10, spp: 10, maxHp: 100 };
+
+                      // Công thức: Máu * (Công + Thủ + Tốc + Thức). Chênh lệch càng lớn, tỉ lệ thắng càng cao.
+                      const p1Power = (Number(p1Data.maxHp) || 1) * ((Number(p1Data.atk)||0) + (Number(p1Data.def)||0) + (Number(p1Data.spd)||0) + (Number(p1Data.spp)||0));
+                      const p2Power = (Number(p2Data.maxHp) || 1) * ((Number(p2Data.atk)||0) + (Number(p2Data.def)||0) + (Number(p2Data.spd)||0) + (Number(p2Data.spp)||0));
+
+                      // Ngẫu nhiên thực chiến: Chênh lệch < 20% có thể lật kèo, Chênh lệch > 50% nghiền ép tuyệt đối.
+                      const rng = Math.random() * 0.4 + 0.8; // Trọng số ngẫu nhiên 0.8 -> 1.2
+                      const p1Won = (p1Power * rng) > p2Power;
+                      
+                      // Viết nguyên nhân cực ngầu
+                      let summaryDesc = p1Won 
+                          ? `Đánh bại ${p2.name} bằng thực lực áp đảo. Lực lượng nghiền ép hoàn toàn.` 
+                          : `Thất bại trước ${p2.name}. Nội lực khô kiệt, không thể xuyên phá phòng ngự.`;
+                          
+                      if (Math.abs(p1Power - p2Power) < p2Power * 0.2) {
+                          summaryDesc = p1Won ? `Suýt soát giành chiến thắng trước ${p2.name} sau ngàn vạn hiệp giao phong.` : `Hòa nhau đến hơi thở cuối cùng, nhưng ${p2.name} xuất chiêu nhanh hơn nửa nhịp.`;
+                      }
+
+                      const historyLog = { time: Date.now(), result: p1Won ? 'win' : 'loss', opp: p2.name, summary: summaryDesc };
+                      const historyLogOpp = { time: Date.now(), result: !p1Won ? 'win' : 'loss', opp: p1.name, summary: summaryDesc.replace(p2.name, p1.name).replace('Đánh bại', 'Bị đánh bại bởi').replace('Thất bại trước', 'Chặn đứng sự khiêu khích của') };
+
+                      p1.wins = (p1.wins || 0) + (p1Won ? 1 : 0);
+                      p1.losses = (p1.losses || 0) + (!p1Won ? 1 : 0);
+                      p1.matchHistory = [historyLog, ...(p1.matchHistory || [])].slice(0, 10);
+
+                      p2.wins = (p2.wins || 0) + (!p1Won ? 1 : 0);
+                      p2.losses = (p2.losses || 0) + (p1Won ? 1 : 0);
+                      p2.matchHistory = [historyLogOpp, ...(p2.matchHistory || [])].slice(0, 10);
+
+                      if (p1Won) {
+                          const tempRank = p1.rankPosition;
+                          p1.rankPosition = p2.rankPosition;
+                          p2.rankPosition = tempRank;
+                      }
+                      needsUpdateToCloud = true;
+                  }
+              }
+              await setDoc(globalRef, { lastSimulationTime: now }, { merge: true });
+          }
+
+          // Cập nhật lại dữ liệu Mây nếu có mô phỏng
+          if (needsUpdateToCloud) {
+              const batchUpdate = board.map(p => setDoc(doc(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena', p.id), p, { merge: true }));
+              await Promise.all(batchUpdate);
+          }
+
+          board.sort((a, b) => (a.rankPosition || 999999) - (b.rankPosition || 999999));
+          setArenaState(prev => ({ ...prev, leaderboard: board, isLoadingBoard: false }));
+      } catch (e) {
+          console.error(e);
+          const fallbackBoard = loadBoardFromLocal() || generateArenaNPCs();
+          setArenaState(prev => ({ ...prev, leaderboard: fallbackBoard, isLoadingBoard: false }));
+      }
+  };
+
+  const openArena = () => {
+      if (!currentProfileId || !gameStarted) return showAlert("Vui lòng tải một sinh mệnh trước khi vào Chiến Trường!");
+      const currentProfile = profiles.find(p => p.id === currentProfileId);
+      const savedStrategy = currentProfile?.pvpStrategy || 'Tùy cơ ứng biến, tung chiêu phòng thủ khi yếu máu, dùng sát chiêu mạnh nhất khi có cơ hội.';
+
+      setArenaState(prev => ({
+          ...prev, tab: 'board', leaderboard: [], isLoadingBoard: false, viewingHistoryFor: null,
+          myProfileId: currentProfileId, mySnapshot: { ...gameState }, myStrategy: savedStrategy,
+          opponentSnapshot: null, opponentId: null, logs: [],
+          myHP: 100, myMaxHP: 100, myMP: 50, myMaxMP: 50, myStamina: 100, myMaxStamina: 100,
+          oppHP: 100, oppMaxHP: 100, oppMP: 50, oppMaxMP: 50, oppStamina: 100, oppMaxStamina: 100,
+          options: ['Tấn công chớp nhoáng', 'Phòng thủ phản công', 'Dùng tuyệt kỹ mạnh nhất', 'Thăm dò đối thủ'],
+          isGenerating: false, customAction: '',
+          selectedItems: (gameState.inventory || []).map(i => i.name),
+          selectedSkills: (gameState.journal?.skills || []).map(s => s.name)
+      }));
+      setIsArenaOpen(true);
+      fetchLeaderboard();
+  };
+
+  const registerToArena = async () => {
+      if (!user || !arenaState.mySnapshot) return;
+      if (!arenaState.myStrategy.trim()) return showAlert("Hãy thiết lập Tôn Chỉ Chiến Đấu (Chiến lược) để AI biết cách điều khiển bạn bảo vệ thứ hạng khi bạn offline!");
+      
+      const myName = arenaState.mySnapshot.name.trim();
+      
+      // BẢN VÁ LỖI: Cải tiến logic chống trùng tên. Dù bạn bị đổi UID ẩn danh nhưng nếu cùng 1 file nhân vật (profileId) thì vẫn được phép ghi đè lên tên cũ của mình!
+      const isNameTaken = arenaState.leaderboard.some(p => p.name === myName && p.profileId !== arenaState.myProfileId);
+      if (isNameTaken) return showAlert(`Tôn danh "${myName}" đã bị kẻ khác chiếm đoạt trên Thiên Bảng! Vui lòng đổi tên hoặc xóa hồ sơ cũ.`);
+
+      setDialog({ type: 'loading', message: "Đang khắc ấn thần hồn lên Thiên Bảng..." });
+      try {
+          // BẢN VÁ LỖI: Tìm lại Hồ sơ cũ trên Đám Mây bằng ID Nhân vật gốc, bất chấp việc UID tài khoản bị thay đổi!
+          const existingRecord = arenaState.leaderboard.find(p => p.profileId === arenaState.myProfileId);
+          const docId = existingRecord ? existingRecord.id : `${user?.uid}_${arenaState.myProfileId}`;
+          const rankRef = doc(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena', docId);
+          const snap = await getDoc(rankRef);
+          
+          let myRank = 999999; 
+          let myWins = 0; let myLosses = 0; let myHistory = [];
+          
+          if (snap.exists()) {
+              const data = snap.data();
+              myRank = data.rankPosition || data.rankScore || 999999; 
+              myWins = data.wins || 0;
+              myLosses = data.losses || 0;
+              myHistory = data.matchHistory || [];
+          } else {
+              const realPlayers = arenaState.leaderboard.filter(p => !String(p.id).startsWith('npc_'));
+              const maxRank = realPlayers.length > 0 ? Math.max(...realPlayers.map(p => p.rankPosition || 0)) : 10;
+              myRank = maxRank + 1;
+          }
+
+          const stConfig = getStageConfig(arenaState.mySnapshot.cultivationLevel);
+          const mHP = Math.floor(100 * stConfig.statMult * Math.pow(1.15, stConfig.id - 1)) + (Number(arenaState.mySnapshot.bonusMaxHp) || 0);
+          const mMP = Math.floor(50 * stConfig.statMult * Math.pow(1.15, stConfig.id - 1)) + (Number(arenaState.mySnapshot.bonusMaxMp) || 0);
+
+          const pvpData = {
+              name: myName, level: arenaState.mySnapshot.cultivationLevel, chapter: arenaState.mySnapshot.chapterCount || 0, bgId: arenaState.mySnapshot.backgroundId,
+              atk: (Number(arenaState.mySnapshot.attack) || 10) * stConfig.statMult, def: (Number(arenaState.mySnapshot.defense) || 10) * stConfig.statMult,
+              spd: (Number(arenaState.mySnapshot.speed) || 10) * stConfig.statMult, spp: (Number(arenaState.mySnapshot.spiritPower) || 10) * stConfig.statMult,
+              hp: mHP, maxHp: mHP, mp: mMP, maxMp: mMP, sta: Number(arenaState.mySnapshot.stamina) || 100, maxSta: 100,
+              skills: (arenaState.mySnapshot.journal?.skills || []).filter(s => arenaState.selectedSkills.includes(s.name)),
+              items: (arenaState.mySnapshot.inventory || []).filter(i => arenaState.selectedItems.includes(i.name)),
+              traits: arenaState.mySnapshot.traits || [], strategy: arenaState.myStrategy
+          };
+
+          await setDoc(rankRef, {
+              id: docId, uid: user?.uid, profileId: arenaState.myProfileId,
+              name: myName, level: pvpData.level,
+              rankPosition: myRank, wins: myWins, losses: myLosses, matchHistory: myHistory,
+              pvpDataStr: LZString.compressToBase64(JSON.stringify(pvpData)),
+              lastUpdated: Date.now()
+          }, { merge: true });
+
+          await setDoc(doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', arenaState.myProfileId), { pvpStrategy: arenaState.myStrategy }, { merge: true });
+          
+          try {
+              const updatedBoard = [...arenaState.leaderboard];
+              const existIdx = updatedBoard.findIndex(p => p.profileId === arenaState.myProfileId || p.id === docId);
+              const myEntry = {
+                  id: docId, uid: user?.uid, profileId: arenaState.myProfileId,
+                  name: myName, level: pvpData.level,
+                  rankPosition: myRank, wins: myWins, losses: myLosses, matchHistory: myHistory,
+                  pvpDataStr: LZString.compressToBase64(JSON.stringify(pvpData)),
+                  lastUpdated: Date.now()
+              };
+              if (existIdx >= 0) {
+                  updatedBoard[existIdx] = { ...updatedBoard[existIdx], ...myEntry };
+              } else {
+                  updatedBoard.push(myEntry);
+              }
+              saveBoardToLocal(updatedBoard);
+          } catch(err) {
+              console.warn("Lỗi lưu cache arena local:", err);
+          }
+
+          closeDialog();
+          showAlert("Khắc ấn thành công! Hãy chọn mục tiêu phía trên để leo hạng!");
+          setArenaState(prev => ({ ...prev, tab: 'board' }));
+          fetchLeaderboard();
+      } catch (e) {
+          closeDialog(); showAlert("Lỗi ghi danh: " + e.message);
+      }
+  };
+
+  const challengePlayer = (oppDoc) => {
+      try {
+          const oppData = safeDecompress(oppDoc.pvpDataStr);
+          if (!oppData) throw new Error("Dữ liệu đối thủ bị hỏng");
+          
+          const stConfig = getStageConfig(arenaState.mySnapshot.cultivationLevel);
+          const myMaxHp = (100 * Math.pow(2, stConfig.id - 1)) + (Number(arenaState.mySnapshot.bonusMaxHp) || 0);
+          const myMaxMp = (50 * Math.pow(2, stConfig.id - 1)) + (Number(arenaState.mySnapshot.bonusMaxMp) || 0);
+
+          setArenaState(prev => ({
+              ...prev,
+              tab: 'battle',
+              opponentSnapshot: oppData, opponentId: oppDoc.id, opponentScore: oppDoc.rankScore,
+              myHP: myMaxHp, myMaxHP: myMaxHp, myMP: myMaxMp, myMaxMP: myMaxMp, myStamina: Number(prev.mySnapshot.stamina) || 100, myMaxStamina: 100,
+              oppHP: oppData.maxHp, oppMaxHP: oppData.maxHp, oppMP: oppData.maxMp || 50, oppMaxMP: oppData.maxMp || 50, oppStamina: oppData.sta || 100, oppMaxStamina: oppData.maxSta || 100,
+              logs: [{ type: 'system', text: `⚔️ TRẬN CHIẾN TRANH ĐOẠT BẮT ĐẦU: ${arenaState.mySnapshot.name} VS ${oppData.name} ⚔️\nNgươi trực tiếp điều khiển nhục thân, đối thủ phòng ngự tự động bằng Chiến Lược AI. Kẻ thắng cướp đoạt Thiên Điểm!` }],
+          }));
+      } catch (e) { showAlert("Không thể khiêu chiến: Khí tức đối thủ quá mơ hồ (Lỗi Data)."); }
+  };
+
+  const callArenaAPI = async (actionText) => {
+      if (arenaState.isGenerating || arenaState.myHP <= 0 || arenaState.oppHP <= 0) return;
+      setArenaState(prev => ({ ...prev, isGenerating: true, customAction: '', logs: [...prev.logs, { type: 'action', text: actionText, isMe: true }] }));
+
+      const myData = arenaState.mySnapshot;
+      const oppData = arenaState.opponentSnapshot;
+      const stConfig = getStageConfig(myData.cultivationLevel);
+      const activeEnergy = getEnergyDetails(myData.backgroundId, myData.traits || [], myData.cultivationLevel);
+      const oppActiveEnergy = getEnergyDetails(oppData.bgId, oppData.traits || [], oppData.level);
+
+      let formationInstruction = "";
+      if (true && (actionText.toLowerCase().includes('trận') || (myData.activeEffects || []).some(e => String(e.name).toLowerCase().includes('trận')) || (oppData.skills || []).some(s => String(s.name).toLowerCase().includes('trận')))) {
+          formationInstruction = `\n${FORMATIONS_DICTIONARY}\n(LỆNH THÉP V12.15: NẾU TRONG TRẬN CHIẾN NÀY CÓ SỰ XUẤT HIỆN/SỬ DỤNG TRẬN PHÁP NÀO Ở TRÊN TỪ BÊN A HAY BÊN B, BẠN BẮT BUỘC ÁP DỤNG CƠ CHẾ ĐÓ CHO HP, BUFF, DEBUFF VÀ KẾT QUẢ ĐÒN ĐÁNH! 1 lượt load = Lượt đụng độ này).`;
+      }
+
+      let hdInstructionArena = "";
+      if (myData.traits?.some(t => t.name === 'Hỗn Độn Đạo Thể')) {
+          const hdStages = Math.min(10, Math.max(0, stConfig.id - 1));
+          hdInstructionArena = `\n- [ĐẶC QUYỀN HỖN ĐỘN ĐẠO THỂ BÊN A]: Bên A được Tăng ${hdStages * 5}% Sát Thương Chuẩn gây ra VÀ Miễn Giảm ${hdStages * 5}% Sát Thương Chuẩn nhận vào!`;
+      }
+      if (oppData.traits?.some(t => t.name === 'Hỗn Độn Đạo Thể')) {
+          const oppStConfig = getStageConfig(oppData.level);
+          const hdStages = Math.min(10, Math.max(0, oppStConfig.id - 1));
+          hdInstructionArena += `\n- [ĐẶC QUYỀN HỖN ĐỘN ĐẠO THỂ BÊN B]: Bên B được Tăng ${hdStages * 5}% Sát Thương Chuẩn gây ra VÀ Miễn Giảm ${hdStages * 5}% Sát Thương Chuẩn nhận vào!`;
+      }
+
+      let kamuiInstructionArena = "";
+      const getKamuiText = (side) => `\n- [ĐẶC QUYỀN THUẤN DI BẢN NĂNG V12.20 ${side}]: Miễn toàn bộ Sát Thương Vật Lý (Cooldown lẩn trốn). Đánh cướp vũ khí/phá trận địch yếu hơn nhưng tốn Thần Hồn 2 nhịp. Chắc chắn Tất Trúng nếu Thần Thức >= 1.2 x Tốc Độ Địch. Phép không gian +20% Sát Thương Chuẩn. Kháng mạnh 80% Choáng/Huyễn. Điểm Yếu: Nhận thêm 40% ST Hỏa/Nổ/Độc/Ăn Mòn. Bị phá tàng hình nếu Thần Thức địch cao hơn.`;
+      if (myData.traits?.some(t => t.name === 'Thuấn Di Bản Năng')) {
+          kamuiInstructionArena += getKamuiText("BÊN A");
+      }
+      if (oppData.traits?.some(t => t.name === 'Thuấn Di Bản Năng')) {
+          kamuiInstructionArena += getKamuiText("BÊN B");
+      }
+
+      // V6.4: Áp dụng tùy chọn Văn Phong Võ Đài (Góc nhìn thứ 3)
+      const combatStyleRules = arenaState.combatStyle === 'ha_nhan' 
+          ? "VĂN PHONG THIẾT HUYẾT: Kể theo GÓC NHÌN THỨ 3. Trần trụi, bạo lực, tàn nhẫn, dứt khoát. Tả thực nỗi đau. Lời thoại ngắn gọn, sát phạt quả đoán. TUYỆT ĐỐI CẤM xưng 'Ta' ngoài hội thoại." 
+          : arenaState.combatStyle === 'toi_gian'
+          ? "VĂN PHONG TỐI GIẢN: Kể theo GÓC NHÌN THỨ 3. Cực kỳ ngắn gọn. Chỉ báo cáo hành động và sát thương, lược bỏ mọi chi tiết thừa. TUYỆT ĐỐI CẤM xưng 'Ta' ngoài hội thoại."
+          : "VĂN PHONG TIÊN HIỆP MẶC ĐỊNH: Kể theo GÓC NHÌN THỨ 3. Uyển chuyển, hào hùng, miêu tả chiêu thức uy áp mịt mù. TUYỆT ĐỐI CẤM xưng 'Ta' ngoài hội thoại.";
+
+      let arenaLengthInstruction = "";
+      if (arenaLengthLevel <= 2) arenaLengthInstruction = "LỆNH TỐI CAO VỀ ĐỘ DÀI: Hãy viết thật NGẮN GỌN, XÚC TÍCH. Lược bỏ các tình tiết dư thừa, đi thẳng vào kết quả nhanh nhất.";
+      else if (arenaLengthLevel <= 4) arenaLengthInstruction = "LỆNH TỐI CAO VỀ ĐỘ DÀI: Viết với độ dài TIÊU CHUẨN, vừa đủ chi tiết để cảm nhận không khí trận đấu.";
+      else if (arenaLengthLevel <= 7) arenaLengthInstruction = "LỆNH TỐI CAO VỀ ĐỘ DÀI: HÃY VIẾT DÀI VÀ CHI TIẾT HƠN BÌNH THƯỜNG! Tập trung miêu tả sâu sắc giao phong, chiêu thức và những câu thoại sắc bén.";
+      else arenaLengthInstruction = "LỆNH TỐI CAO VỀ ĐỘ DÀI (CỰC KỲ QUAN TRỌNG): BẠN BẮT BUỘC PHẢI VIẾT CỰC KỲ DÀI, LÊ THÊ VÀ CHI TIẾT NHẤT CÓ THỂ! Hãy tả kỹ chiêu thức, ánh mắt, giọt mồ hôi, từng luồng linh khí di chuyển, mở rộng hội thoại để làm bật khí thế của trận quyết chiến sinh tử!";
+
+      const sysPrompt = `BẠN LÀ THIÊN ĐẠO - TRỌNG TÀI PVP BẢNG XẾP HẠNG.
+Nhiệm vụ: Mô phỏng 1 LƯỢT ĐÁNH duy nhất giữa [BÊN A - Người Chơi Thực] và [BÊN B - Bản Sao AI]. BÊN B tự động phản đòn dựa trên CHIẾN LƯỢC.
+VĂN PHONG YÊU CẦU: ${combatStyleRules}
+${arenaLengthInstruction}
+${settingDeepReasoning ? `\n[LỆNH TỐI CƯỜNG - CHẾ ĐỘ SUY LUẬN SÂU (CHAIN OF THOUGHT)]\nBẠN BẮT BUỘC phải tư duy logic, kiểm tra chéo chính xác mọi chỉ số Toán học và Chiến lược của Bên B trước khi đưa ra phản đòn. BẠN BẮT BUỘC XUẤT THÊM TRƯỜNG "internal_thoughts" VÀO TRONG JSON (ngang hàng "battleLog") tóm tắt quá trình bạn phân tích!` : ''}
+      
+[BÊN A - ${myData.name.toUpperCase()} (NGƯỜI CHƠI)]
+Hệ Phái: ${myData.cultivationPath || 'tu_tien'}. Cảnh giới: ${myData.cultivationLevel}
+HP: ${arenaState.myHP}/${arenaState.myMaxHP} | Năng lượng: ${arenaState.myMP}/${arenaState.myMaxMP} | Thể lực: ${arenaState.myStamina}/${arenaState.myMaxStamina}
+Công: ${(Number(myData.attack)||10)*stConfig.statMult}, Thủ: ${(Number(myData.defense)||10)*stConfig.statMult}, Tốc: ${(Number(myData.speed)||10)*stConfig.statMult}, Thức: ${(Number(myData.spiritPower)||10)*stConfig.statMult}
+Skill/Item mang theo: ${(myData.journal?.skills || []).filter(s => arenaState.selectedSkills.includes(s.name)).map(s=>s.name).join(', ')} | Đang mặc: ${Object.values(myData.equipped || {}).filter(Boolean).map(i=>i.name).join(', ') || 'Không có'} | Đồ trong túi: ${(myData.inventory || []).filter(i => arenaState.selectedItems.includes(i.name)).map(i=>i.name).join(', ')}
+Khí vận ngầm: ${(myData.traits || []).map(t => t.name).join(', ')}
+Hành động tung chiêu của Bên A: "${actionText}"${khiLinhFx.instruction}
+      
+[BÊN B - ${oppData.name.toUpperCase()} (BẢN SAO AI)]
+Hệ: ${oppActiveEnergy.isPhysical ? "THỂ TU" : "PHÁP TU"}. Cảnh giới: ${oppData.level}
+HP: ${arenaState.oppHP}/${oppData.maxHp} | Năng lượng: ${arenaState.oppMP}/${oppData.maxMp || 50} | Thể lực: ${arenaState.oppStamina}/${oppData.maxSta || 100}
+Công: ${oppData.atk}, Thủ: ${oppData.def}, Tốc: ${oppData.spd}, Thức: ${oppData.spp}
+Skill/Item sở hữu: ${(oppData.skills || []).map(s=>s.name).join(', ')} | ${(oppData.items || []).map(i=>i.name).join(', ')}
+CHIẾN LƯỢC CỦA BÊN B: "${oppData.strategy}"${formationInstruction}${hdInstructionArena}${kamuiInstructionArena}
+
+LUẬT TRỌNG TÀI (TUYỆT ĐỐI TUÂN THỦ):
+
+1. BẮT BUỘC ĐỂ BÊN B PHẢN CÔNG TRONG LƯỢT NÀY! Bên B không đứng làm bao cát. Hãy đọc CHIẾN LƯỢC của B để quyết định B sẽ lôi skill/item nào ra chống đỡ hoặc đánh trả.
+
+2. VIẾT TRUYỆN: Kể dưới GÓC NHÌN THỨ 3 (Bạn là Người Dẫn Truyện toàn tri). Gọi tên 2 bên. CẤM XƯNG "TA". Tuân thủ đúng VĂN PHONG YÊU CẦU ở trên.
+
+3. CHỈ SỐ TƯƠNG QUAN & CHIẾN THUẬT (V12.55):
+- LOGIC TRAIT ƯU TIÊN ĐÁNH ĐẦU, CHỈ SỐ XẾP SAU: Các Khí Vận/Đặc tính Khái Niệm cấp Omniverse (Tử Vong Thiên Tòa, Chân Lý Siêu Việt, v.v.) luôn áp đảo mọi chỉ số vật lý. Người chơi KHÔNG THỂ dùng cheat chỉ số ảo để đánh bại Đặc Tính Tối Cao.
+- CHỈ SỐ LÀ CHÂN LÝ DUY NHẤT (NẾU KHÔNG CÓ TRAIT ÁP ĐẢO): BẮT BUỘC phân định kết quả dựa vào CHỈ SỐ THỰC TẾ (Công, Thủ, Tốc, Thức). TUYỆT ĐỐI CẤM thiên vị kẻ có Tên Cảnh Giới cao hơn! NẾU Bên A ở Cảnh Giới thấp nhưng Chỉ Số cao hơn Bên B, Bên A BẮT BUỘC NGHIỀN ÉP Bên B.
+- Tốc độ cao -> Né đòn. Công cao -> Xuyên thủng.
+- Hãy làm phép toán (Công A / Thủ B), nếu > 1.5 lần -> Sức công phá mang tính hủy diệt.
+- NHƯNG CẤM MIỂU SÁT SÁO RỖNG!
+- Kẻ yếu nếu có 'Chiến lược' xảo quyệt (chơi độc, bẫy rập) hoặc Tốc độ/Thần thức cao, BẮT BUỘC phải cho chúng cơ hội phản kích ngầm, gài bẫy hoặc kéo dài mạng sống.
+- Sức mạnh là cốt lõi, nhưng MƯU TRÍ có thể lật kèo!
+
+3.0. BỨC TƯỜNG CẢNH GIỚI (ÁP CHẾ TUYỆT ĐỐI V12.51):
+- NẾU Tốc Độ của người phòng vệ > 5 LẦN Thần Thức của kẻ giáng chiêu -> tỷ lệ đánh trúng BẮT BUỘC ép về 0% (Né Tránh Tuyệt Đối).
+- NẾU Phòng Thủ của người chịu đòn > 5 LẦN sức Tấn Công của đối phương -> BẮT BUỘC bỏ qua sát thương chấn động 5%, ép sát thương trực tiếp về 0 (Bất Phá Cương Khí, đánh như gãi ngứa).
+
+3.1. ĐỊNH LUẬT KHÔNG GIAN ĐA CHIỀU (V12.20):
+BẮT BUỘC áp dụng triệt để cơ chế vật lý dị thường. NẾU chiêu thức xé nát không gian, mượn lực loạn lưu hư không hoặc bẻ cong chiều không gian, TẤT CẢ phải được miêu tả rõ sự sụp đổ định lý vật lý và dội sát thương khủng khiếp vào kẻ thủ ác hoặc kẻ địch bị hút vào.
+
+3.5. TRẠNG THÁI HIỆU ỨNG & KỸ NĂNG V12.15: ĐẶC KỸ là nội tại bẩm sinh, THẦN THÔNG là sát chiêu siêu việt, TUYỆT CHIÊU là công pháp sử dụng xuất ra. Hậu quả chiến đấu: [CHOÁNG] -> 100% Cấm né/thủ, tê liệt 1 lượt. [LOẠN] -> Mất trí nhớ tự xuất chiêu hụt cấu rỉa vào mình. [ĐỘC, ĐỐT/BỎNG, CHÚ] -> Trừ 10% Max HP mỗi lượt đánh. [CHẢY MÁU] -> Tóe máu mất -10% Max HP trong 2 lượt, Cấm hồi máu (Cộng dồn vết Đốt). [TRẢM SÁT / TỨC TỬ] -> Bỏ qua Khóa Máu, chết dứt điểm.
+3.6. CHÍ MẠNG & SÁT THƯƠNG CHUẨN: "Chí Mạng" nhân từ x2 đến x5. Tỷ lệ/Lượng ST scale theo 50% (Tốc+Thể Lực) phe công so phe thủ. Phe thủ giảm tỷ lệ Chí mạng bị dính bằng 50% (Máu+Thủ), giảm ST Chí mạng bằng 50% Thủ. "Sát Thương Chuẩn" cộng thẳng bỏ qua giáp, gây mất máu y nguyên (số thẳng) dẫu dmg gốc = 0, trừ khi địch giảm STC.
+3.7. ĐỘC TÔN ĐẶC TÍNH HỆ PHÁI V12.15: THỂ TU Kháng cực cao Thiêu Đốt. QUỶ TU/NHO TU bạo tăng nguyền rủa/huyễn thuật/trị liệu. TIÊN TU (Pháp tu) e ngại khắc hệ, cực dễ dính Debuff. PHẬT TU Kháng mạnh nguyền rủa Quỷ/Ma. MA TU bạo tăng sát thương Thiêu Đốt/Hủ hóa nhưng dễ gặp xui xẻo nhỏ.${(myData.activeDLCs?.includes('dlc_dark_fantasy') && stConfig.id < 18) ? ' [V12.15 DLC Quang Ám - Đối với Ma/Quỷ Tu]: Đánh ác không xui xẻo, NHƯNG đối địch kẻ có Dương Karma sẽ tiếp nhận lượng Sát Thương Chuẩn bằng ĐÚNG ĐIỂM DƯƠNG KARMA ĐÓ (Vạn Ác/Thiên Ma miễn nhiễm 50% STC này).' : ''}
+3.7.5. ĐỊNH LUẬT BẤT TỬ TỐI CAO (TIÊN ĐẾ CẤP 19 & ĐẠO TỔ CẤP 20): Tiên Đế cùng tiểu cảnh giới KHÔNG THỂ giết chết lẫn nhau, chỉ bị diệt bởi kẻ cao hơn từ 1 tiểu cảnh giới. Đạo Tổ (siêu thoát Thiên Đạo) đánh Tiên Đế dễ như bỡn. Đạo Tổ cùng tiểu cảnh giới KHÔNG THỂ giết lẫn nhau; cao hơn 1 tiểu cảnh giới cũng KHÔNG THỂ giết triệt để; CHỈ KHI cao hơn từ 2 tiểu cảnh giới mới tiêu diệt hoàn toàn được. NẾU chênh lệch < 2 tiểu cảnh giới, muốn giết Đạo Tổ BẮT BUỘC phải: 1. Phong ấn mục tiêu. 2. Xóa sạch nhân quả (giết người liên hệ hoặc xóa ký ức vạn vật, dùng máu/di vật để rủa tìm nhanh). 3. Dùng Bản nguyên thôn phệ Nguồn gốc xóa khái niệm tồn tại. Nếu không đủ bước, Đạo Tổ vĩnh viễn TÁI SINH!
+3.8. ĐẶC QUYỀN RIMURU & RAPHAEL: Nếu BÊN A hoặc BÊN B tên là "Rimuru Tempest" (Rimura Tempes), cơ thể mang đặc tính NỮ GIỚI tuyệt đối (ngực phẳng, mông to căng tròn để sinhcon). BẮT BUỘC gọi là nàng/Nữ Ma Vương. Có Đại thiên thần sa ngã Raphael hỗ trợ phân tích điểm yếu. Nếu kẻ này tung đòn kết liễu đối phương, lập tức kích hoạt [Bạo Thực Vương] cắn nuốt tồn tại (Tự buff 0.1% toàn chỉ số)!
+4. ĐẦU RA SÁT THƯƠNG: Trả về thay đổi dưới dạng SỐ ÂM.${settingEpicCombat ? `
+5. MIÊU TẢ SỬ THI: Người chơi đã bật chế độ miêu tả chi tiết. BẠN BẮT BUỘC tả kỹ hình thái năng lượng, uy lực của chiêu thức hai bên va chạm vào nhau tạo ra dị tượng gì trước khi phân định kết quả!` : ''}
+
+TRẢ VỀ JSON DUY NHẤT:
+      {
+        "internal_thoughts": "Quá trình suy luận chiến thuật...",
+        "battleLog": "Đoạn văn tiên hiệp góc nhìn thứ 3, tả A đánh ra sao, B phản đòn thế nào...",
+        "matchSummary": "Tóm tắt ngắn (1-2 câu) tình hình trận đấu hiện tại (Lý do ai đang áp đảo, ai đang yếu thế do chênh lệch sức mạnh hoặc do khắc hệ...).",
+        "playerHpChange": 0, "playerMpChange": 0, "playerStaminaChange": 0,
+        "opponentHpChange": 0, "opponentMpChange": 0, "opponentStaminaChange": 0,
+        "nextOptions": ["Tấn công chớp nhoáng [Rủi ro]", "Phòng thủ phản công [An toàn]", "Dùng tuyệt kỹ mạnh nhất [Cẩn trọng]", "Thăm dò đối thủ [Mất thời gian]"]
+      }`;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { 
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ contents: [{ parts: [{ text: "Xử lý đòn đánh 2 bên." }] }], systemInstruction: { parts: [{ text: sysPrompt }] }, generationConfig: { responseMimeType: "application/json" } })
+                });
+                
+                if (!response.ok) throw new Error("API Limit");
+          const result = await response.json();
+          let parts = result.candidates?.[0]?.content?.parts || [];
+          let textResult = parts.filter(p => !p.thought).map(p => p.text).join('\n') || parts[0]?.text || '{}';
+          
+          // Trích xuất JSON thông minh
+          const cbMatch = textResult.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
+          if (cbMatch) textResult = cbMatch[1];
+          else {
+              const first = textResult.indexOf('{');
+              const last = textResult.lastIndexOf('}');
+              if (first !== -1 && last !== -1 && last >= first) textResult = textResult.substring(first, last + 1);
+          }
+          // V8.06 FIX: Cạo sạch chữ Hán ở Giao diện Cột
+          textResult = textResult.replace(/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]/g, '');
+          const data = JSON.parse(filterRestrictedNames(textResult.replace(/```json/gi, '').replace(/```/g, '').trim()));
+
+          if (data.battleLog && typeof data.battleLog === 'string') {
+              data.battleLog = data.battleLog.replace(/\s*\(\s*ĐÃ CHẾT\s*\)/gi, '');
+          }
+
+          
+
+          
+
+          const newMyHp = Math.max(0, Math.min(arenaState.myMaxHP, arenaState.myHP + (Number(data.playerHpChange) || 0)));
+          const newMyMp = Math.max(0, Math.min(arenaState.myMaxMP, arenaState.myMP + (Number(data.playerMpChange) || 0)));
+          const newMySta = Math.max(0, Math.min(arenaState.myMaxStamina, arenaState.myStamina + (Number(data.playerStaminaChange) || 0)));
+          const newOppHp = Math.max(0, Math.min(arenaState.oppMaxHP, arenaState.oppHP + (Number(data.opponentHpChange) || 0)));
+          const newOppMp = Math.max(0, Math.min(arenaState.oppMaxMP, arenaState.oppMP + (Number(data.opponentMpChange) || 0)));
+          const newOppSta = Math.max(0, Math.min(arenaState.oppMaxStamina, arenaState.oppStamina + (Number(data.opponentStaminaChange) || 0)));
+
+          let endStatusText = null;
+          let resolveElo = false;
+          let amIWinner = false;
+
+          if (newMyHp <= 0 && newOppHp <= 0) { endStatusText = "💢 HAI BÊN ĐỒNG QUY VU TẬN (HÒA)! Không thay đổi xếp hạng."; }
+          else if (newMyHp <= 0) { endStatusText = `💀 BẠN ĐÃ BỊ ĐÁNH BẠI! Giáng cấp bảng xếp hạng.`; resolveElo = true; amIWinner = false; }
+          else if (newOppHp <= 0) { endStatusText = `🏆 CHIẾN THẮNG! Đoạt lấy Điểm Thiên Đạo của đối thủ!`; resolveElo = true; amIWinner = true; }
+
+          setArenaState(prev => {
+              const newLogs = [...prev.logs, { type: 'story', text: data.battleLog }];
+              if (data.playerHpChange !== 0 || data.opponentHpChange !== 0) {
+                 newLogs.push({ type: 'system', text: `Biến động sinh lực: Phe Ta ${data.playerHpChange||0} HP. | Địch Nhân ${data.opponentHpChange||0} HP.` });
+              }
+              if (endStatusText) newLogs.push({ type: 'system', text: endStatusText });
+
+              return {
+                  ...prev,
+                  myHP: newMyHp, myMP: newMyMp, myStamina: newMySta,
+                  oppHP: newOppHp, oppMP: newOppMp, oppStamina: newOppSta,
+                  logs: newLogs,
+                  options: (newMyHp > 0 && newOppHp > 0) ? (data.nextOptions || prev.options) : [],
+                  isGenerating: false
+              };
+          });
+          
+          setTimeout(() => { if (arenaScrollRef.current) arenaScrollRef.current.scrollTop = arenaScrollRef.current.scrollHeight; }, 100);
+
+          // V6.2: Cập Nhật Cướp Ngôi, Thắng Thua và Lịch Sử
+          if (resolveElo && user && arenaState.opponentId) {
+              try {
+                  const myDocId = `${user?.uid}_${arenaState.myProfileId}`;
+                  const myRef = doc(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena', myDocId);
+                  const oppRef = doc(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena', arenaState.opponentId);
+                  
+                  const mySnap = await getDoc(myRef);
+                  let myDataToSave = mySnap.exists() ? mySnap.data() : { rankPosition: 999999, wins: 0, losses: 0, matchHistory: [] };
+                  let myCurrentRank = myDataToSave.rankPosition || 999999;
+                  let oppRank = arenaState.opponentScore || 999999; 
+
+                  // V6.5: Ghi lại nguyên nhân thắng thua do AI đúc kết
+                  const historyLogMe = { time: Date.now(), result: amIWinner ? 'win' : 'loss', opp: oppData.name, summary: data.matchSummary || "Quyết chiến sinh tử." };
+                  const historyLogOpp = { time: Date.now(), result: !amIWinner ? 'win' : 'loss', opp: myData.name, summary: data.matchSummary || "Quyết chiến sinh tử." };
+
+                  // Cập nhật Thắng/Thua và Lịch sử cho Mình
+                  myDataToSave.wins = (myDataToSave.wins || 0) + (amIWinner ? 1 : 0);
+                  myDataToSave.losses = (myDataToSave.losses || 0) + (!amIWinner ? 1 : 0);
+                  myDataToSave.matchHistory = [historyLogMe, ...(myDataToSave.matchHistory || [])].slice(0, 10); // Giữ 10 trận gần nhất
+
+                  // Logic Tranh Đoạt (Hoán Đổi Vị Trí)
+                  if (amIWinner && oppRank < myCurrentRank) {
+                      myDataToSave.rankPosition = oppRank;
+                      oppRank = myCurrentRank; // Đẩy địch xuống
+                  } else if (!amIWinner && oppRank > myCurrentRank) {
+                      myDataToSave.rankPosition = oppRank;
+                      oppRank = myCurrentRank; // Kéo mình xuống
+                  }
+
+                  await setDoc(myRef, myDataToSave, { merge: true });
+
+                  // Cập nhật cho Đối thủ
+                  const oppSnap = await getDoc(oppRef);
+                  if (oppSnap.exists()) {
+                      const oppDataToSave = oppSnap.data();
+                      oppDataToSave.wins = (oppDataToSave.wins || 0) + (!amIWinner ? 1 : 0);
+                      oppDataToSave.losses = (oppDataToSave.losses || 0) + (amIWinner ? 1 : 0);
+                      oppDataToSave.matchHistory = [historyLogOpp, ...(oppDataToSave.matchHistory || [])].slice(0, 10);
+                      oppDataToSave.rankPosition = oppRank;
+                      await setDoc(oppRef, oppDataToSave, { merge: true });
+                  }
+              } catch(err) { console.error("Lỗi cập nhật xếp hạng:", err); }
+          }
+
+      } catch (e) {
+          setArenaState(prev => ({ ...prev, isGenerating: false, logs: [...prev.logs, { type: 'system', text: 'Thiên Đạo nghẽn mạng, vui lòng thử lại...' }] }));
+      }
+  };
+
+  const closeArena = () => {
+      if (arenaState.tab === 'battle' && arenaState.myHP > 0 && arenaState.oppHP > 0) {
+          showConfirm("Đào tẩu lúc này sẽ bị giáng hạng! Xác nhận thoát?", async () => {
+              // Phạt điểm khi chuồn
+              if (user && arenaState.myProfileId) {
+                  try {
+                      const myRef = doc(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena', `${user?.uid}_${arenaState.myProfileId}`);
+                      const mySnap = await getDoc(myRef);
+                      if (mySnap.exists()) await setDoc(myRef, { rankScore: Math.max(0, (mySnap.data().rankScore||0) - 50) }, { merge: true });
+                  } catch(e){}
+              }
+              setIsArenaOpen(false);
+          });
+      } else {
+          setIsArenaOpen(false);
+      }
+  };
+  // ================= KẾT THÚC ĐẠI LA THIÊN BẢNG =================
+
+  // V3.70: Tải 200 chương khi mở bảng Lịch Sử lần đầu
+  useEffect(() => {
+      if (isHistoryOpen && historyLogs.length === 0 && gameState.chapterCount > 0) {
+          loadMoreHistory(200);
+      }
+  }, [isHistoryOpen]);
+
+  // V3.70: Xử lý thao tác đa vật phẩm

@@ -1,0 +1,404 @@
+const getBaiGiaBreakthroughCost = (stageId: number, minorLevel: number, isMajor: boolean) => {
+  if (stageId <= 1) return 5000;
+  const baseCosts: Record<number, number> = {
+    2: 5000, 3: 20000, 4: 100000, 5: 500000, 6: 2000000,
+    7: 10000000, 8: 50000000, 9: 200000000, 10: 1000000000,
+    11: 3000000000, 12: 10000000000, 13: 30000000000, 14: 100000000000, 15: 300000000000
+  };
+  const base = baseCosts[stageId] || (stageId >= 15 ? 500000000000 : 5000);
+  return isMajor ? base * 5 : Math.floor(base * (1 + (minorLevel - 1) * 0.25));
+};
+
+const getBaiGiaUpgradeCost = (currentLevel: number) => {
+  const lvl = Math.max(1, currentLevel || 1);
+  return Math.floor(10000 * lvl * Math.pow(1.5, lvl - 1));
+};
+
+interface BaiGiaShopItem {
+  id: string;
+  name: string;
+  type: 'equipment' | 'pill' | 'map' | 'intel' | 'physique';
+  rarity: string;
+  cost: number;
+  reqLevel: number;
+  desc: string;
+  stats?: Record<string, any>;
+  perks?: string[];
+  actionEffect?: string;
+}
+
+const getBaiGiaShopCatalog = (sysLevel: number): BaiGiaShopItem[] => {
+  const lvl = Math.max(1, sysLevel || 1);
+  const items: BaiGiaShopItem[] = [];
+
+  // 1. TRANG BỊ
+  items.push({
+    id: 'bg_equip_trang_1',
+    name: 'Kiếm Gỗ Phàm Trần Của Thần Hào',
+    type: 'equipment',
+    rarity: 'Trắng',
+    cost: 500,
+    reqLevel: 1,
+    desc: 'Kiếm gỗ bình thường nhưng dát vàng lá, toát lên mùi tiền tài.',
+    stats: { attack: 15, speed: 5 },
+    perks: ['Sang Trọng']
+  });
+  items.push({
+    id: 'bg_equip_trang_2',
+    name: 'Gấm Lụa Sa Xa Bào',
+    type: 'equipment',
+    rarity: 'Trắng',
+    cost: 500,
+    reqLevel: 1,
+    desc: 'Y phục may từ tơ tằm thượng hạng, cực kỳ dễ rách nhưng mặc rất sang.',
+    stats: { defense: 10, maxHealth: 50 },
+    perks: ['Sang Trọng']
+  });
+
+  if (lvl >= 3) {
+    items.push({
+      id: 'bg_equip_xanh_1',
+      name: 'Thanh Phong Bại Gia Kiếm',
+      type: 'equipment',
+      rarity: 'Xanh',
+      cost: 3000,
+      reqLevel: 3,
+      desc: 'Bảo kiếm sắc bén gắn ngọc bích, xuất chiêu phát ra âm thanh vàng bạc va chạm.',
+      stats: { attack: 50, speed: 30 },
+      perks: ['Phá Giáp']
+    });
+    items.push({
+      id: 'bg_equip_xanh_2',
+      name: 'Hắc Kim Hộ Tâm Kính',
+      type: 'equipment',
+      rarity: 'Xanh',
+      cost: 3000,
+      reqLevel: 3,
+      desc: 'Hộ tâm kính đúc bằng hắc kim đắt tiền, chắn tên đỡ kiếm rất tốt.',
+      stats: { defense: 45, maxHealth: 200 },
+      perks: ['Hộ Thể']
+    });
+  }
+
+  if (lvl >= 5) {
+    items.push({
+      id: 'bg_equip_lam_1',
+      name: 'Bích Hải Tán Kim Đao',
+      type: 'equipment',
+      rarity: 'Lam',
+      cost: 15000,
+      reqLevel: 5,
+      desc: 'Đao đúc bằng hàn thiết biển sâu dát bảo ngọc, trảm ra sóng đao lấp lánh.',
+      stats: { attack: 180, speed: 80, spiritPower: 100 },
+      perks: ['Xuyên Thấu', 'Bạo Kích']
+    });
+    items.push({
+      id: 'bg_equip_lam_2',
+      name: 'Lưu Ly Thần Hào Thuẫn',
+      type: 'equipment',
+      rarity: 'Lam',
+      cost: 15000,
+      reqLevel: 5,
+      desc: 'Tấm khiên lưu ly bóng loáng, phản chiếu ánh sáng khiến kẻ địch chói mắt.',
+      stats: { defense: 160, maxHealth: 800 },
+      perks: ['Phản Chấn', 'Kiên Bích']
+    });
+  }
+
+  if (lvl >= 7) {
+    items.push({
+      id: 'bg_equip_tim_1',
+      name: 'Tử Tiêu Phú Quý Thần Kiếm',
+      type: 'equipment',
+      rarity: 'Tím',
+      cost: 60000,
+      reqLevel: 7,
+      desc: 'Thanh kiếm lôi quang màu tím, mỗi lần chém tiêu hao chút tiền tài để tăng 30% uy lực.',
+      stats: { attack: 450, speed: 250, spiritPower: 300 },
+      perks: ['Bạo Kích', 'Trảm Hồn', 'Cuồng Nộ']
+    });
+    items.push({
+      id: 'bg_equip_tim_2',
+      name: 'Cửu Thiên Tán Tài Y',
+      type: 'equipment',
+      rarity: 'Tím',
+      cost: 60000,
+      reqLevel: 7,
+      desc: 'Pháp y thêu chín tầng mây tím, tự động hấp thụ chấn động và bảo vệ tâm mạch.',
+      stats: { defense: 400, maxHealth: 2500, maxSpiritualEnergy: 1000 },
+      perks: ['Hộ Thể', 'Chắn Phản Phệ']
+    });
+  }
+
+  if (lvl >= 9) {
+    items.push({
+      id: 'bg_equip_vang_1',
+      name: 'Kim Long Vạn Lượng Thương',
+      type: 'equipment',
+      rarity: 'Vàng',
+      cost: 250000,
+      reqLevel: 9,
+      desc: 'Thần thương uốn lượn như hoàng long, đâm xuyên hư không bằng sức mạnh tài phú vô biên.',
+      stats: { attack: 1100, speed: 600, spiritPower: 800 },
+      perks: ['Phá Giáp', 'Cuồng Bạo', 'Hấp Huyết']
+    });
+    items.push({
+      id: 'bg_equip_vang_2',
+      name: 'Hoàng Kim Bất Hoại Khải',
+      type: 'equipment',
+      rarity: 'Vàng',
+      cost: 250000,
+      reqLevel: 9,
+      desc: 'Chiến giáp đúc từ vàng ròng hỗn độn, đao thương bất nhập, thủy hỏa bất xâm.',
+      stats: { defense: 1000, maxHealth: 8000, maxSpiritualEnergy: 3000 },
+      perks: ['Kiên Bích', 'Phản Chấn', 'Băng Tâm Tịch Diệt']
+    });
+  }
+
+  if (lvl >= 11) {
+    items.push({
+      id: 'bg_equip_cam_1',
+      name: 'Thần Hào Lạc Phượng Cung',
+      type: 'equipment',
+      rarity: 'Cam',
+      cost: 800000,
+      reqLevel: 11,
+      desc: 'Cung thần nạm linh thạch cửu phẩm, bắn ra mưa tên tiền tài bắn rụng phượng hoàng.',
+      stats: { attack: 2200, speed: 1400, spiritPower: 1600 },
+      perks: ['Xuyên Thấu', 'Đoạt Mệnh', 'Tuyệt Đối Khuy Thiên']
+    });
+  }
+
+  if (lvl >= 12) {
+    items.push({
+      id: 'bg_equip_do_tier1_1',
+      name: 'Thái Sơ Bại Gia Thần Kiếm (Bậc 1)',
+      type: 'equipment',
+      rarity: 'Đỏ',
+      cost: 1500000,
+      reqLevel: 12,
+      desc: 'Bảo vật cấp Đỏ sơ cấp của Hệ Thống Bại Gia (Etsuo đề xuất). Rèn bằng tinh hoa thái sơ dát vàng, uy chấn bát hoang.',
+      stats: { attack: 1600, speed: 1200, spiritPower: 1400 },
+      perks: ['Phá Giáp', 'Bạo Kích', 'Hấp Huyết', 'Trảm Hồn']
+    });
+    items.push({
+      id: 'bg_equip_do_tier1_2',
+      name: 'Thái Cổ Tán Tài Khải (Bậc 1)',
+      type: 'equipment',
+      rarity: 'Đỏ',
+      cost: 1500000,
+      reqLevel: 12,
+      desc: 'Chiến giáp cấp Đỏ sơ cấp (Etsuo đề xuất). Mỗi lần bị trúng đòn tiêu hao 100 ĐBG để miễn trừ 40% sát thương.',
+      stats: { defense: 1800, maxHealth: 15000, maxSpiritualEnergy: 5000 },
+      perks: ['Hộ Thể', 'Kiên Bích', 'Miễn Ác Hỏa', 'Tái Tạo Bất Tử']
+    });
+  }
+
+  if (lvl >= 14) {
+    items.push({
+      id: 'bg_equip_do_tier2_1',
+      name: 'Bại Gia Tru Tiên Thần Kiếm (Chí Tôn Cực Phẩm)',
+      type: 'equipment',
+      rarity: 'Đỏ',
+      cost: 6000000,
+      reqLevel: 14,
+      desc: 'Tuyệt thế Thần Kiếm Đỏ cực phẩm bậc 2 của Thần Hào Bại Gia (Etsuo đề xuất). Kiếm khí chém rách đại đạo, tán tài đồ tiên diệt phật!',
+      stats: { attack: 4800, speed: 3800, spiritPower: 4200 },
+      perks: ['Phá Giáp', 'Xuyên Thấu', 'Bạo Kích', 'Trảm Hồn', 'Đoạt Mệnh', 'Tuyệt Đối Khuy Thiên']
+    });
+    items.push({
+      id: 'bg_equip_do_tier2_2',
+      name: 'Hỗn Độn Thần Hào Thánh Khải (Chí Tôn Cực Phẩm)',
+      type: 'equipment',
+      rarity: 'Đỏ',
+      cost: 6000000,
+      reqLevel: 14,
+      desc: 'Tuyệt thế Thánh Khải Đỏ cực phẩm bậc 2 (Etsuo đề xuất). Nhục thân bất hoại, vạn pháp bất xâm, hồi sinh niết bàn khi lâm nguy.',
+      stats: { defense: 5000, maxHealth: 50000, maxSpiritualEnergy: 20000 },
+      perks: ['Hộ Thể', 'Kiên Bích', 'Phản Chấn', 'Băng Tâm Tịch Diệt', 'Tái Tạo Bất Tử', 'Niết Bàn']
+    });
+  }
+
+  // 2. ĐAN DƯỢC
+  items.push({
+    id: 'bg_pill_1',
+    name: 'Thần Hào Hồi Huyết Đan',
+    type: 'pill',
+    rarity: lvl >= 7 ? 'Tím' : 'Xanh',
+    cost: lvl >= 7 ? 20000 : 2000,
+    reqLevel: 1,
+    desc: 'Đan dược thơm nức mùi linh thảo thượng phẩm, hồi đầy 100% sinh lực và tăng thêm 500 HP tối đa.',
+    stats: { healHp: 999999, maxHealthBonus: 500 }
+  });
+  items.push({
+    id: 'bg_pill_2',
+    name: 'Bại Gia Tẩy Tủy Thông Thiên Đan',
+    type: 'pill',
+    rarity: lvl >= 9 ? 'Vàng' : 'Tím',
+    cost: lvl >= 9 ? 100000 : 30000,
+    reqLevel: 3,
+    desc: 'Luyện chế từ vạn viên linh thạch, tẩy trừ 100% tạp chất kinh mạch, tăng vĩnh viễn +50 Ngộ Tính và +50 Căn Cơ.',
+    stats: { enlightenment: 50, talent: 50 }
+  });
+  items.push({
+    id: 'bg_pill_3',
+    name: 'Vạn Thọ Vô Cương Tiên Đan',
+    type: 'pill',
+    rarity: 'Cam',
+    cost: 500000,
+    reqLevel: 7,
+    desc: 'Đan dược nghịch thiên kéo dài thọ mệnh, tăng vĩnh viễn +500 năm thọ nguyên tối đa và kháng sạch đan độc.',
+    stats: { maxLifespanBonus: 500 }
+  });
+
+  // 3. BẢN ĐỒ & BÍ CẢNH
+  items.push({
+    id: 'bg_map_1',
+    name: 'Tàn Đồ Bí Cảnh Thượng Cổ',
+    type: 'map',
+    rarity: 'Lam',
+    cost: 50000,
+    reqLevel: 2,
+    desc: 'Bản đồ da dê cổ xưa đánh dấu lối vào bí cảnh thượng cổ đầy ắp kỳ hoa dị thảo và cơ duyên.',
+    actionEffect: 'unlock_ancient_realm'
+  });
+  items.push({
+    id: 'bg_map_2',
+    name: 'Tọa Độ Động Phủ Chân Tiên',
+    type: 'map',
+    rarity: 'Tím',
+    cost: 200000,
+    reqLevel: 5,
+    desc: 'Tọa độ bí mật ghi lại vị trí động phủ của một vị Chân Tiên phi thăng lưu lại di sản.',
+    actionEffect: 'unlock_immortal_cave'
+  });
+  items.push({
+    id: 'bg_map_3',
+    name: 'Tinh Đồ Ngoại Vực Hư Không',
+    type: 'map',
+    rarity: 'Vàng',
+    cost: 1000000,
+    reqLevel: 9,
+    desc: 'Bản đồ tinh không ngoài vũ trụ, chỉ dẫn đến các mảnh vỡ thế giới và mỏ quặng thần kim viễn cổ.',
+    actionEffect: 'unlock_void_stars'
+  });
+
+  // 4. TÌNH BÁO & TIN ĐỒN
+  items.push({
+    id: 'bg_intel_1',
+    name: 'Mật Tịch Nhược Điểm Yêu Vương',
+    type: 'intel',
+    rarity: 'Lam',
+    cost: 30000,
+    reqLevel: 2,
+    desc: 'Tình báo tuyệt mật bóc tách tử huyệt và sơ hở công kích của các đầu mục yêu thú đại ngàn.',
+    actionEffect: 'intel_beast_weakness'
+  });
+  items.push({
+    id: 'bg_intel_2',
+    name: 'Tin Đồn Thiên Tài Địa Bảo Hạ Phàm',
+    type: 'intel',
+    rarity: 'Tím',
+    cost: 150000,
+    reqLevel: 6,
+    desc: 'Tin đồn độc quyền về thiên thạch mang theo chí bảo thần bí rơi xuống phàm trần.',
+    actionEffect: 'intel_meteor_treasure'
+  });
+  items.push({
+    id: 'bg_intel_3',
+    name: 'Cơ Mật Trận Pháp Cổ Tông',
+    type: 'intel',
+    rarity: 'Cam',
+    cost: 600000,
+    reqLevel: 8,
+    desc: 'Giải mã chi tiết kết giới hộ sơn và trận đồ cấm kỵ của cổ tông môn, tăng mạnh ngộ tính thôi diễn.',
+    actionEffect: 'intel_sect_secrets'
+  });
+
+  // 5. THỂ CHẤT ĐẮT ĐỎ (Etsuo đề xuất)
+  items.push({
+    id: 'bg_physique_1',
+    name: 'Bại Gia Tiên Thể',
+    type: 'physique',
+    rarity: 'Đỏ',
+    cost: 5000000,
+    reqLevel: 6,
+    desc: 'Thể chất độc quyền của Thần Hào Bại Gia (Etsuo đề xuất). Tiêu xài linh thạch tăng 50% hiệu quả quy đổi Điểm Bại Gia, tăng 30% toàn diện HP/MP/Công/Thủ/Tốc, giảm 50% lượng điểm bị trừ phạt khi tiết kiệm.',
+    actionEffect: 'trait_7020'
+  });
+  items.push({
+    id: 'bg_physique_2',
+    name: 'Thần Hào Kim Thân',
+    type: 'physique',
+    rarity: 'Đỏ',
+    cost: 50000000,
+    reqLevel: 10,
+    desc: 'Nhục thân kim cương bất hoại đúc kết từ tiền tài vô tận (Etsuo đề xuất). Tăng vĩnh viễn 2.000 Công Kích, 2.500 Phòng Ngự, giảm 40% sát thương ngũ hành gánh chịu, mỗi hiệp hồi phục 5% sinh lực tối đa.',
+    actionEffect: 'trait_7021'
+  });
+  items.push({
+    id: 'bg_physique_3',
+    name: 'Vô Tận Tiêu Dao Thể',
+    type: 'physique',
+    rarity: 'Đỏ',
+    cost: 500000000,
+    reqLevel: 14,
+    desc: 'Cảnh giới tối cao của Đạo Bại Gia Tán Tài (Etsuo đề xuất). Tăng vĩnh viễn 5.000 Công Kích, 5.000 Phòng Ngự, 5.000 Thần Thức, miễn nhiễm 100% mọi loại Tâm Ma, Đan Độc và Tẩu Hỏa Nhập Ma.',
+    actionEffect: 'trait_7022'
+  });
+
+  return items;
+};
+
+const ITEM_PERK_DICTIONARY: Record<string, { name: string; desc: string; category: string; color: string }> = {
+  'Phá Giáp': { name: 'Phá Giáp', desc: 'Bỏ qua 30% phòng thủ vật lý của kẻ địch khi xuất chiêu.', category: 'Công Kích', color: 'text-red-400 border-red-500/40 bg-red-500/10' },
+  'Xuyên Thấu': { name: 'Xuyên Thấu', desc: 'Sát thương xuyên thấu trực tiếp vào kinh mạch, bỏ qua 40% hộ thể cương khí.', category: 'Công Kích', color: 'text-red-400 border-red-500/40 bg-red-500/10' },
+  'Hấp Huyết': { name: 'Hấp Huyết', desc: 'Chuyển hóa 20% sát thương gây ra thành sinh lực hồi phục cho bản thân.', category: 'Hút Máu', color: 'text-rose-400 border-rose-500/40 bg-rose-500/10' },
+  'Phệ Huyết': { name: 'Phệ Huyết', desc: 'Cắn nuốt tinh huyết kẻ địch khi đánh trúng, tăng 15% công kích trong 3 hiệp.', category: 'Hút Máu', color: 'text-rose-400 border-rose-500/40 bg-rose-500/10' },
+  'Bạo Kích': { name: 'Bạo Kích', desc: 'Tăng 25% tỷ lệ xuất hiện đòn đánh chí mạng, sát thương bạo tăng x2.0.', category: 'Công Kích', color: 'text-amber-400 border-amber-500/40 bg-amber-500/10' },
+  'Cuồng Nộ': { name: 'Cuồng Nộ', desc: 'Máu càng thấp công kích càng cao, tối đa tăng thêm 50% sát thương khi hấp hối.', category: 'Bộc Phát', color: 'text-orange-400 border-orange-500/40 bg-orange-500/10' },
+  'Cuồng Hóa': { name: 'Cuồng Hóa', desc: 'Gầm thét bộc phát huyết tính dã thú, tăng 40% công kích nhưng giảm 20% phòng thủ.', category: 'Bộc Phát', color: 'text-orange-400 border-orange-500/40 bg-orange-500/10' },
+  'Cuồng Bạo': { name: 'Cuồng Bạo', desc: 'Đòn đánh dồn dập không ngừng nghỉ, tăng 35% tốc độ xuất chiêu và uy lực.', category: 'Bộc Phát', color: 'text-orange-400 border-orange-500/40 bg-orange-500/10' },
+  'Trảm Hồn': { name: 'Trảm Hồn', desc: 'Đao kiếm kèm theo kiếm ý trảm hồn, gây thêm sát thương tinh thần trực tiếp vào Thức Hải kẻ địch.', category: 'Thần Thức', color: 'text-purple-400 border-purple-500/40 bg-purple-500/10' },
+  'Đoạt Mệnh': { name: 'Đoạt Mệnh', desc: 'Có xác suất kích hoạt đòn đánh đoạt mệnh, tước đoạt sinh cơ kẻ địch bị thương nặng.', category: 'Sát Chiêu', color: 'text-red-500 border-red-600/40 bg-red-600/10' },
+
+  'Hộ Thể': { name: 'Hộ Thể', desc: 'Tạo một lớp hộ thân cương khí giảm 20% toàn bộ sát thương gánh chịu.', category: 'Phòng Ngự', color: 'text-blue-400 border-blue-500/40 bg-blue-500/10' },
+  'Kiên Bích': { name: 'Kiên Bích', desc: 'Phòng thủ vững như bàn thạch, miễn nhiễm đòn đánh hất tung và choáng váng.', category: 'Phòng Ngự', color: 'text-blue-400 border-blue-500/40 bg-blue-500/10' },
+  'Phản Chấn': { name: 'Phản Chấn', desc: 'Phản lại 25% sát thương cận chiến gánh chịu về phía kẻ tấn công.', category: 'Phòng Ngự', color: 'text-cyan-400 border-cyan-500/40 bg-cyan-500/10' },
+  'Chắn Phản Phệ': { name: 'Chắn Phản Phệ', desc: 'Chịu thay một phần phản phệ từ Thiên Đạo khi thôi diễn hoặc cưỡng ép vận công.', category: 'Bảo Hộ', color: 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10' },
+  'Băng Tâm Tịch Diệt': { name: 'Băng Tâm Tịch Diệt', desc: 'Đóng băng tâm thần, miễn nhiễm mọi hiệu ứng nguyền rủa, choáng, ảo giác và đan độc.', category: 'Miễn Nhiễm', color: 'text-teal-300 border-teal-500/40 bg-teal-500/10' },
+  'Miễn Ác Hỏa': { name: 'Miễn Ác Hỏa', desc: 'Miễn dịch hoàn toàn với Lửa Điên Loạn, Nghiệp Hỏa và Lôi Hỏa tà đạo.', category: 'Miễn Nhiễm', color: 'text-teal-300 border-teal-500/40 bg-teal-500/10' },
+  'Tái Tạo Bất Tử': { name: 'Tái Tạo Bất Tử', desc: 'Tự mọc lại tay chân và hồi phục nội tạng sau mỗi lượt giao chiến sinh tử.', category: 'Trọng Sinh', color: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10' },
+
+  'Tụ Thần': { name: 'Tụ Thần', desc: 'Tập trung thần thức, tăng 20% độ chuẩn xác và tốc độ thôi diễn công pháp.', category: 'Thần Thức', color: 'text-purple-400 border-purple-500/40 bg-purple-500/10' },
+  'Định Vị': { name: 'Định Vị', desc: 'Định vị tọa độ không gian chính xác, giảm thiểu nguy cơ lạc đường trong bí cảnh.', category: 'Độn Thuật', color: 'text-indigo-400 border-indigo-500/40 bg-indigo-500/10' },
+  'Che Đậy Thiên Cơ': { name: 'Che Đậy Thiên Cơ', desc: 'Ẩn giấu khí tức và nhân quả bản thân trước sự dòm ngó của đại năng viễn cổ.', category: 'Ẩn Nặc', color: 'text-slate-400 border-slate-500/40 bg-slate-500/10' },
+  'Tuyệt Đối Khuy Thiên': { name: 'Tuyệt Đối Khuy Thiên', desc: 'Nhìn thấu sơ hở trong trận pháp và nhược điểm căn cơ của đối phương.', category: 'Toàn Tri', color: 'text-amber-300 border-amber-500/40 bg-amber-500/10' },
+  'Hút Khí Vận': { name: 'Hút Khí Vận', desc: 'Âm thầm hấp thu vận may của kẻ địch bị đánh bại, gia tăng phúc duyên cho bản thân.', category: 'Nghịch Thiên', color: 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10' },
+  'Biến Thân Tổ Vu': { name: 'Biến Thân Tổ Vu', desc: 'Khai mở nhục thân Tổ Vu vạn trượng, vỡ nát hư không, vạn pháp bất xâm.', category: 'Biến Thân', color: 'text-red-400 border-red-500/40 bg-red-500/10' },
+  'Luyện Hóa Cực Phẩm': { name: 'Luyện Hóa Cực Phẩm', desc: 'Tự động tôi luyện phế liệu và rác rưởi thành tinh hoa tài nguyên phẩm cấp cao.', category: 'Tạo Tác', color: 'text-amber-400 border-amber-500/40 bg-amber-500/10' },
+  'Không Gian Vô Hạn': { name: 'Không Gian Vô Hạn', desc: 'Mở rộng sức chứa kho không gian trữ vật lên vô cực, không sợ đầy túi đồ.', category: 'Không Gian', color: 'text-blue-300 border-blue-500/40 bg-blue-500/10' },
+  'Hỗ trợ Đột Phá': { name: 'Hỗ trợ Đột Phá', desc: 'Gia tăng 30% tỷ lệ đột phá bình cảnh cảnh giới kế tiếp, giảm nguy cơ tẩu hỏa nhập ma.', category: 'Đan Dược', color: 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10' },
+  'Niết Bàn': { name: 'Niết Bàn', desc: 'Khi sinh lực về 0, lập tức hồi sinh với 50% HP và xóa sạch mọi debuff (1 lần/trận).', category: 'Cứu Mệnh', color: 'text-amber-400 border-amber-500/40 bg-amber-500/10' },
+  'Cải Lão Hoàn Đồng': { name: 'Cải Lão Hoàn Đồng', desc: 'Trẻ hóa diện mạo và nhục thân, kéo dài thọ nguyên và phục hồi huyết khí thanh xuân.', category: 'Thọ Nguyên', color: 'text-pink-400 border-pink-500/40 bg-pink-500/10' },
+  'Trường Sinh Bất Lão': { name: 'Trường Sinh Bất Lão', desc: 'Thọ mệnh vô cương, thoát khỏi quy luật thiên đạo ngũ suy và lão hóa tự nhiên.', category: 'Trường Sinh', color: 'text-yellow-300 border-yellow-500/40 bg-yellow-500/10' }
+};
+
+const getItemPerkInfo = (perkName: string) => {
+  if (!perkName) return { name: 'Đặc Tính Vô Danh', desc: 'Hiệu quả gia trì thần bí cho pháp bảo.', category: 'Bổ Trợ', color: 'text-purple-300 border-purple-500/30 bg-purple-900/20' };
+  const cleanName = String(perkName).trim();
+  if (ITEM_PERK_DICTIONARY[cleanName]) return ITEM_PERK_DICTIONARY[cleanName];
+  for (const k of Object.keys(ITEM_PERK_DICTIONARY)) {
+    if (cleanName.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(cleanName.toLowerCase())) {
+      return { ...ITEM_PERK_DICTIONARY[k], name: cleanName };
+    }
+  }
+  return {
+    name: cleanName,
+    desc: `Gia trì đặc tính [${cleanName}] vào khí cụ. Tăng cường uy lực thực chiến và cộng hưởng cùng đạo pháp của chủ nhân.`,
+    category: 'Bổ Trợ',
+    color: 'text-purple-300 border-purple-500/30 bg-purple-900/20'
+  };
+};
+
+

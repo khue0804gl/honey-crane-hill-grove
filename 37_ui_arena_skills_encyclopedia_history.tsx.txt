@@ -1,0 +1,601 @@
+      {/* V6.5: ĐẠI LA THIÊN BẢNG (FULLSCREEN ARENA MODAL) */}
+      {isArenaOpen && (
+        <div className="fixed inset-0 z-[80] flex flex-col bg-[var(--bg-body)] animate-in fade-in duration-200">
+          <div className="w-full h-full flex flex-col relative overflow-hidden">
+            <div className="border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-body)] shrink-0 shadow-lg z-10" style={{ padding: `41px 16px` }}>
+               <div className="flex items-center gap-3">
+                   <div className="bg-red-900/30 p-2 rounded-lg border border-red-900/50"><Swords className="text-red-500" size={24} /></div>
+                   <div>
+                       <div className="flex items-center gap-3">
+                           <h3 className="text-lg md:text-xl font-bold text-red-500 uppercase tracking-widest">Đại La Thiên Bảng</h3>
+                           {/* V6.1: Đồng hồ Server */}
+                           <span className="text-[10px] md:text-xs bg-red-900/20 text-red-300 px-2 py-1 rounded border border-red-900/50 font-mono flex items-center gap-1 shadow-sm"><Clock size={12}/> {arenaServerTime}</span>
+                       </div>
+                       <p className="text-[10px] md:text-xs text-red-400/60 mt-0.5">Xếp hạng thực lực. Cướp đoạt vị trí của cường giả.</p>
+                   </div>
+               </div>
+               <div className="flex items-center gap-2">
+                   {arenaState.tab !== 'battle' && (
+                       <div className="flex bg-[var(--bg-body)] rounded-lg p-1 border border-[var(--border-main)]">
+                           <button onClick={() => arenaState.tab !== 'board' && setArenaState(prev=>({...prev, tab: 'board'}))} className={`px-3 py-1.5 text-xs md:text-sm font-bold rounded-md transition-colors ${arenaState.tab === 'board' ? 'bg-red-900/30 text-red-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}>Phong Thần</button>
+                           <button onClick={() => arenaState.tab !== 'setup' && setArenaState(prev=>({...prev, tab: 'setup'}))} className={`px-3 py-1.5 text-xs md:text-sm font-bold rounded-md transition-colors ${arenaState.tab === 'setup' ? 'bg-red-900/30 text-red-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}>Đạo Tràng</button>
+                       </div>
+                   )}
+                   {/* V6.5: Chỉnh Cỡ Chữ & V12.14: Chỉnh Độ Dài */}
+                   {arenaState.tab === 'battle' && (
+                       <div className="flex gap-1 items-center bg-[var(--bg-body)] rounded-lg border border-[var(--border-main)] p-1 mr-2">
+                          <div className="hidden sm:flex items-center gap-1.5 px-2 border-r border-[var(--border-main)] mr-1" title="Chỉnh độ dài văn bản trận đấu cho riêng bạn">
+                              <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Dài: <span className="text-red-400">{arenaLengthLevel}</span></span>
+                              <input type="range" min="1" max="10" value={arenaLengthLevel} onChange={e => setArenaLengthLevel(Number(e.target.value))} className="w-12 h-1 accent-red-500 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                          </div>
+                          <button onClick={() => setArenaFontSize(Math.max(12, arenaFontSize - 2))} className="px-3 py-1 text-sm font-bold text-[var(--text-muted)] hover:text-red-400 rounded">A-</button>
+                          <button onClick={() => setArenaFontSize(Math.min(28, arenaFontSize + 2))} className="px-3 py-1 text-sm font-bold text-[var(--text-muted)] hover:text-red-400 rounded">A+</button>
+                       </div>
+                   )}
+                   <button onClick={closeArena} className="p-2 bg-[var(--bg-body)] hover:bg-red-900/30 hover:text-red-500 border border-[var(--border-main)] hover:border-red-900/50 rounded-lg text-[var(--text-muted)] transition-colors"><X size={20}/></button>
+               </div>
+            </div>
+            
+            <div className="flex-1 overflow-hidden flex flex-col bg-[var(--bg-body)] relative">
+               
+               {/* TAB 1: BẢNG XẾP HẠNG */}
+               {arenaState.tab === 'board' && (
+                   <div className="flex-1 flex flex-col h-full animate-in fade-in slide-in-from-bottom-4">
+                       <div className="p-4 flex justify-between items-center border-b border-red-900/20 bg-[var(--bg-body)] shrink-0">
+                           <span className="text-sm font-bold text-red-500/80 uppercase tracking-widest flex items-center gap-2"><TrendingUp size={16}/> Top Cường Giả Toàn Cõi</span>
+                           <button onClick={fetchLeaderboard} disabled={arenaState.isLoadingBoard} className="text-xs text-red-400 bg-red-900/20 hover:bg-red-900/50 border border-red-900/50 px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2 disabled:opacity-50">
+                               <RotateCcw size={14} className={arenaState.isLoadingBoard ? 'animate-spin' : ''}/> Làm Mới Khí Tức
+                           </button>
+                       </div>
+                       
+                       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 space-y-3">
+                           {arenaState.isLoadingBoard ? (
+                               <div className="text-center text-red-500/50 py-20 italic flex flex-col items-center gap-3"><Activity size={40} className="animate-spin"/> Đang thấu thị Đám Mây...</div>
+                           ) : arenaState.leaderboard.length === 0 ? (
+                               <div className="text-center text-red-500/50 py-20 italic">Bảng Phong Thần vắng bóng. Hãy là người đầu tiên khắc ấn!</div>
+                           ) : (
+                               arenaState.leaderboard.map((player, idx) => {
+                                   const isMe = player.uid === user?.uid && player.profileId === arenaState.myProfileId;
+                                   const hasRank = player.rankPosition && player.rankPosition !== 999999;
+                                   
+                                   let rankColor = 'text-gray-500 border-gray-800 bg-[var(--bg-body)]';
+                                   if (hasRank) {
+                                       if (idx === 0) rankColor = 'text-yellow-400 border-yellow-500/50 bg-yellow-900/20 shadow-[0_0_15px_rgba(234,179,8,0.2)]';
+                                       else if (idx === 1) rankColor = 'text-gray-300 border-gray-400/50 bg-gray-800/50';
+                                       else if (idx === 2) rankColor = 'text-orange-600 border-orange-700/50 bg-orange-900/20';
+                                   }
+
+                                   return (
+                                       <div key={player.id} className={`flex flex-col p-4 rounded-xl border transition-all gap-3 ${isMe ? 'border-red-500 bg-red-900/10 shadow-[0_0_10px_rgba(239,68,68,0.2)]' : 'border-red-900/30 bg-[var(--bg-body)] hover:border-red-500/50 hover:bg-[var(--bg-surface)]'}`}>
+                                           <div className="flex items-center justify-between">
+                                               <div className="flex items-center gap-4">
+                                                   <div className={`w-12 h-12 shrink-0 rounded-full border-2 flex items-center justify-center font-black text-lg ${rankColor}`}>
+                                                       {hasRank ? `#${player.rankPosition}` : '?'}
+                                                   </div>
+                                                   <div>
+                                                       <div className="font-bold text-lg text-[var(--text-bold)] flex items-center gap-2 flex-wrap">
+                                                           {player.name}
+                                                       {isMe && <span className="text-[10px] bg-red-600 text-white px-1.5 py-0.5 rounded uppercase tracking-widest shadow-sm">Bản Tôn</span>}
+                                                       {/* V6.5: Đã Gỡ Bỏ Nhãn Hư Ảnh, NPC trà trộn hoàn toàn */}
+                                                   </div>
+                                                   <div className="text-xs font-bold text-red-400/80 mt-1 flex items-center gap-3">
+                                                           <span>{player.level}</span>
+                                                           <span className="text-emerald-500">Thắng: {player.wins || 0}</span>
+                                                           <span className="text-gray-500">Thua: {player.losses || 0}</span>
+                                                       </div>
+                                                   </div>
+                                               </div>
+                                               <div className="flex items-center gap-3 shrink-0">
+                                                   <button onClick={() => setArenaState(prev => ({...prev, viewingHistoryFor: player}))} className="text-[10px] font-bold uppercase text-[var(--text-muted)] hover:text-white bg-[var(--bg-body)] border border-[var(--border-main)] hover:border-white px-3 py-2 rounded-lg transition-colors">
+                                                       Chiến Tích
+                                                   </button>
+                                                   {!isMe && (
+                                                       <button onClick={() => challengePlayer({...player, rankScore: player.rankPosition})} className="bg-red-800 hover:bg-red-600 text-white font-bold px-4 py-2 md:px-6 md:py-3 rounded-lg shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
+                                                           <Swords size={16}/> Đoạt Vị Trí
+                                                       </button>
+                                                   )}
+                                               </div>
+                                           </div>
+                                           
+                                           {/* V6.2: Modal/Dropdown mở rộng Lịch sử đấu */}
+                                           {arenaState.viewingHistoryFor?.id === player.id && (
+                                               <div className="mt-2 pt-3 border-t border-[var(--border-main)] border-dashed animate-in fade-in slide-in-from-top-2">
+                                                   <div className="text-xs font-bold text-yellow-500 mb-2 uppercase flex items-center justify-between">
+                                                       <span>Lịch sử 10 trận gần nhất</span>
+                                                       <button onClick={() => setArenaState(prev => ({...prev, viewingHistoryFor: null}))} className="text-[var(--text-muted)] hover:text-white"><X size={14}/></button>
+                                                   </div>
+                                                   <div className="space-y-1">
+                                                       {(!player.matchHistory || player.matchHistory.length === 0) ? (
+                                                           <div className="text-xs italic text-[var(--text-muted)]">Kẻ này chưa từng nhúng chàm chiến đấu.</div>
+                                                       ) : (
+                                                           player.matchHistory.map((m, i) => (
+                                                               <div key={i} 
+                                                                    onClick={() => showAlert(`CHIẾN BÁO LỊCH SỬ:\n\nTrận đấu giữa: [${player.name}] và [${m.opp}]\nKết quả: ${m.result === 'win' ? 'THẮNG' : 'THUA'}\nThời gian: ${new Date(m.time).toLocaleTimeString('vi-VN')} - ${new Date(m.time).toLocaleDateString('vi-VN')}\n\nDiễn biến cốt lõi:\n"${m.summary || 'Trận chiến không rõ hồi kết.'}"`)}
+                                                                    className="flex flex-col text-[11px] bg-[var(--bg-body)] p-2 rounded border border-[var(--border-main)] hover:border-red-500/50 cursor-pointer transition-colors"
+                                                                    title="Nhấp để xem diễn biến tóm tắt"
+                                                                >
+                                                                   <div className="flex justify-between items-center mb-1">
+                                                                       <div className="flex items-center gap-2">
+                                                                           <span className={`font-bold ${m.result === 'win' ? 'text-emerald-500' : 'text-gray-500'}`}>{m.result === 'win' ? 'THẮNG' : 'THUA'}</span>
+                                                                           <span className="text-[var(--text-main)]">vs <span className="font-bold text-red-400">{m.opp}</span></span>
+                                                                       </div>
+                                                                       <span className="text-gray-600">{new Date(m.time).toLocaleDateString('vi-VN')} {new Date(m.time).toLocaleTimeString('vi-VN')}</span>
+                                                                   </div>
+                                                                   <div className="text-gray-500 italic truncate pl-10 border-l border-gray-700/50 ml-1 mt-0.5">
+                                                                       {m.summary || "Đã quyết chiến phân sinh tử..."}
+                                                                   </div>
+                                                               </div>
+                                                           ))
+                                                       )}
+                                                   </div>
+                                               </div>
+                                           )}
+                                       </div>
+                                   );
+                               })
+                           )}
+                       </div>
+                   </div>
+               )}
+
+               {/* TAB 2: KHẮC ẤN CHIẾN LƯỢC */}
+               {arenaState.tab === 'setup' && (
+                   <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar animate-in slide-in-from-right-4">
+                       <div className="max-w-3xl mx-auto space-y-6">
+                           <div className="bg-[var(--bg-body)] p-6 rounded-2xl border border-red-900/30 relative overflow-hidden">
+                               <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-red-500/10 to-transparent pointer-events-none"></div>
+                               <h4 className="text-red-500 font-bold text-lg mb-4 border-b border-red-900/50 pb-3">Trang Bị Nhục Thân Lên Thiên Bảng</h4>
+                               <p className="text-sm text-[var(--text-main)] leading-relaxed mb-6">Bạn phải Ghi Danh lên Thiên Bảng thì người khác mới có thể thấy và khiêu chiến bạn. Hãy viết "Tôn Chỉ Chiến Đấu" thật kỹ, Thiên Đạo sẽ dựa vào đó để điều khiển Bản Sao của bạn phòng ngự khi bạn Offline!</p>
+                               
+                               <div className="space-y-4">
+                                   <div className="flex items-center gap-4 bg-[var(--bg-body)] p-4 rounded-xl border border-[var(--border-main)]">
+                                       <div className="w-14 h-14 bg-red-900/20 rounded-full border-2 border-red-500/50 flex items-center justify-center"><User size={28} className="text-red-400"/></div>
+                                       <div>
+                                           <div className="font-bold text-xl text-[var(--text-bold)]">{arenaState.mySnapshot?.name}</div>
+                                           <div className="text-sm text-red-400 font-bold">{arenaState.mySnapshot?.cultivationLevel}</div>
+                                       </div>
+                                   </div>
+                                   
+                                   <div>
+                                       <label className="block text-xs font-bold text-red-500 uppercase tracking-widest mb-2">Tôn Chỉ Chiến Đấu (Chiến Lược AI):</label>
+                                       <textarea value={arenaState.myStrategy} onChange={e => setArenaState(prev=>({...prev, myStrategy: e.target.value}))} placeholder="Mô tả cách bạn chiến đấu. VD: Tốc độ là trên hết, ưu tiên dùng Khinh Công né đòn. Nếu HP dưới 30% thì lôi Đỉnh phòng thủ ra đỡ, sau đó cắn Hồi Xuân Đan..." className="w-full h-32 bg-[var(--bg-body)] border border-[var(--border-main)] rounded-xl p-4 text-sm text-[var(--text-main)] focus:border-red-500 focus:outline-none custom-scrollbar resize-none leading-relaxed"></textarea>
+                                   </div>
+
+                                   {/* V6.2: Khung Chọn Văn Phong PVP */}
+                                   <div className="pt-4 border-t border-[var(--border-main)] border-dashed">
+                                       <label className="block text-xs font-bold text-red-400 uppercase tracking-widest mb-2 flex items-center gap-2"><ScrollText size={14}/> Lựa Chọn Văn Phong Ghi Chép Trận Đấu</label>
+                                       <div className="relative">
+                                           <select 
+                                               value={arenaState.combatStyle} 
+                                               onChange={e => setArenaState(prev => ({...prev, combatStyle: e.target.value}))}
+                                               className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-xl p-3 text-sm text-[var(--text-main)] font-bold focus:border-red-500 outline-none appearance-none cursor-pointer"
+                                           >
+                                               <option value="default">✨ Uyển chuyển, hào hùng (Mặc định)</option>
+                                               <option value="ha_nhan">🔥 Trần trụi, bạo lực, dứt khoát (Thiết huyết)</option>
+                                               <option value="toi_gian">⚡ Báo cáo sát thương gọn gàng (Tối giản)</option>
+                                           </select>
+                                           <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500 pointer-events-none" />
+                                       </div>
+                                   </div>
+
+                                   <button onClick={registerToArena} className="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.4)] text-lg uppercase tracking-widest transition-transform hover:scale-[1.02] flex justify-center items-center gap-2">
+                                       <ShieldAlert size={20}/> Ghi Danh Lên Bảng Phong Thần
+                                   </button>
+                               </div>
+                           </div>
+                       </div>
+                   </div>
+               )}
+
+               {/* TAB 3: VÕ ĐÀI CHIẾN ĐẤU */}
+               {arenaState.tab === 'battle' && (
+                   <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden relative animate-in zoom-in-95">
+                       {/* CỘT TRÁI: LOG & INPUT */}
+                       <div className="flex-1 flex flex-col border-r border-red-900/30 overflow-hidden h-full">
+                           <div ref={arenaScrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar space-y-5">
+                               {arenaState.logs.map((log, i) => (
+                                   <div key={i} className={`animate-in slide-in-from-bottom-2 ${log.type === 'system' ? 'text-center' : log.isMe ? 'text-right' : 'text-left'}`}>
+                                       {log.type === 'system' ? (
+                                           <span className="inline-block bg-red-950/50 text-[11px] font-mono text-red-400 px-4 py-2 rounded-full border border-red-900 shadow-sm">{String(log.text)}</span>
+                                       ) : log.type === 'action' ? (
+                                           <span className="inline-block bg-red-900/40 text-red-100 font-bold px-5 py-2.5 rounded-2xl rounded-tr-sm border border-red-500/50 shadow-sm" style={{ fontSize: `${Math.max(12, arenaFontSize - 2)}px` }}>{String(log.text)}</span>
+                                       ) : (
+                                           <div className="text-[var(--text-main)] leading-relaxed p-5 bg-[var(--bg-surface)] rounded-2xl rounded-tl-sm border border-red-900/50 shadow-sm whitespace-pre-wrap" style={{ fontSize: `${arenaFontSize}px` }}>{String(log.text)}</div>
+                                       )}
+                                   </div>
+                               ))}
+                               {arenaState.isGenerating && (
+                                   <div className="flex justify-center p-4">
+                                       <div className="bg-red-900/20 border border-red-500/30 px-5 py-2.5 rounded-full flex items-center gap-3 text-red-500 font-bold text-sm shadow-[0_0_15px_rgba(220,38,38,0.2)]">
+                                           <Activity size={16} className="animate-spin" />
+                                           <span className="animate-pulse">Thiên Đạo đang phân định sát thương...</span>
+                                       </div>
+                                   </div>
+                               )}
+                           </div>
+                           
+                           {/* THANH ACTION */}
+                           <div className="p-4 bg-[var(--bg-body)] border-t border-red-900/50 shrink-0">
+                               {arenaState.myHP > 0 && arenaState.oppHP > 0 ? (
+                                   <>
+                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                                           {arenaState.options.map((opt, i) => (
+                                               <button key={i} onClick={() => callArenaAPI(opt)} disabled={arenaState.isGenerating} className="bg-[var(--bg-body)] hover:bg-red-900/20 disabled:opacity-50 border border-[var(--border-main)] hover:border-red-500 text-[var(--text-bold)] font-bold text-left px-5 py-4 rounded-xl transition-all shadow-sm group">
+                                                   <span className="text-red-500 font-bold mr-2 opacity-50 group-hover:opacity-100">{i + 1}.</span>{opt}
+                                               </button>
+                                           ))}
+                                       </div>
+                                       <form onSubmit={(e) => { e.preventDefault(); if(arenaState.customAction) callArenaAPI(arenaState.customAction); }} className="relative">
+                                           <input type="text" maxLength={400} value={arenaState.customAction} onChange={e => setArenaState(prev=>({...prev, customAction: e.target.value}))} disabled={arenaState.isGenerating} placeholder="Tự do xuất chiêu, tế pháp bảo..." className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] focus:border-red-500 focus:outline-none rounded-xl px-5 py-4 pr-16 text-[var(--text-main)] shadow-inner" />
+                                           <button type="submit" disabled={!arenaState.customAction || arenaState.isGenerating} className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500 disabled:text-[var(--text-muted)] p-2 transition-colors"><Send size={20}/></button>
+                                       </form>
+                                   </>
+                               ) : (
+                                   <div className="flex justify-center py-2">
+                                       <button onClick={() => { setArenaState(prev => ({...prev, tab: 'board', logs: []})); fetchLeaderboard(); }} className="bg-red-800 hover:bg-red-600 text-white font-bold px-10 py-4 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.5)] text-lg uppercase tracking-widest transition-transform hover:scale-105">
+                                           Rời Khỏi Võ Đài
+                                       </button>
+                                   </div>
+                               )}
+                           </div>
+                       </div>
+                       
+                       {/* CỘT PHẢI: CHỈ SỐ */}
+                       <div className="w-full lg:w-80 shrink-0 bg-[var(--bg-body)] overflow-y-auto custom-scrollbar flex flex-col">
+                           <div className="p-5 flex-1 flex flex-col gap-6">
+                               <div className="bg-blue-900/10 p-5 rounded-xl border border-blue-900/30 relative overflow-hidden">
+                                   <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                                   <div className="text-center font-bold text-blue-400 text-xl mb-5 uppercase tracking-widest">{arenaState.mySnapshot?.name}</div>
+                                   <div className="space-y-4">
+                                       <div>
+                                           <div className="flex justify-between text-xs font-bold text-red-400 mb-1.5"><span>MÁU (HP)</span><span>{Math.floor(arenaState.myHP)}</span></div>
+                                           <div className="h-2 w-full bg-red-950 rounded-full overflow-hidden"><div className="h-full bg-red-500 transition-all duration-300" style={{width: `${Math.max(0, (arenaState.myHP/arenaState.myMaxHP)*100)}%`}}></div></div>
+                                       </div>
+                                       <div>
+                                           <div className="flex justify-between text-xs font-bold text-teal-400 mb-1.5"><span>NĂNG LƯỢNG</span><span>{Math.floor(arenaState.myMP)}</span></div>
+                                           <div className="h-1.5 w-full bg-teal-950 rounded-full overflow-hidden"><div className="h-full bg-teal-500 transition-all duration-300" style={{width: `${Math.max(0, (arenaState.myMP/arenaState.myMaxMP)*100)}%`}}></div></div>
+                                       </div>
+                                   </div>
+                               </div>
+
+                               <div className="flex justify-center shrink-0">
+                                   <div className="w-12 h-12 rounded-full bg-[var(--bg-body)] border-2 border-red-900/50 flex items-center justify-center font-black text-red-500 italic shadow-[0_0_15px_rgba(220,38,38,0.3)]">VS</div>
+                               </div>
+
+                               <div className="bg-red-900/10 p-5 rounded-xl border border-red-900/30 relative overflow-hidden">
+                                   <div className="absolute top-0 right-0 w-1 h-full bg-red-500"></div>
+                                   <div className="text-center font-bold text-red-500 text-xl mb-5 uppercase tracking-widest">{arenaState.opponentSnapshot?.name}</div>
+                                   <div className="space-y-4">
+                                       <div>
+                                           <div className="flex justify-between text-xs font-bold text-red-400 mb-1.5"><span>MÁU (HP)</span><span>{Math.floor(arenaState.oppHP)}</span></div>
+                                           <div className="h-2 w-full bg-red-950 rounded-full overflow-hidden"><div className="h-full bg-red-600 transition-all duration-300" style={{width: `${Math.max(0, (arenaState.oppHP/arenaState.oppMaxHP)*100)}%`}}></div></div>
+                                       </div>
+                                       <div>
+                                           <div className="flex justify-between text-xs font-bold text-purple-400 mb-1.5"><span>NĂNG LƯỢNG</span><span>{Math.floor(arenaState.oppMP)}</span></div>
+                                           <div className="h-1.5 w-full bg-purple-950 rounded-full overflow-hidden"><div className="h-full bg-purple-500 transition-all duration-300" style={{width: `${Math.max(0, (arenaState.oppMP/arenaState.oppMaxMP)*100)}%`}}></div></div>
+                                       </div>
+                                   </div>
+                               </div>
+                           </div>
+                       </div>
+                   </div>
+               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+    {/* SKILL INFO MODAL */}
+      {viewingSkill && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[var(--bg-overlay)] p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--bg-panel)] p-0 rounded-2xl max-w-lg w-full border border-purple-500/50 shadow-[0_0_30px_rgba(168,85,247,0.3)] relative overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-4 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-body)] shrink-0">
+               <div className="flex items-center gap-3">
+                   <div className="bg-purple-900/30 p-2 rounded-lg border border-purple-500/50"><Zap className="text-purple-500" size={20} /></div>
+                   <h3 className="text-lg font-bold text-purple-400 uppercase tracking-widest">Chi Tiết Công Pháp</h3>
+               </div>
+               <button onClick={() => setViewingSkill(null)} className="p-2 hover:bg-[var(--bg-hover)] border border-transparent hover:border-[var(--border-main)] rounded-lg text-[var(--text-muted)] transition-colors"><X size={20}/></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-5 md:p-6 custom-scrollbar bg-[var(--bg-body)] space-y-4">
+                <div className="text-center mb-2">
+                    {(() => {
+                        const { baseName } = parseSkillNameAndTier(viewingSkill.name, viewingSkill.tier);
+                        const tInfo = getSkillTierInfo(viewingSkill);
+                        return (
+                            <div className="flex flex-col items-center justify-center gap-1 mb-2">
+                                <div className="flex items-center justify-center gap-2 flex-wrap">
+                                    <h2 className="text-2xl font-bold text-[var(--text-bold)]">{baseName || viewingSkill.name}</h2>
+                                    <span className={`px-2.5 py-0.5 rounded-lg border text-xs font-black uppercase tracking-wider shadow-sm ${tInfo.color}`}>
+                                        - {tInfo.label}
+                                    </span>
+                                </div>
+                                <span className="text-xs font-semibold text-[var(--text-muted)] font-mono">{tInfo.name} • Hệ số cơ sở: {tInfo.mult}x</span>
+                            </div>
+                        );
+                    })()}
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                        <span className="bg-[var(--bg-body)] px-2.5 py-1 rounded-lg border border-[var(--border-main)] text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">{viewingSkill.type || 'Võ kỹ'}</span>
+                        <span className={`px-2.5 py-1 rounded-lg border text-xs font-bold uppercase tracking-widest ${getSkillElementStyle(viewingSkill.element || '')}`}>{viewingSkill.element || 'Vô Hệ'}</span>
+                        <span className={`px-2.5 py-1 rounded-lg border text-xs font-bold ${getSkillLevelColor(viewingSkill.level)} bg-[var(--bg-body)] border-[var(--border-main)]`}>{viewingSkill.level || 'Nhập môn'} ({parseFloat(Number(viewingSkill.proficiency || 0).toFixed(2))}%)</span>
+                    </div>
+                </div>
+
+                <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] shadow-inner">
+                    <div className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 flex items-center gap-2"><BookOpen size={14}/> Khẩu Quyết / Miêu Tả</div>
+                    <div className="text-sm text-[var(--text-main)] leading-relaxed whitespace-pre-wrap italic">
+                        {viewingSkill.desc || 'Chưa hiểu rõ công dụng.'}
+                    </div>
+                    {(() => {
+                        const tInfo = getSkillTierInfo(viewingSkill);
+                        const sL = String(viewingSkill.level || '').toLowerCase();
+                        let pMult = 1.0;
+                        let pBonus = 0;
+                        if (sL.includes('tiểu thành')) { pMult = 1.2; pBonus = 0.25; }
+                        else if (sL.includes('đại thành')) { pMult = 1.5; pBonus = 0.5; }
+                        else if (sL.includes('viên mãn')) { pMult = 2.0; pBonus = 0.75; }
+                        else if (sL.includes('tuyệt đỉnh')) { pMult = 3.0; pBonus = 1.0; }
+                        const effMult = Math.min(10.0, parseFloat((tInfo.mult * pMult + pBonus).toFixed(2)));
+                        // V2.14 YANG GÓP Ý: HIỂN THỊ CHI TIẾT TỈ LỆ SCALING TỪNG CHỈ SỐ
+                        const sScaling = getSkillScalingInfo(viewingSkill, gameState?.cultivationPath);
+                        return (
+                            <div className="mt-3 pt-3 border-t border-[var(--border-main)]/60 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+                                <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
+                                    <Zap size={13} className="text-amber-400"/>
+                                    <span>Hệ Số Thực Tế: <strong className="text-amber-300">[{effMult}x]</strong></span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-blue-400 font-semibold">
+                                    <Crosshair size={13} className="text-blue-400"/>
+                                    <span>Scaling: <strong className="text-blue-300">[{sScaling.scalingText}]</strong></span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </div>
+
+                {(viewingSkill.isPinned || viewingSkill.isFusedSkill) && (
+                    <div className="flex flex-col gap-2">
+                        {viewingSkill.isPinned && (
+                            <div className="bg-yellow-900/10 p-3 rounded-xl border border-yellow-500/30 flex items-start gap-3">
+                                <span className="mt-0.5 text-yellow-500"><BookMarked size={16}/></span>
+                                <div>
+                                    <div className="text-xs font-bold text-yellow-400 uppercase tracking-widest mb-0.5">Trạng Thái: Đã Ghim</div>
+                                    <div className="text-[11px] text-yellow-500/70">Công pháp này đang được ưu tiên sử dụng trong thực chiến.</div>
+                                </div>
+                            </div>
+                        )}
+                        {viewingSkill.isFusedSkill && (
+                            <div className="bg-blue-900/10 p-3 rounded-xl border border-blue-500/30 flex items-start gap-3">
+                                <span className="mt-0.5 text-blue-500"><Zap size={16}/></span>
+                                <div>
+                                    <div className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-0.5">Mượn Lực: {viewingSkill.ownerName}</div>
+                                    <div className="text-[11px] text-blue-500/70">Chiêu thức này thuộc về linh hồn đang nấp trong cơ thể bạn. Khi tách dung hợp, chiêu thức sẽ được hoàn trả.</div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* V2.15 YANG GÓP Ý: MODAL XEM CHI TIẾT ĐẶC TÍNH TRANG BỊ */}
+      {viewingPerk && (
+        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-[var(--bg-overlay)] p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--bg-panel)] p-5 rounded-2xl max-w-sm w-full border border-purple-500/50 shadow-[0_0_30px_rgba(168,85,247,0.3)] relative overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center mb-3 border-b border-[var(--border-main)] pb-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="text-purple-400" size={18} />
+                <h3 className="text-base font-bold text-purple-300 uppercase tracking-wider">{viewingPerk.name}</h3>
+              </div>
+              <button onClick={() => setViewingPerk(null)} className="p-1 hover:bg-[var(--bg-hover)] rounded-lg text-[var(--text-muted)] transition-colors"><X size={18}/></button>
+            </div>
+            <div className="mb-2">
+              <span className={`px-2 py-0.5 rounded text-[11px] font-bold border uppercase tracking-wider ${viewingPerk.color}`}>
+                {viewingPerk.category || 'Đặc Tính Khí Cụ'}
+              </span>
+            </div>
+            <div className="text-sm text-[var(--text-main)] leading-relaxed italic bg-[var(--bg-body)] p-3 rounded-xl border border-[var(--border-main)]">
+              {viewingPerk.desc}
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button onClick={() => setViewingPerk(null)} className="px-4 py-1.5 bg-purple-700 hover:bg-purple-600 text-white rounded-lg text-xs font-bold transition-colors">
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ENCYCLOPEDIA MODAL */}
+      {isEncyclopediaOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] p-2 md:p-4">
+          <div className="bg-[var(--bg-panel)] w-full max-w-5xl h-[90vh] rounded-2xl flex flex-col border border-[var(--border-main)] shadow-2xl relative overflow-hidden">
+            <div className="p-4 md:p-5 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-surface)] shrink-0">
+               <div className="flex items-center gap-3">
+                   <Library className="text-blue-500" size={24} />
+                   <div>
+                       <h3 className="text-lg md:text-xl font-bold text-blue-500 uppercase tracking-widest">{'Tu Tiên Bách Khoa Lục'}</h3>
+                       <p className="text-[10px] md:text-xs text-[var(--text-muted)]">Ghi chép vạn vật trong thiên địa</p>
+                   </div>
+               </div>
+               <button onClick={() => setIsEncyclopediaOpen(false)} className="p-2 bg-[var(--bg-body)] hover:bg-[var(--bg-hover)] border border-[var(--border-main)] rounded text-[var(--text-muted)]"><X size={20}/></button>
+            </div>
+            
+            <div className="p-4 border-b border-[var(--border-main)] bg-[var(--bg-body)] flex flex-col sm:flex-row gap-3 shrink-0">
+                <div className="relative flex-1">
+                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                    <input type="text" placeholder="Tìm kiếm ghi chép..." value={encSearch} onChange={e => setEncSearch(e.target.value)} className="w-full bg-[var(--bg-surface)] border border-[var(--border-main)] rounded-xl pl-10 pr-9 py-2.5 text-sm text-[var(--text-main)] focus:outline-none focus:border-blue-500 transition-colors" />
+                    {encSearch && (
+                        <button onClick={() => setEncSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] p-0.5" title="Xóa tìm kiếm">
+                            <X size={16} />
+                        </button>
+                    )}
+                </div>
+                <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1 sm:pb-0 shrink-0">
+                    <select value={encFilter} onChange={e => setEncFilter(e.target.value)} className="bg-[var(--bg-surface)] text-[var(--text-main)] border border-[var(--border-main)] rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-blue-500 cursor-pointer">
+                        <option value="all">Tất Cả</option>
+                        <option value="item">Vật Phẩm</option>
+                        <option value="skill">Công Pháp</option>
+                        <option value="npc">Nhân Vật</option>
+                        <option value="location">Địa Danh</option>
+                    </select>
+                    <select value={encSort} onChange={e => setEncSort(e.target.value)} className="bg-[var(--bg-surface)] text-[var(--text-main)] border border-[var(--border-main)] rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-blue-500 cursor-pointer">
+                        <option value="newest">Mới nhất trước</option>
+                        <option value="oldest">Cũ nhất trước</option>
+                        <option value="az">A-Z</option>
+                    </select>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[var(--bg-body)]">
+                {(() => {
+                    let list = [...(gameState.encyclopedia || [])];
+                    if (encFilter !== 'all') list = list.filter(e => e.type === encFilter);
+                    if (encSearch) list = list.filter(e => String(e.name).toLowerCase().includes(encSearch.toLowerCase()) || String(e.desc).toLowerCase().includes(encSearch.toLowerCase()));
+                    
+                    if (encSort === 'newest') list.reverse();
+                    else if (encSort === 'az') list.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+                    
+                    if (list.length === 0) return <div className="text-center py-10 text-[var(--text-muted)] italic">Không tìm thấy ghi chép nào.</div>;
+                    
+                    return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {list.slice(0, encVisibleCount).map((entry, idx) => (
+                                <div key={idx} className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] hover:border-blue-500 transition-colors group">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            {entry.type === 'item' ? <Package className="text-orange-400" size={16}/> : 
+                                             entry.type === 'skill' ? <Zap className="text-purple-400" size={16}/> : 
+                                             entry.type === 'npc' ? <User className="text-emerald-400" size={16}/> : 
+                                             <Map className="text-blue-400" size={16}/>}
+                                            <span className={`font-bold text-base ${entry.type === 'item' ? (RARITY_COLORS[entry.rarity]?.text || 'text-orange-400') : entry.type === 'skill' ? 'text-purple-400' : entry.type === 'npc' ? 'text-emerald-400' : 'text-blue-400'}`}>{entry.name}</span>
+                                        </div>
+                                    </div>
+                                    {entry.type === 'item' && (
+                                        <div className="text-[10px] flex items-center gap-2 mb-2">
+                                            <span className="bg-[var(--bg-body)] px-1.5 py-0.5 rounded border border-[var(--border-main)] text-[var(--text-muted)]">{entry.tier || 'Phàm Khí'}</span>
+                                            <span className="bg-[var(--bg-body)] px-1.5 py-0.5 rounded border border-[var(--border-main)] text-[var(--text-muted)]">{entry.rarity || 'Trắng'}</span>
+                                        </div>
+                                    )}
+                                    {entry.type === 'skill' && entry.level && (
+                                        <div className="text-[10px] mb-2 bg-[var(--bg-body)] inline-block px-1.5 py-0.5 rounded border border-[var(--border-main)] text-[var(--text-muted)]">{entry.level}</div>
+                                    )}
+                                    <div className="text-sm text-[var(--text-main)] italic opacity-90 line-clamp-3">"{entry.desc}"</div>
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })()}
+                {encVisibleCount < (gameState.encyclopedia || []).length && (
+                    <div className="flex justify-center mt-6">
+                        <button onClick={() => setEncVisibleCount(prev => prev + 50)} className="bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-blue-400 font-bold border border-blue-900/50 px-6 py-2.5 rounded-full text-sm transition-colors shadow-sm flex items-center gap-2">
+                            <Activity size={16}/> Xem thêm
+                        </button>
+                    </div>
+                )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HISTORY MODAL (THÊM MỚI V3.70 - TRƯỚC ADMIN DIAGNOSTICS) */}
+      {isHistoryOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] p-2 md:p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--bg-panel)] w-full max-w-4xl h-[90vh] rounded-2xl flex flex-col border border-[var(--border-main)] shadow-2xl relative overflow-hidden">
+            <div className="p-4 md:p-5 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-surface)] shrink-0">
+               <div className="flex items-center gap-3">
+                   <History className="text-teal-500" size={24} />
+                   <div>
+                       <h3 className="text-lg md:text-xl font-bold text-teal-500 uppercase tracking-widest">Biên Niên Sử Luân Hồi</h3>
+                       <p className="text-[10px] md:text-xs text-[var(--text-muted)]">Ghi chép toàn bộ hành trình trải qua trong kiếp này</p>
+                   </div>
+               </div>
+               <div className="flex items-center gap-3">
+                   <div className="flex gap-1 bg-[var(--bg-body)] rounded border border-[var(--border-main)] p-0.5">
+                      <button onClick={() => setHistoryFontSize(Math.max(12, historyFontSize - 2))} className="px-2 py-0.5 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] rounded" title="Thu nhỏ chữ">A-</button>
+                      <button onClick={() => setHistoryFontSize(Math.min(28, historyFontSize + 2))} className="px-2 py-0.5 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] rounded" title="Phóng to chữ">A+</button>
+                   </div>
+                   <button onClick={() => setIsHistoryOpen(false)} className="p-2 bg-[var(--bg-body)] hover:bg-[var(--bg-hover)] border border-[var(--border-main)] rounded text-[var(--text-muted)]"><X size={20}/></button>
+               </div>
+            </div>
+            
+            {/* V1.24.5 & V1.28.4: Thanh tìm kiếm và Bộ lọc phân loại ký ức Biên Niên Sử */}
+            <div className="p-3 md:px-5 md:py-2.5 bg-[var(--bg-surface)] border-b border-[var(--border-main)] flex items-center gap-2 shrink-0">
+                <div className="relative flex-1">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                    <input 
+                        type="text" 
+                        placeholder="Tìm kiếm biến cố, nhân vật, bảo vật trong quá khứ..." 
+                        value={historySearch} 
+                        onChange={e => setHistorySearch(e.target.value)} 
+                        className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg pl-9 pr-8 py-1.5 text-xs text-[var(--text-main)] focus:outline-none focus:border-teal-500"
+                    />
+                    {historySearch && (
+                        <button onClick={() => setHistorySearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] p-0.5">
+                            <X size={14} />
+                        </button>
+                    )}
+                </div>
+                {historySearch && (
+                    <span className="text-[10px] text-teal-400 font-mono whitespace-nowrap">
+                        Khớp: {historyLogs.filter(log => {
+                            if (historyTypeFilter !== 'all' && log.type !== historyTypeFilter) return false;
+                            return String(log.text || '').toLowerCase().includes(historySearch.toLowerCase());
+                        }).length}
+                    </span>
+                )}
+            </div>
+
+            {/* V1.28.4: Tab Phân Loại Loại Ký Ức */}
+            <div className="flex gap-1.5 px-3 md:px-5 py-2 bg-[var(--bg-surface)] border-b border-[var(--border-main)] shrink-0 overflow-x-auto custom-scrollbar">
+                <button onClick={() => setHistoryTypeFilter('all')} className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${historyTypeFilter === 'all' ? 'bg-teal-600 text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-body)]'}`}>Tất Cả ({historyLogs.length})</button>
+                <button onClick={() => setHistoryTypeFilter('story')} className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${historyTypeFilter === 'story' ? 'bg-blue-600 text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-blue-400 bg-[var(--bg-body)]'}`}>📖 Cốt Truyện ({historyLogs.filter(l => l.type === 'story').length})</button>
+                <button onClick={() => setHistoryTypeFilter('action')} className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${historyTypeFilter === 'action' ? 'bg-emerald-600 text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-emerald-400 bg-[var(--bg-body)]'}`}>⚡ Hành Động ({historyLogs.filter(l => l.type === 'action').length})</button>
+                <button onClick={() => setHistoryTypeFilter('system')} className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${historyTypeFilter === 'system' ? 'bg-orange-600 text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-orange-400 bg-[var(--bg-body)]'}`}>🔔 Hệ Thống ({historyLogs.filter(l => l.type === 'system').length})</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[var(--bg-body)] space-y-4">
+                {isLoadingHistory && <div className="text-center py-4 flex justify-center items-center gap-2 text-teal-500"><Activity size={20} className="animate-spin" /> Đang thu thập ký ức từ Đám Mây...</div>}
+                
+                {!isLoadingHistory && loadedChapterIds.size > 0 && Math.min(...Array.from(loadedChapterIds)) > 1 && (
+                    <div className="flex justify-center mb-6">
+                        <button onClick={() => loadMoreHistory(50)} className="bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-teal-400 font-bold border border-teal-900/50 px-6 py-2.5 rounded-full text-sm transition-colors shadow-sm flex items-center gap-2">
+                            <RotateCcw size={16}/> Khôi phục thêm 50 chương quá khứ
+                        </button>
+                    </div>
+                )}
+
+                {(() => {
+                    const displayedLogs = historyLogs.filter(log => {
+                        if (historyTypeFilter !== 'all' && log.type !== historyTypeFilter) return false;
+                        if (historySearch.trim() && !String(log.text || '').toLowerCase().includes(historySearch.toLowerCase())) return false;
+                        return true;
+                    });
+                    if (historyLogs.length === 0 && !isLoadingHistory) {
+                        return <div className="text-center py-10 text-[var(--text-muted)] italic">Chưa có ký ức nào được ghi nhận.</div>;
+                    }
+                    if (displayedLogs.length === 0) {
+                        return <div className="text-center py-10 text-[var(--text-muted)] italic">Không tìm thấy ký ức nào phù hợp với bộ lọc hiện tại.</div>;
+                    }
+                    return displayedLogs.map((log, i) => (
+                        <div key={i} className={`p-4 rounded-xl border flex flex-col gap-2 ${log.type === 'action' ? 'bg-teal-900/10 border-teal-900/50 items-end' : log.type === 'system' ? 'bg-orange-900/10 border-orange-900/30 items-center' : 'bg-[var(--bg-surface)] border-[var(--border-main)] items-start'}`}>
+                            {log.type === 'action' && <span className="text-[10px] font-mono text-teal-500/50">Chương {log.chapter}</span>}
+                            {log.type === 'story' && <span className="text-[10px] font-mono text-[var(--text-muted)]">Chương {log.chapter}</span>}
+                            
+                            {log.type === 'system' ? (
+                                <span className="text-xs font-mono font-bold text-orange-400 text-center" style={{ fontSize: `${Math.max(10, historyFontSize - 4)}px` }}>{String(log.text)}</span>
+                            ) : log.type === 'action' ? (
+                                <span className="font-bold text-teal-400 text-right" style={{ fontSize: `${historyFontSize}px` }}>{String(log.text)}</span>
+                            ) : (
+                                <div className="text-[var(--text-main)] leading-relaxed whitespace-pre-wrap" style={{ fontSize: `${historyFontSize}px` }}>{String(log.text)}</div>
+                            )}
+                        </div>
+                    ));
+                })()}
+            </div>
+          </div>
+        </div>
+      )}
+

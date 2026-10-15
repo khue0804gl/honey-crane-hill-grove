@@ -1,0 +1,243 @@
+  const fetchGlobalLeaderboard = async () => {
+      setGlobalBoardData(prev => ({ ...prev, isLoading: true }));
+      try {
+          // Lấy dữ liệu Tháp & Chương
+          const statsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'global_records'));
+          let records = [];
+          statsSnap.forEach(doc => records.push({ id: doc.id, ...doc.data() }));
+
+          // Lấy dữ liệu Võ Đài
+          const arenaSnap = await getDocs(collection(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena'));
+          let arenaRecords = [];
+          arenaSnap.forEach(doc => arenaRecords.push({ id: doc.id, ...doc.data() }));
+
+          setGlobalBoardData({
+              tower: [...records].filter(r => r.towerFloor > 1).sort((a, b) => b.towerFloor - a.towerFloor),
+              chapters: records, // Sẽ filter ở phần Render
+              arena: arenaRecords.filter(r => r.rankPosition !== 999999 && !String(r.id).startsWith('npc_')).sort((a, b) => a.rankPosition - b.rankPosition),
+              isLoading: false
+          });
+      } catch (e) {
+          console.error("Lỗi lấy BXH:", e);
+          setGlobalBoardData(prev => ({ ...prev, isLoading: false }));
+      }
+  };
+
+  // Hàm Đồng Bộ Lên Mây (Tự gọi khi qua ải / tạo chương)
+  const syncGlobalStats = async (floor = null, meta = null) => {
+      if (!user || !currentProfileId) return;
+      try {
+          const docId = `${user?.uid}_${currentProfileId}`; // Khóa chính chống trùng lặp NVC
+          const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'global_records', docId);
+          const dataToSave = { uid: user?.uid, profileId: currentProfileId, name: gameState.name || 'Vô Danh', level: gameState.cultivationLevel || 'Phàm Nhân', lastUpdated: Date.now() };
+          if (floor !== null) dataToSave.towerFloor = floor;
+          if (meta !== null) { dataToSave.weekStr = meta.weekStr; dataToSave.weekCount = meta.weekCount; dataToSave.monthStr = meta.monthStr; dataToSave.monthCount = meta.monthCount; }
+          await setDoc(docRef, dataToSave, { merge: true });
+      } catch(e) {}
+  };
+  // ================= V6.26: HỆ THỐNG TRANG BỊ (EQUIPMENT) =================
+  const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
+  const [viewingEquipSlot, setViewingEquipSlot] = useState(null); // V6.28: Lưu slot đang xem chi tiết
+  const [viewingPerk, setViewingPerk] = useState(null); // V2.15: Xem chi tiết đặc tính trang bị (Yang góp ý)
+  const [isBaiGiaShopOpen, setIsBaiGiaShopOpen] = useState(false); // V2.16: Cửa Hàng Bại Gia độc quyền (Etsuo đề xuất)
+  const [baiGiaShopTab, setBaiGiaShopTab] = useState<'equipment' | 'pills' | 'maps' | 'intel' | 'physiques'>('equipment');
+
+  // V2.86: Đã gỡ bỏ Bảng Ủy Thác Tông Môn theo quyết định Chủ toạ Dark
+
+  // V7.11 FIX: Nhận diện siêu cấp qua cả Tên, Mô tả và Biến AI trả về
+  const getEquipSlot = (item) => {
+      if (!item) return 'artifact';
+      if (item.equipSlot && ['weapon', 'armor', 'head', 'boots', 'accessory', 'artifact'].includes(item.equipSlot)) return item.equipSlot;
+      
+      const textToMatch = String(item.name + " " + (item.desc || "")).toLowerCase();
+      if (/(kiếm|đao|thương|kích|côn|búa|rìu|cung|trượng|xích|roi|chùy|súng|pháo|ám khí)/.test(textToMatch)) return 'weapon';
+      if (/(áo|giáp|bào|pháp\s*y|y\s*phục|tơ|khiên|thuẫn|quần|(?:^|\s)y(?:\s|$))/.test(textToMatch)) return 'armor';
+      if (/(mũ|quán|trâm|nón|miện|khăn|cài|vương miện|scouter|máy đo)/.test(textToMatch)) return 'head';
+      if (/(giày|hài|ngoa|ủng)/.test(textToMatch)) return 'boots';
+      if (/(nhẫn|ngọc|bội|liên|vòng|phù|chuyền|xuyến|lệnh bài)/.test(textToMatch) && !textToMatch.includes('hỏa phù')) return 'accessory';
+      if (/(đỉnh|chuông|ấn|tháp|kính|kỳ|phiến|đài|lồng|nghiễn|bình|châu|đồ|họa|cờ|trống|kèn|radar|tàu vũ trụ|viên nang|capsule)/.test(textToMatch)) return 'artifact';
+      return 'artifact'; // Đồ quá kỳ dị không rõ hình thù thì auto coi là Pháp bảo bay lơ lửng
+  };
+
+  // V11.68: ĐỘNG CƠ TOÁN HỌC TRANG BỊ (INTERCEPTOR)
+  // Tước đoạt quyền cấp chỉ số của AI. Ghi đè toàn bộ sức mạnh dựa trên Phẩm Chất và Vị Trí.
+  const enrichEquipStats = (item) => {
+      if (!item) return null;
+      let enriched = { ...item };
+      
+      // 1. Hệ số sức mạnh theo Màu sắc (Rarity Multiplier)
+      const rarityBase = { 'Trắng': 1, 'Xanh lá': 2, 'Xanh lam': 5, 'Tím': 15, 'Vàng': 50, 'Cam': 150, 'Đỏ': 400 };
+      const baseMult = rarityBase[item.rarity || 'Trắng'] || 1;
+      
+      let subLvl = Number(item.subLevel);
+      if (!subLvl || isNaN(subLvl)) {
+          const lvlMatch = String(item.name).match(/Cấp\s*(\d+)/i);
+          subLvl = lvlMatch ? parseInt(lvlMatch[1], 10) : 1;
+      }
+      subLvl = Math.max(1, Math.min(20, subLvl)); // Giãn từ 10 lên 20 cấp độ
+      enriched.subLevel = subLvl;
+      
+      // Lấy Hệ số Cảnh giới (statMult) làm mỏ neo sức mạnh
+      const stageConfigEquip = getStageConfigById(subLvl);
+      const stageMult = stageConfigEquip ? stageConfigEquip.statMult : 1;
+      
+      // Công thức mới: Hệ Số Sức Mạnh Trang Bị = Rarity Multiplier * Stage statMult
+      const mult = baseMult * stageMult;
+      
+      // 2. Phân loại vị trí mặc (Slot)
+      const slot = getEquipSlot(item); 
+      enriched.equipSlot = slot;
+      
+      // 3. Xóa sạch chỉ số ảo tưởng do AI tự bịa
+      enriched.attackBonus = 0;
+      enriched.defenseBonus = 0;
+      enriched.speedBonus = 0;
+      enriched.spiritPowerBonus = 0;
+
+      // Hàm roll random từ 80% - 120% số Base gốc
+      const rollStat = (min, max) => {
+          const base = min + Math.random() * (max - min);
+          const variance = 0.8 + Math.random() * 0.4;
+          return Math.floor(base * variance * mult);
+      };
+
+      // 4. Cấp phát chỉ số Toán học chuẩn xác (Cân bằng tuyệt đối)
+      if (slot === 'weapon') {
+          enriched.attackBonus = rollStat(15, 25);
+          enriched.speedBonus = rollStat(2, 5);
+      } else if (slot === 'accessory' || slot === 'artifact') {
+          // Bắt đặc tính nhẫn không gian (CẤM biến đan dược/thảo dược thành nhẫn không gian)
+          const isFoodOrConsumable = /(đan|hoàn|tán|cao|dược|linh dịch|thảo|linh quả|quả|thịt|cơm|bánh|tửu|rượu|ma dược|potion)/i.test(item.name || '');
+          const isRealSpatial = /(túi\s+trữ\s+vật|nhẫn\s+trữ\s+vật|túi\s+càn\s+khôn|nhẫn\s+càn\s+khôn|tu\s+di\s+giới|nhẫn\s+không\s+gian|túi\s+không\s+gian|bảo\s+hạp\s+trữ\s+vật|hồ\s+lô\s+trữ\s+vật|vòng\s+trữ\s+vật|giới\s+chỉ\s+trữ\s+vật|trữ\s+vật\s+đại|trữ\s+vật\s+giới)/i.test(item.name || '') || item.type === 'spatial' || item.type === 'sealed_spatial';
+          if (!isFoodOrConsumable && isRealSpatial) {
+               const rCaps = { 'Trắng': 50, 'Xanh lá': 100, 'Xanh lam': 300, 'Tím': 1000, 'Vàng': 5000, 'Cam': 50000, 'Đỏ': 999999 };
+               enriched.capacity = rCaps[item.rarity || 'Trắng'] || 50;
+               enriched.type = 'spatial'; // Ép kiểu về Không Gian nếu AI gán nhầm sang Phụ Kiện
+          }
+          if (slot === 'accessory') {
+               enriched.spiritPowerBonus = rollStat(15, 25);
+          } else {
+               enriched.attackBonus = rollStat(6, 10);
+               enriched.defenseBonus = rollStat(6, 10);
+               enriched.spiritPowerBonus = rollStat(6, 10);
+          }
+      } else if (slot === 'armor') {
+          enriched.defenseBonus = rollStat(15, 25);
+      } else if (slot === 'head') {
+          enriched.defenseBonus = rollStat(8, 12);
+          enriched.spiritPowerBonus = rollStat(5, 8);
+      } else if (slot === 'boots') {
+          enriched.speedBonus = rollStat(15, 20);
+          enriched.defenseBonus = rollStat(2, 5);
+      }
+      
+      // 5. Cấp phát Độ bền (Durability)
+      // Độ bền tối đa = (Rarity Multiplier) * 50 * Cấp độ trang bị (1-20)
+      let baseDura = baseMult * 50 * subLvl;
+      enriched.maxDurability = baseDura;
+      
+      // Nếu item cũ đã có độ bền, giữ tỷ lệ % độ bền hiện tại để không làm đầy bình máu đồ cũ
+      if (item.durability !== undefined && item.maxDurability) {
+          const ratio = item.durability / item.maxDurability;
+          enriched.durability = Math.floor(baseDura * ratio);
+      } else {
+          enriched.durability = baseDura;
+      }
+      
+      return enriched;
+  };
+
+  const handleEquipItem = (item) => {
+      // V8.25 FIX: Đánh chặn bóng ma giao diện và Double-click
+      if (isGenerating) return showAlert("Thiên Đạo đang bận rộn, không thể thay đồ lúc này!");
+      if (!item || item.quantity <= 0) return showAlert("Ảo giác! Vật phẩm này không thực sự tồn tại trong túi đồ của bạn.");
+
+      const slot = getEquipSlot(item); // V7.11 Update
+      const enrichedItem = enrichEquipStats(item);
+      
+      setGameState(prev => {
+          let newInv = [...prev.inventory];
+          let newEquipped = { ...(prev.equipped || {}) };
+          
+          // Trừ đồ trong túi
+          const idx = newInv.findIndex(i => i.name === item.name && i.containerId === item.containerId);
+          if (idx >= 0) {
+              newInv[idx].quantity -= 1;
+              if (newInv[idx].quantity <= 0) newInv.splice(idx, 1);
+          }
+          
+          // Tháo đồ cũ (nếu có) bỏ lại vào túi
+          if (newEquipped[slot]) {
+              const oldItem = newEquipped[slot];
+              const existIdx = newInv.findIndex(i => i.name === oldItem.name && i.containerId === (item.containerId || 'default') && i.type === oldItem.type);
+              if (existIdx >= 0) newInv[existIdx].quantity += 1;
+              else newInv.push({ ...oldItem, quantity: 1, containerId: item.containerId || 'default' });
+          }
+          
+          // V1.25.7: Xóa bất biến khỏi mảng containers nếu vật phẩm này là Túi đang đeo
+          let newContainers = [...(prev.containers || [])];
+          if (item.type === 'spatial' || item.type === 'sealed_spatial') {
+               newContainers = newContainers.filter(c => c.id !== item.savedId);
+          }
+
+          // V11.54 FIX: Tráo Đồ Giây Cuối - Trừ 1% độ bền khi mặc vào
+          if (enrichedItem.durability !== undefined && enrichedItem.maxDurability) {
+              const duraCost = Math.max(1, Math.floor(enrichedItem.maxDurability * 0.01));
+              enrichedItem.durability = Math.max(0, enrichedItem.durability - duraCost);
+          }
+          
+          newEquipped[slot] = enrichedItem;
+          
+          setStoryLog(logs => {
+              const newLog = [...logs, { type: 'system', text: `[Trang Bị] Đã khắc ấn [${item.name}] lên nhục thân.`, chapter: prev.chapterCount }];
+              return newLog.length > 50 ? newLog.slice(-50) : newLog;
+          });
+          
+          return { ...prev, inventory: newInv, equipped: newEquipped, containers: newContainers };
+      });
+      setSelectedInvItem(null);
+  };
+
+  const handleUnequipItem = (slot) => {
+      // V8.25 FIX: Khóa thao tác khi AI đang tính toán
+      if (isGenerating) return showAlert("Thiên Đạo đang bận rộn, không thể tháo đồ lúc này!");
+
+      setGameState(prev => {
+          if (!prev.equipped || !prev.equipped[slot]) return prev;
+          const itemToUnequip = prev.equipped[slot];
+          let newInv = [...prev.inventory];
+          let newEquipped = { ...prev.equipped };
+          
+          const targetContainerId = prev.containers[0]?.id || 'default';
+          
+          const targetContainer = prev.containers.find(c => c.id === targetContainerId);
+          const currentWeight = newInv.filter(i => i.containerId === targetContainerId).reduce((sum, i) => sum + getItemTotalWeight(i), 0);
+          const itemWeight = getItemUnitWeight(itemToUnequip);
+          
+          if (targetContainer && currentWeight + itemWeight > (targetContainer.capacity || 30)) {
+              showAlert(`Túi [${targetContainer.name}] đã đầy, không thể tháo [${itemToUnequip.name}] vào lúc này!`);
+              return prev;
+          }
+
+          // V6.37 FIX: Kiểm tra xem đồ có buff ẩn không. Nếu có thì KHÔNG ĐƯỢC GỘP để tránh mất chỉ số!
+          const hasBonusStats = itemToUnequip.attackBonus || itemToUnequip.defenseBonus || itemToUnequip.speedBonus || itemToUnequip.spiritPowerBonus || (itemToUnequip.perks && itemToUnequip.perks.length > 0) || itemToUnequip.type === 'spatial';
+          
+          if (hasBonusStats) {
+              newInv.push({ ...itemToUnequip, quantity: 1, containerId: targetContainerId }); // Tách thành 1 dòng riêng trong túi
+          } else {
+              const existIdx = newInv.findIndex(i => i.name === itemToUnequip.name && i.containerId === targetContainerId && !i.attackBonus && !i.defenseBonus && i.type === itemToUnequip.type);
+              if (existIdx >= 0) newInv[existIdx].quantity += 1;
+              else newInv.push({ ...itemToUnequip, quantity: 1, containerId: targetContainerId });
+          }
+          
+          newEquipped[slot] = null;
+          
+          setStoryLog(logs => {
+              const newLog = [...logs, { type: 'system', text: `[Trang Bị] Đã tháo gỡ [${itemToUnequip.name}] khỏi người.`, chapter: prev.chapterCount }];
+              return newLog.length > 50 ? newLog.slice(-50) : newLog;
+          });
+          
+          return { ...prev, inventory: newInv, equipped: newEquipped };
+      });
+  };
+  // ================= KẾT THÚC HỆ THỐNG TRANG BỊ =================

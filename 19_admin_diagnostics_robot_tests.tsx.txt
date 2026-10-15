@@ -1,0 +1,864 @@
+  const handleAdminUpdateStat = async (statKey, val) => {
+      if (!adminViewingPlayer) return;
+      const numVal = Number(val);
+      if (isNaN(numVal)) return showAlert("Giá trị không hợp lệ!");
+      
+      setDialog({ type: 'loading', message: `Đang cập nhật thông số...` });
+      try {
+          const newState = { ...adminViewingPlayer.state, [statKey]: numVal };
+          const compressedState = LZString.compressToBase64(JSON.stringify(newState));
+          
+          const mirrorRef = doc(db, 'artifacts', appId, 'public', 'data', 'admin_mirrors', adminViewingPlayer.meta.profileId);
+          await setDoc(mirrorRef, { gameStateStr: compressedState, lastUpdated: Date.now() }, { merge: true });
+          
+          setAdminViewingPlayer(prev => ({ ...prev, state: newState }));
+          closeDialog();
+          showAlert(`Đã lưu thông số thành công! (Lưu ý: Phải dùng mã khôi phục ném cho người chơi, hoặc người chơi đang online phải tải lại game để nhận thay đổi).`);
+      } catch (e) {
+          closeDialog();
+          showAlert("Lỗi cập nhật: " + e.message);
+      }
+  };
+
+  const renderEditableAdminStat = (statKey, value, displayValue) => {
+      if (!adminQuickEditMode) return displayValue;
+      if (editingStat?.key === statKey) {
+          return (
+              <input 
+                  type="number" 
+                  value={editingStat.value} 
+                  onChange={e => setEditingStat({ ...editingStat, value: e.target.value })}
+                  onBlur={() => setEditingStat(null)}
+                  onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                          handleAdminUpdateStat(statKey, editingStat.value);
+                          setEditingStat(null);
+                      } else if (e.key === 'Escape') {
+                          setEditingStat(null);
+                      }
+                  }}
+                  className="w-full max-w-[80px] bg-[var(--bg-body)] border border-teal-500 rounded px-1 text-center text-white focus:outline-none text-base mx-1"
+                  autoFocus
+              />
+          );
+      }
+      return (
+          <span 
+              onClick={(e) => { e.stopPropagation(); setEditingStat({ key: statKey, value: value }); }}
+              className="cursor-pointer hover:text-teal-400 border-b border-dashed border-teal-500 pb-0.5 mx-1"
+              title="Nhấn để sửa nhanh"
+          >
+              {displayValue}
+          </span>
+      );
+  };
+
+  // V10.70 FIX: SỔ SINH TỬ ADMIN (BLACKLIST DIỆT HACKER)
+  const [bannedNames, setBannedNames] = useState([]);
+  
+  // V10.73 FIX: Chốt chặn user. Đợi có thẻ định danh mới được kéo dữ liệu Blacklist về!
+  useEffect(() => {
+      if (!user) return; // Nếu chưa đăng nhập Đám Mây thì không được gọi Snapshot
+      
+      const unsub = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'admin_config', 'blacklist'), (docSnap) => {
+          if (docSnap.exists()) {
+              setBannedNames(docSnap.data().names || []);
+          }
+      });
+      return () => unsub();
+  }, [appId, user]);
+
+  const handleAdminKillPlayer = async (playerName) => {
+      showConfirm(`XÁC NHẬN THIÊN PHẠT TỐI CAO?\n\nHành động này sẽ đưa tên [${playerName}] vào Danh Sách Đen (Blacklist) của toàn Server. Bất kỳ ai tải file save có tên này, hoặc đang chơi nhân vật tên này sẽ LẬP TỨC BỊ GIẾT CHẾT và phế tu vi!\n\nBạn có chắc chắn?`, async () => {
+          setDialog({ type: 'loading', message: `Đang khắc ấn [${playerName}] lên Bia Đá Tử Thần...` });
+          try {
+              const blRef = doc(db, 'artifacts', appId, 'public', 'data', 'admin_config', 'blacklist');
+              const snap = await getDoc(blRef);
+              let currentNames = snap.exists() ? (snap.data().names || []) : [];
+              if (!currentNames.includes(playerName)) {
+                  currentNames.push(playerName);
+                  await setDoc(blRef, { names: currentNames }, { merge: true });
+              }
+              closeDialog();
+              showAlert(`Đã giáng Thiên Phạt! Cái tên [${playerName}] đã bị nguyền rủa vĩnh viễn trên toàn Đa Vũ Trụ.`);
+          } catch(e) { 
+              closeDialog();
+              showAlert("Lỗi ban án tử: " + e.message); 
+          }
+      });
+  };
+
+  // V10.98 FIX: ĐẶC QUYỀN SÁNG THẾ THẦN - NGHỊCH CHUYỂN THỜI KHÔNG
+  const handleAdminRollback = async (playerMeta, currentState) => {
+      showPrompt(`Nhập số chương muốn đưa [${currentState.name}] lùi về quá khứ (Ví dụ: 5):\n\nLưu ý: Hành động này sẽ Hồi Sinh nhân vật (nếu đã chết), bơm đầy máu, xóa án tử, tẩy sạch các Khí Vận rác sinh ra sau khi chết (Tàn hồn, Quỷ Tu, Âm sai...) và lùi lại mốc chương.`, async (val) => {
+          const chapToRollback = parseInt(val);
+          if (isNaN(chapToRollback) || chapToRollback <= 0) return showAlert("Số chương không hợp lệ!");
+
+          setDialog({ type: 'loading', message: `Đang thi triển Đại Đạo Nghịch Chuyển, đưa [${currentState.name}] quay về quá khứ...` });
+
+          try {
+              let newState = { ...currentState };
+
+              // 1. Lùi chương
+              newState.chapterCount = Math.max(0, (newState.chapterCount || 0) - chapToRollback);
+
+              // 2. Hồi sinh & Bơm máu (Lấy đúng giới hạn Cảnh giới)
+              const vStage = getStageConfig(newState.cultivationLevel);
+              const vMaxHp = Math.floor(100 * vStage.statMult * Math.pow(1.15, vStage.id - 1)) + (Number(newState.bonusMaxHp) || 0);
+              newState.health = vMaxHp;
+              newState.deathReason = '';
+              
+              // 3. Tẩy sạch di chứng tử vong
+              newState.traits = (newState.traits || []).filter(t => !['Âm Sai Công Đức', 'Chịu Hình Phạt', 'Nguyên Thần Xuất Khiếu', 'Tàn Hồn Lão Gia Gia', 'Quỷ Đạo Truyền Nhân', 'Linh Hồn Chắp Vá'].includes(t.name));
+
+              // 4. Lôi ra khỏi Âm Ti
+              if (['Minh Giới / Âm Ti', 'Mười Tám Tầng Địa Ngục', 'Bên trong Pháp Bảo'].includes(newState.currentLocation)) {
+                  newState.currentLocation = 'Thế giới hiện tại';
+              }
+              
+              // 4.5. Tẩy sạch ký ức tương lai (Chống rò rỉ thời không)
+              newState.hiddenChronicles = [];
+              newState.encyclopedia = (newState.encyclopedia || []).filter(e => (e.discoveredAt || 0) <= newState.chapterCount);
+
+              // 5. Cấp dấu ấn bảo vệ (Đã gỡ bỏ hệ thống Anti-Cheat ở V11.08)
+              newState.adminVerified = true; 
+
+              const compressedState = LZString.compressToBase64(JSON.stringify(newState));
+
+              // 6. Cập nhật lại Gương Phản Chiếu Admin (Vùng Public - Không bị lỗi Permission)
+              const mirrorRef = doc(db, 'artifacts', appId, 'public', 'data', 'admin_mirrors', playerMeta.profileId);
+              await setDoc(mirrorRef, { gameStateStr: compressedState, lastUpdated: Date.now() }, { merge: true });
+
+              // 7. TẠO MÃ KHÔI PHỤC (THAY VÌ LƯU ĐÈ TRỰC TIẾP LÊN TÀI KHOẢN NGƯỜI KHÁC)
+              const backupPackage = {
+                  format: 'v3',
+                  profiles: [{
+                      id: playerMeta.profileId,
+                      name: newState.name,
+                      gameMode: newState.gameMode || 'chan_thuc',
+                      cultivationLevel: newState.cultivationLevel,
+                      lastPlayed: Date.now(),
+                      createdAt: playerMeta.createdAt || Date.now(),
+                      gameStateStr: compressedState,
+                      currentOptions: []
+                  }],
+                  myCoopRooms: []
+              };
+              const restoreCode = 'V2|' + LZString.compressToBase64(JSON.stringify(backupPackage));
+
+              sendAdminLog('action', `Đảo ngược thời không, lùi ${chapToRollback} chương và Hồi sinh mạng sống.`, newState.name, playerMeta.uid, newState.cultivationLevel);
+
+              closeDialog();
+              
+              // 8. Tự động Copy mã và báo cho Admin
+              const copyToClipboardAdmin = (text) => {
+                  const textArea = document.createElement("textarea");
+                  textArea.value = text;
+                  textArea.style.position = "fixed"; textArea.style.opacity = "0";
+                  document.body.appendChild(textArea); textArea.focus(); textArea.select();
+                  try { document.execCommand('copy'); } catch (err) {}
+                  document.body.removeChild(textArea);
+              };
+              copyToClipboardAdmin(restoreCode);
+
+              showAlert(`Đại Đạo Nghịch Chuyển thành công! [${newState.name}] đã sống lại ở Chương ${newState.chapterCount}.\n\nDo rào cản bảo mật Đám Mây, hệ thống không thể tự lưu đè lên file của người này.\nHệ thống đã TỰ ĐỘNG COPY MÃ TRỌNG SINH. Đạo hữu chỉ cần Gửi (Paste) mã này cho người đó nhập vào phần "Khôi Phục Dữ Liệu" là xong!`);
+              setIsAdminModalOpen(false); // Đóng để làm mới data
+          } catch (e) {
+              closeDialog();
+              showAlert("Lỗi nghịch chuyển thời không: " + e.message);
+          }
+      }, "Nhập số chương muốn lùi...", false);
+  };
+
+  // V10.70 FIX: Tự động diệt sát nếu tên nằm trong sổ đen (Kể cả đang chơi)
+  useEffect(() => {
+      if (gameStarted && gameState.health > 0 && bannedNames.includes(gameState.name)) {
+           setGameState(prev => ({
+               ...prev,
+               health: 0,
+               deathReason: 'Bị Sáng Thế Thần (Admin) giáng Thiên Phạt mạt sát vì tội dùng tà thuật (Hack/Cheat). Tên gọi này đã bị nguyền rủa vĩnh viễn!'
+           }));
+           setStoryLog(prev => {
+               const newLog = [...prev, { type: 'system', text: `[THIÊN PHẠT TỐI CAO] Tên tội đồ [${gameState.name}]! Tội ác thao túng Đa Vũ Trụ của ngươi đã lọt vào mắt Sáng Thế Thần. Thiên lôi giáng xuống, mạt sát linh hồn, phong ấn chân danh vĩnh viễn! GAME OVER!`, chapter: gameState.chapterCount }];
+               return newLog.length > 50 ? newLog.slice(-50) : newLog;
+           });
+           
+           // Bắn log lên Admin
+           sendAdminLog('death', 'Bị Admin Banned Tự Động', gameState.name, user?.uid, gameState.cultivationLevel);
+      }
+  }, [bannedNames, gameStarted, gameState.name, gameState.health]);
+
+  // V9.21: State cho Admin Giám Sát Liên Giới
+  const [adminCoopRooms, setAdminCoopRooms] = useState([]);
+  const [adminViewingRoom, setAdminViewingRoom] = useState(null);
+  const [adminRoomChat, setAdminRoomChat] = useState([]);
+
+  const fetchAdminCoopRooms = async () => {
+      setIsAdminFetching(true);
+      try {
+          const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'coop_rooms'));
+          let list = [];
+          snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+          list.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+          setAdminCoopRooms(list);
+      } catch(e) { showAlert("Lỗi tải danh sách Liên Giới: " + e.message); }
+      setIsAdminFetching(false);
+  };
+
+  const adminSpectateRoom = async (roomData) => {
+      setDialog({ type: 'loading', message: `Đang kết nối thần thức vào Liên Giới [${roomData.id}]...` });
+      try {
+          const chatSnap = await getDocs(query(collection(db, 'artifacts', appId, 'public', 'data', `chat_${roomData.id}`), orderBy('timestamp', 'asc'), limit(100)));
+          let msgs = [];
+          chatSnap.forEach(d => msgs.push({ id: d.id, ...d.data() }));
+          
+          setAdminRoomChat(msgs);
+          setAdminViewingRoom(roomData);
+          closeDialog();
+      } catch (e) {
+          closeDialog(); showAlert("Lỗi soi phòng: " + e.message);
+      }
+  }; 
+  const [adminPlayerTab, setAdminPlayerTab] = useState('stats'); 
+  const [adminViewFontSize, setAdminViewFontSize] = useState(14); 
+  const [adminSortOrder, setAdminSortOrder] = useState('newest'); 
+  const [adminHistorySortOrder, setAdminHistorySortOrder] = useState('newest'); 
+
+  const sendAdminLog = async (type, detail, pName, pUid, pLevel) => {
+      if (!pUid) return;
+      try {
+          await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'admin_global_logs'), {
+              type, detail, name: pName || 'Vô danh', uid: pUid, level: pLevel || 'Phàm nhân', timestamp: Date.now()
+          });
+      } catch(e) {}
+  };
+
+  const fetchAdminLogs = async () => {
+      setIsAdminFetching(true);
+      try {
+          const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'admin_global_logs'));
+          let logs = [];
+          snap.forEach(doc => logs.push({ id: doc.id, ...doc.data() }));
+          logs.sort((a, b) => b.timestamp - a.timestamp);
+          setAdminGlobalLogs(logs.slice(0, 100));
+      } catch(e) { showAlert("Lỗi tải dữ liệu Admin: " + e.message); }
+      setIsAdminFetching(false);
+  };
+
+  // V6.45: Hàm Admin tải danh sách vạn người
+  const fetchAdminPlayersList = async () => {
+      setIsAdminFetching(true);
+      try {
+          const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'global_records'));
+          let list = [];
+          snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+          list.sort((a,b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+          setAdminPlayersList(list.slice(0, 300));
+      } catch(e) { showAlert("Lỗi tải danh sách người chơi: " + e.message); }
+      setIsAdminFetching(false);
+  };
+
+  // V6.45 & V8.31: Hàm Admin Thấu Thị (Soi tài khoản qua Gương Phản Chiếu)
+  const adminViewPlayerDetails = async (playerMeta) => {
+      setDialog({ type: 'loading', message: `Đang dùng Thiên Nhãn soi xét dữ liệu của [${playerMeta.name}]...` });
+      try {
+          // Đọc từ Vùng Công Cộng (Admin Mirrors) thay vì chọc vào Vùng Tư Nhân
+          const mirrorRef = doc(db, 'artifacts', appId, 'public', 'data', 'admin_mirrors', playerMeta.profileId);
+          const snap = await getDoc(mirrorRef);
+          if (snap.exists()) {
+              const profileData = snap.data();
+              let decodedState = safeDecompress(profileData.gameStateStr) || profileData.gameState;
+              if (typeof decodedState === 'string') try { decodedState = JSON.parse(decodedState); } catch(e){}
+              setAdminViewingPlayer({ meta: playerMeta, state: decodedState });
+              setAdminPlayerTab('stats');
+          } else {
+              showAlert(`Hồ sơ của [${playerMeta.name}] chưa được đồng bộ lên Gương Phản Chiếu hoặc đã bị xóa.`);
+          }
+          closeDialog();
+      } catch(e) { closeDialog(); showAlert("Lỗi soi người chơi: " + e.message); }
+  };
+
+  const handleVersionClick = () => {
+      setDevClickCount(prev => {
+          const newCount = prev + 1;
+          if (newCount >= 3) {
+              setShowAdminBot(true);
+              return 0;
+          }
+          return newCount;
+      });
+  };
+
+  const runDiagnostics = async () => {
+      setIsDiagnosing(true);
+      setDiagnosticLogs([]);
+      let currentLogs = [];
+
+      const addLog = async (status, msg, percent, stepText) => {
+          if (stepText) setDiagnosticProgress({ percent, text: stepText });
+          await new Promise(r => setTimeout(r, 600)); // Tạo độ trễ đọc dữ liệu
+          currentLogs = [...currentLogs, { status, msg }];
+          setDiagnosticLogs(currentLogs);
+      };
+
+      setDiagnosticProgress({ percent: 5, text: 'Khởi tạo luồng kiểm tra hệ thống...' });
+      await new Promise(r => setTimeout(r, 400));
+
+      // 1. Check API Key
+      await addLog('success', 'KẾT NỐI AI: Thiên Đạo đã được liên kết ngầm thành công (Bỏ qua rà soát Key cứng).', 20, 'Kiểm tra đường truyền kết nối AI...');
+
+      // 2. Check Firebase Config
+      let fbMsg = 'ĐÁM MÂY FIREBASE: Cấu hình hệ thống hợp lệ.';
+      let fbStatus = 'success';
+      if (myFirebaseConfig.apiKey === "ĐIỀN_API_KEY_CỦA_ANH" && typeof __firebase_config === 'undefined') {
+          fbStatus = 'warn';
+          fbMsg = 'CẢNH BÁO ĐÁM MÂY: Firebase đang dùng dữ liệu ảo. Hãy điền thông tin thật nếu mang game ra host ngoài.';
+      }
+      await addLog(fbStatus, fbMsg, 40, 'Xác thực cấu hình Đám Mây Firebase...');
+
+      // 3. Check State Integrity
+      let stateMsg = 'NHỤC THÂN: Cấu trúc dữ liệu nhân vật ổn định.';
+      let stateStatus = 'success';
+      if (!gameState || typeof gameState !== 'object') {
+          stateStatus = 'error';
+          stateMsg = 'LỖI NHỤC THÂN: Biến gameState (nhân vật) bị rỗng hoặc hỏng cấu trúc!';
+      }
+      await addLog(stateStatus, stateMsg, 60, 'Phân tích dữ liệu Nhục Thân (State)...');
+
+      // 4. Check Storage Limits
+      try {
+          const storage = getStorageData();
+          if (Number(storage.localPct) >= 90) {
+              await addLog('warn', `BỘ NHỚ TRÀN: LocalStorage đã chiếm ${storage.localPct}%. Dễ gây lỗi liệt nút Save/Load.`, 75, 'Đo lường sức chứa Bộ Nhớ (Storage)...');
+          } else {
+              await addLog('success', `BỘ NHỚ TRÌNH DUYỆT: An toàn (${storage.localPct}% / 5MB).`, 75, 'Đo lường sức chứa Bộ Nhớ (Storage)...');
+          }
+      } catch (e) {
+          await addLog('error', 'LỖI BỘ NHỚ: Không thể đọc dung lượng lưu trữ. ' + e.message, 75, 'Đo lường sức chứa Bộ Nhớ (Storage)...');
+      }
+
+      // 5. Thử nghiệm Logic Lõi
+      try {
+          const testStage = getStageConfig('Đại Thừa Kỳ');
+          if (!testStage || isNaN(testStage.statMult)) throw new Error("Cảnh giới trả về NaN");
+          await addLog('success', 'LÕI THIÊN ĐẠO: Hàm tính toán Cảnh Giới & Chỉ số (StatMult) hoạt động trơn tru.', 90, 'Chạy giả lập Thuật toán Lõi...');
+      } catch(e) {
+          await addLog('error', 'LỖI LÕI THIÊN ĐẠO: Thuật toán hệ số sức mạnh bị sập. ' + e.message, 90, 'Chạy giả lập Thuật toán Lõi...');
+      }
+
+      // 6. Test UI / Giao diện & Nút bấm theo Ngữ Cảnh
+      setDiagnosticProgress({ percent: 95, text: 'Rà soát liên kết Giao diện (UI) & Nút bấm...' });
+      await new Promise(r => setTimeout(r, 600));
+
+      if (!gameStarted) {
+          await addLog('info', 'GIAO DIỆN: Đạo hữu chưa Bước vào Luân Hồi. Các nút Đấu Trường, Bách Khoa, Sổ Tay đang được ẩn đi một cách hợp lý (Trạng thái Bình thường).', 100, 'Hoàn tất rà soát toàn diện!');
+      } else {
+          try {
+              const modals = {
+                  "Cẩm Nang Tu Tiên": typeof isHelpOpen === 'boolean',
+                  "Lịch Sử Cập Nhật": typeof isUpdateHistoryOpen === 'boolean',
+                  "Tu Tiên Bách Khoa": typeof isEncyclopediaOpen === 'boolean',
+                  "Chiến Trường Xếp Hạng": typeof isArenaOpen === 'boolean',
+                  "Sổ Tử Thần": typeof isDeathNoteOpen === 'boolean',
+                  "Kho Dữ Liệu": typeof isDataModalOpen === 'boolean'
+              };
+              const missing = Object.entries(modals).filter(([_, exists]) => !exists).map(([name]) => name);
+              if (missing.length > 0) {
+                  await addLog('error', `❌ LỖI NÚT BẤM: Khuyết thiếu biến trạng thái cho bảng [${missing.join(', ')}]. Nút bấm sẽ bị liệt!`, 100, 'Hoàn tất rà soát toàn diện!');
+              } else {
+                  await addLog('success', '✅ GIAO DIỆN & NÚT BẤM: 100% Nguyên vẹn. Mọi bảng chức năng đều đã sẵn sàng.', 100, 'Hoàn tất rà soát toàn diện!');
+              }
+          } catch (e) {
+              await addLog('error', 'LỖI GIAO DIỆN: Quá trình rà soát bị gián đoạn.', 100, 'Hoàn tất rà soát toàn diện!');
+          }
+      }
+
+      setTimeout(() => {
+          setDiagnosticProgress({ percent: 0, text: '' });
+          setIsDiagnosing(false);
+      }, 2000);
+  };
+
+  // V3.56: Robot Min - Tổ hợp Test Kịch Bản Tùy Chọn
+  const ROBOT_MIN_TEST_CASES = [
+      {
+          id: 'skill_fusion',
+          name: 'Dung hợp Công Pháp & Chống Rác',
+          icon: <BookOpen size={16}/>,
+          payload: 'Ta nhặt được bí kíp Huyết Ma Công hoàn chỉnh và bắt đầu tu luyện dung hợp.',
+          prompt: `Tình huống: Người chơi đang có kỹ năng "Huyết Ma Công (Tàn quyển)". Người chơi gõ: "Ta nhặt được bí kíp Huyết Ma Công hoàn chỉnh và bắt đầu tu luyện dung hợp."
+YÊU CẦU KIỂM TRA LOGIC:
+1. Xóa "Huyết Ma Công (Tàn quyển)" (đưa vào lostSkills).
+2. Học "Huyết Ma Công" (đưa vào skills, KHÔNG ĐƯỢC thêm hậu tố như 'thức thứ nhất').
+Trả về JSON chuẩn game: {"story": "...", "journalUpdates": {"lostSkills": ["Huyết Ma Công (Tàn quyển)"], "skills": [{"name": "Huyết Ma Công", "level": "Nhập môn", "desc": "..."}]}}`,
+          verify: (data, updateLogs) => {
+              let passed = true;
+              const lost = data.journalUpdates?.lostSkills || [];
+              const skills = data.journalUpdates?.skills || [];
+              
+              if (lost.some(s => s.includes("Tàn quyển") || s.includes("tàn quyển"))) {
+                  updateLogs('success', '✅ Pass 1: Đã đưa "Tàn quyển" vào danh sách xóa bỏ (lostSkills).');
+              } else { 
+                  updateLogs('warn', '⚠️ Fail 1: AI quên xóa bản Tàn quyển cũ khỏi bộ nhớ.'); passed = false; 
+              }
+
+              const addedSkill = skills.find(s => s.name && s.name.includes("Huyết Ma Công"));
+              if (addedSkill) {
+                  if (/(thức|tầng|quyển|phần)/i.test(addedSkill.name)) { 
+                      updateLogs('error', `❌ Fail 2: AI tự ý chế thêm rác vào tên công pháp: "${addedSkill.name}".`); passed = false; 
+                  } else { 
+                      updateLogs('success', `✅ Pass 2: Đã học công pháp mới với tên siêu sạch: "${addedSkill.name}".`); 
+                  }
+              } else { 
+                  updateLogs('warn', '⚠️ Fail 2: AI không ghi nhận công pháp mới vào Sổ tay.'); passed = false; 
+              }
+              return passed;
+          }
+      },
+      {
+          id: 'currency_trade',
+          name: 'Giao Dịch Mua Bán & Lọc Tiền Tệ',
+          icon: <Coins size={16}/>,
+          payload: 'Ta lấy 500 Hạ phẩm linh thạch ra mua một viên Trúc Cơ Đan ở phường thị.',
+          prompt: `Tình huống: Người chơi có 1000 Hạ phẩm linh thạch. Người chơi gõ: "Ta lấy 500 Hạ phẩm linh thạch ra mua một viên Trúc Cơ Đan ở phường thị."
+YÊU CẦU KIỂM TRA LOGIC:
+1. Trừ chính xác 500 linh thạch trong 'statChanges.spiritStones'.
+2. Thêm 'Trúc Cơ Đan' vào 'inventoryUpdates.added'.
+3. TUYỆT ĐỐI KHÔNG thêm 'Linh thạch' vào inventoryUpdates (vì hệ thống dùng thẻ spiritStones riêng).
+Trả về JSON chuẩn: {"story": "...", "statChanges": {"spiritStones": -500}, "inventoryUpdates": {"added": [{"name": "Trúc Cơ Đan", "quantity": 1}]}}`,
+          verify: (data, updateLogs) => {
+              let passed = true;
+              const stonesChange = data.statChanges?.spiritStones;
+              if (stonesChange === -500) {
+                  updateLogs('success', '✅ Pass 1: Đã trừ đúng 500 Linh thạch trong biến số tiền tệ.');
+              } else { 
+                  updateLogs('warn', `⚠️ Fail 1: Trừ sai tiền (${stonesChange}). AI tính toán kém.`); passed = false; 
+              }
+
+              const addedItems = data.inventoryUpdates?.added || [];
+              const addedDan = addedItems.find(i => i.name.includes("Trúc Cơ Đan"));
+              const addedStone = addedItems.find(i => String(i.name).toLowerCase().includes("linh thạch"));
+
+              if (addedDan) {
+                  updateLogs('success', '✅ Pass 2: Đã nhận Trúc Cơ Đan vào túi đồ.');
+              } else { 
+                  updateLogs('warn', '⚠️ Fail 2: Giao dịch xong nhưng không nhận được đan dược.'); passed = false; 
+              }
+
+              if (addedStone) { 
+                  updateLogs('error', '❌ Fail 3: Nhét nhầm Linh Thạch vào túi đồ (inventoryUpdates). Vi phạm quy tắc!'); passed = false; 
+              } else { 
+                  updateLogs('success', '✅ Pass 3: Bộ lọc tiền tệ sạch sẽ, không nhét rác vào túi đồ.'); 
+              }
+              return passed;
+          }
+      },
+      {
+          id: 'combat_logic',
+          name: 'Chiến Đấu & Tiêu Hao Sinh Lực',
+          icon: <Activity size={16}/>,
+          payload: 'Ta dùng toàn lực tung một chưởng Liệt Hỏa Quyết vào đầu con Yêu Hổ, sau đó lùi lại thở dốc.',
+          prompt: `Tình huống: Đánh nhau tốn sức. Người chơi gõ: "Ta dùng toàn lực tung một chưởng Liệt Hỏa Quyết vào đầu con Yêu Hổ, sau đó lùi lại thở dốc."
+YÊU CẦU KIỂM TRA LOGIC:
+1. Trừ 'spiritualEnergy' (Linh lực) do tung tuyệt chiêu.
+2. Trừ 'stamina' (Thể lực) do lùi lại thở dốc.
+3. Nếu không bị yêu thú đánh trúng, không tự ý trừ Máu (health).
+Trả về JSON: {"story": "...", "statChanges": {"spiritualEnergy": -20, "stamina": -15, "health": 0}}`,
+          verify: (data, updateLogs) => {
+              let passed = true;
+              const mp = data.statChanges?.spiritualEnergy || 0;
+              const sta = data.statChanges?.stamina || 0;
+              const hp = data.statChanges?.health || 0;
+
+              if (mp < 0) {
+                  updateLogs('success', `✅ Pass 1: Đã tiêu hao Linh lực (${mp}). Rất thực tế.`);
+              } else { 
+                  updateLogs('warn', '⚠️ Fail 1: Đánh toàn lực mà không tốn giọt Linh lực nào.'); passed = false; 
+              }
+
+              if (sta < 0) {
+                  updateLogs('success', `✅ Pass 2: Đã tiêu hao Thể lực (${sta}). Cơ thể biết mệt mỏi.`);
+              } else { 
+                  updateLogs('warn', '⚠️ Fail 2: Thở dốc mà không tốn Thể lực.'); passed = false; 
+              }
+
+              if (hp < 0) {
+                  updateLogs('info', `ℹ️ Info: Mất máu (${hp}). Thiên Đạo phán bị yêu thú phản kích trúng thương. Cũng hợp lý.`);
+              } else {
+                  updateLogs('success', '✅ Pass 3: An toàn lui ra, không bị mất Máu oan uổng.');
+              }
+
+              return passed;
+          }
+      },
+      {
+          id: 'npc_relation',
+          name: 'Ghi Nhớ NPC & Ái Hận Đan Xen',
+          icon: <Heart size={16}/>,
+          payload: 'Ta xông vào biển lửa cứu mỹ nhân Ma Giáo tên Dạ Nguyệt, nàng được cứu nhưng vẫn tức giận vung kiếm chĩa vào ta vì mối thù phe phái.',
+          prompt: `Tình huống: Cứu một người Ma giáo tên Dạ Nguyệt. Cảnh báo: Ái Hận Đan Xen.
+YÊU CẦU KIỂM TRA LOGIC:
+1. Thêm "Dạ Nguyệt" vào journalUpdates.npcs.
+2. Cài đặt affinity > 70 và hostility > 70 để kích hoạt Ái Hận Đan Xen.
+3. alignment là "Ma đạo", relationType là "Hồng nhan" hoặc tương tự.
+Trả về JSON chuẩn: {"story": "...", "journalUpdates": {"npcs": [{"name": "Dạ Nguyệt", "state": "Được cứu, mâu thuẫn nội tâm", "affinity": 80, "hostility": 75, "relationType": "Hồng nhan", "alignment": "Ma đạo"}]}}`,
+          verify: (data, updateLogs) => {
+              let passed = true;
+              const npcs = data.journalUpdates?.npcs || [];
+              const daNguyet = npcs.find(n => n.name && n.name.includes("Dạ Nguyệt"));
+              if (daNguyet) {
+                  updateLogs('success', '✅ Pass 1: Đã ghi nhớ NPC Dạ Nguyệt.');
+                  if (daNguyet.affinity >= 70 && daNguyet.hostility >= 70) {
+                      updateLogs('success', `✅ Pass 2: Setup Ái Hận thành công (Yêu: ${daNguyet.affinity}, Hận: ${daNguyet.hostility}).`);
+                  } else {
+                      updateLogs('warn', `⚠️ Fail 2: Thiếu Ái Hận Đan Xen. (Yêu: ${daNguyet.affinity}, Hận: ${daNguyet.hostility})`); passed = false;
+                  }
+                  if (/(ma giáo|ma đạo)/i.test(daNguyet.alignment)) {
+                       updateLogs('success', '✅ Pass 3: Gán đúng phe phái Ma Đạo.');
+                  } else {
+                       updateLogs('warn', `⚠️ Fail 3: Sai phe phái. (Hiện tại: ${daNguyet.alignment})`); passed = false;
+                  }
+              } else {
+                  updateLogs('error', '❌ Fail 1: Không ghi nhận NPC Dạ Nguyệt vào sổ tay.'); passed = false;
+              }
+              return passed;
+          }
+      },
+      {
+          id: 'path_switch',
+          name: 'Nghịch Đạo Trùng Tu (Phe phái)',
+          icon: <Zap size={16}/>,
+          payload: 'Ta quyết định phế bỏ toàn bộ linh lực, đập nát đan điền để cấy ma cốt, chuyển sang tu Ma Khí.',
+          prompt: `Tình huống: Người chơi đang tu Linh lực muốn phế bỏ để tu Ma Khí.
+YÊU CẦU KIỂM TRA LOGIC:
+1. Phải có field "pathSwitchAttempt": "Ma Khí".
+Trả về JSON chuẩn: {"story": "...", "pathSwitchAttempt": "Ma Khí", "statChanges": {}}`,
+          verify: (data, updateLogs) => {
+              if (data.pathSwitchAttempt && data.pathSwitchAttempt.includes("Ma Khí")) {
+                  updateLogs('success', `✅ Pass: Đã nhận diện được ý định Nghịch Đạo Trùng Tu (${data.pathSwitchAttempt}).`);
+                  return true;
+              }
+              updateLogs('error', `❌ Fail: Không nhận diện được ý định Trùng tu. (Nhận được: ${data.pathSwitchAttempt})`);
+              return false;
+          }
+      },
+      {
+          id: 'demon_soul',
+          name: 'Thu Phục Hồn Tinh Yêu Thú',
+          icon: <Skull size={16}/>,
+          payload: 'Ta vận dụng bí pháp Thái Cổ Ngự Yêu Sư tàn nhẫn rút linh hồn của Bạo Hùng ra để chế tạo Hồn Tinh.',
+          prompt: `Tình huống: Người chơi đánh bại Bạo Hùng và Rút hồn.
+YÊU CẦU KIỂM TRA LOGIC:
+1. Thêm vật phẩm loại "demon_soul" tên "Hồn tinh Bạo Hùng" vào inventoryUpdates.added.
+2. Phải có các chỉ số bonus (attackBonus, defenseBonus...) và perks.
+Trả về JSON: {"story": "...", "inventoryUpdates": {"added": [{"name": "Hồn tinh Bạo Hùng", "quantity": 1, "type": "demon_soul", "tier": "Yêu Thú", "rarity": "Tím", "attackBonus": 50, "defenseBonus": 100, "perks": ["Cuồng bạo"]}]}}`,
+          verify: (data, updateLogs) => {
+              let passed = true;
+              const added = data.inventoryUpdates?.added || [];
+              const soul = added.find(i => i.type === 'demon_soul');
+              if (soul) {
+                  updateLogs('success', `✅ Pass 1: Đã tạo vật phẩm Hồn tinh: ${soul.name}.`);
+                  if (soul.attackBonus !== undefined && soul.defenseBonus !== undefined) {
+                      updateLogs('success', '✅ Pass 2: Hồn tinh có chứa chỉ số sức mạnh (attack/defense bonus).');
+                  } else {
+                      updateLogs('warn', '⚠️ Fail 2: Hồn tinh thiếu chỉ số buff sức mạnh.'); passed = false;
+                  }
+              } else {
+                  updateLogs('error', '❌ Fail 1: Không tạo được vật phẩm loại demon_soul (Hồn tinh).'); passed = false;
+              }
+              return passed;
+          }
+      },
+      {
+          id: 'incremental_growth',
+          name: 'Tích Tiểu Thành Đại (Stamina/HP Max)',
+          icon: <Activity size={16}/>,
+          payload: 'Ta vác tảng đá khổng lồ chạy quanh núi 10 vòng ròng rã để rèn luyện thể lực.',
+          prompt: `Tình huống: Người chơi đang tập luyện thể chất gian khổ (vác đá chạy).
+YÊU CẦU KIỂM TRA LOGIC:
+1. BẮT BUỘC cộng một lượng nhỏ vào "bonusMaxStamina" (hoặc bonusMaxHp) trong "statChanges" vì đây là hành động rèn luyện nhục thân.
+2. Trừ "stamina" do mệt mỏi.
+Trả về JSON chuẩn: {"story": "...", "statChanges": {"bonusMaxStamina": 2, "stamina": -30}}`,
+          verify: (data, updateLogs) => {
+              let passed = true;
+              const bonusSta = data.statChanges?.bonusMaxStamina || 0;
+              const bonusHp = data.statChanges?.bonusMaxHp || 0;
+              if (bonusSta > 0 || bonusHp > 0) {
+                  updateLogs('success', `✅ Pass 1: Đã cộng giới hạn tối đa (Stamina +${bonusSta}, HP +${bonusHp}). Logic Tích Tiểu Thành Đại hoạt động tốt.`);
+              } else {
+                  updateLogs('error', `❌ Fail 1: Không cộng giới hạn tối đa nào dù đang rèn luyện cực khổ.`); passed = false;
+              }
+              return passed;
+          }
+      },
+      {
+          id: 'foundation_toxicity',
+          name: 'Đan Độc & Căn Cơ Cực Cảnh',
+          icon: <FlaskRound size={16}/>,
+          payload: 'Ta dùng đan dược liên tục để ép tu vi lên 100%, sau đó không màng nguy hiểm lao vào bầy sói chiến đấu sinh tử để cọ xát nhục thân trước khi đột phá.',
+          prompt: `Tình huống: Người chơi cắn thuốc để ép tu vi, sau đó chiến đấu sinh tử để rèn luyện trước khi đột phá.
+YÊU CẦU KIỂM TRA LOGIC:
+1. BẮT BUỘC tăng Đan Độc ("toxicityChange" > 0) do dùng đan dược.
+2. Đánh giá phẩm chất Căn Cơ lúc đột phá: Vì có trải qua chiến đấu sinh tử vắt kiệt tiềm năng, "foundation" BẮT BUỘC LÀ "Cực Cảnh".
+Trả về JSON chuẩn: {"story": "...", "statChanges": {"toxicityChange": 15, "foundation": "Cực Cảnh", "cultivationLevel": "Luyện Khí Tầng 1"}}`,
+          verify: (data, updateLogs) => {
+              let passed = true;
+              const tox = data.statChanges?.toxicityChange || 0;
+              const found = data.statChanges?.foundation;
+              if (tox > 0) updateLogs('success', `✅ Pass 1: Hệ thống ghi nhận Đan Độc (+${tox}%).`);
+              else { updateLogs('error', `❌ Fail 1: Uống đan nhưng không tích Đan Độc.`); passed = false; }
+              
+              if (found === 'Cực Cảnh') updateLogs('success', `✅ Pass 2: Đánh giá Căn Cơ chuẩn xác (Cực Cảnh).`);
+              else { updateLogs('warn', `⚠️ Fail 2: Đánh giá Căn Cơ sai (Hiện tại: ${found}).`); passed = false; }
+              return passed;
+          }
+      },
+      {
+          id: 'prob_work',
+          name: 'Xác Suất Sinh Tồn (Làm việc)',
+          icon: <Coins size={16}/>,
+          payload: 'Ta xin vào phường thị làm công 1 tháng (30 ngày), lương hứa hẹn là 1 linh thạch/ngày.',
+          prompt: `Tình huống: NVC làm công 30 ngày (lương 1 viên/ngày).
+YÊU CẦU KIỂM TRA XÁC SUẤT VÀ THỰC TẾ:
+1. TUYỆT ĐỐI KHÔNG thưởng tròn trĩnh 30 linh thạch! Đời không như mơ.
+2. BẮT BUỘC TẠO XÁC SUẤT: NVC phải ăn uống, trả tiền thuê trọ, hoặc có thể bị xui xẻo mất tiền, bị chủ quỵt lương.
+3. Số "spiritStones" nhận được cuối cùng BẮT BUỘC phải nằm trong khoảng từ 5 đến 25 viên (Đã trừ chi phí).
+Trả về JSON: {"story": "Miêu tả 1 tháng cực nhọc, ăn uống tốn kém...", "statChanges": {"timePassedMinutes": 43200, "spiritStones": 18}}`,
+          verify: (data, updateLogs) => {
+              let passed = true;
+              const time = data.statChanges?.timePassedMinutes || 0;
+              const stones = data.statChanges?.spiritStones || 0;
+              
+              if (time >= 40000) updateLogs('success', `✅ Pass 1: Nhận diện thời gian 1 tháng chuẩn xác (${time} phút).`);
+              else { updateLogs('error', `❌ Fail 1: Tính sai thời gian 1 tháng (Chỉ có ${time} phút).`); passed = false; }
+              
+              if (stones >= 30) { 
+                  updateLogs('error', `❌ Fail 2: AI quá dễ dãi! Trả nguyên ${stones} viên mà không thèm tính chi phí ăn uống/rủi ro.`); passed = false; 
+              } else if (stones > 0) {
+                  updateLogs('success', `✅ Pass 2: Rất thực tế! Lương 30 nhưng sau 1 tháng sinh hoạt chỉ còn lại dư ${stones} viên linh thạch.`);
+              } else {
+                  updateLogs('info', `⚠️ Info: NVC bị lừa trắng tay hoặc tiêu xài hết sạch (Thu nhập: ${stones}). Vẫn tính là Pass vì có tính xác suất.`);
+              }
+              return passed;
+          }
+      },
+      {
+          id: 'prob_cultivate',
+          name: 'Xác Suất Đột Phá (10 năm)',
+          icon: <Cloud size={16}/>,
+          payload: 'Ta mang theo 1000 viên linh thạch, đóng chặt cửa động phủ bế quan tử quan suốt 10 năm ròng rã để xung kích cảnh giới mới.',
+          prompt: `Tình huống: Bế quan 10 năm (tiêu tốn 1000 linh thạch).
+YÊU CẦU KIỂM TRA XÁC SUẤT:
+1. TUYỆT ĐỐI KHÔNG 100% ĐỘT PHÁ THÀNH CÔNG! Bế quan lâu không có nghĩa là chắc chắn thăng cấp.
+2. BẮT BUỘC random 1 trong 3 kết quả sau: 
+   - Đột phá thành công (Đổi cultivationLevel).
+   - Thất bại, nôn máu tẩu hỏa nhập ma (Trừ nặng health).
+   - Kẹt cứng ở bình cảnh, tiến độ đứng im ở 100% (cultivationProgress = 100, cultivationLevel giữ nguyên).
+3. "spiritStones" BẮT BUỘC bị trừ đúng khoảng -1000 viên.
+Trả về JSON: {"story": "...", "statChanges": {"timePassedMinutes": 5184000, "spiritStones": -1000, ...tùy kết quả}}`,
+          verify: (data, updateLogs) => {
+              let passed = true;
+              const stones = data.statChanges?.spiritStones || 0;
+              const levelChanged = data.statChanges?.cultivationLevel && data.statChanges.cultivationLevel !== "Giữ nguyên";
+              const hpDrop = data.statChanges?.health !== undefined && data.statChanges.health < 0;
+              const stuck = data.statChanges?.cultivationProgressChange > 0 || data.statChanges?.cultivationProgress === 100;
+
+              if (stones <= -900) updateLogs('success', `✅ Pass 1: Đã tiêu hao tài nguyên bế quan (${stones} LT).`);
+              else { updateLogs('error', `❌ Fail 1: Bế quan 10 năm mà không tiêu hao Linh Thạch (${stones}).`); passed = false; }
+
+              if (levelChanged) {
+                  updateLogs('success', `✅ Pass 2: Xác suất: ĐỘT PHÁ THÀNH CÔNG lên ${data.statChanges.cultivationLevel}!`);
+              } else if (hpDrop) {
+                  updateLogs('success', `✅ Pass 2: Xác suất: TẨU HỎA NHẬP MA. Thất bại thảm hại, mất ${data.statChanges.health} HP.`);
+              } else if (stuck) {
+                  updateLogs('success', `✅ Pass 2: Xác suất: KẸT BÌNH CẢNH. Dậm chân tại chỗ dù tốn 10 năm.`);
+              } else {
+                  updateLogs('error', `❌ Fail 2: Không có kết cục rõ ràng cho đợt bế quan 10 năm này.`); passed = false;
+              }
+              return passed;
+          }
+      },
+      {
+          id: 'npc_lore',
+          name: 'Hồ Sơ NPC Đa Chiều',
+          icon: <Users size={16}/>,
+          payload: 'Ta đi vào một miếu hoang và vô tình đánh thức một lão ăn mày quái dị đang ngủ say.',
+          prompt: `Tình huống: Gặp gỡ NPC mới tinh.
+YÊU CẦU KIỂM TRA LOGIC:
+1. BẮT BUỘC thêm NPC vào "journalUpdates.npcs".
+2. NPC này BẮT BUỘC PHẢI CÓ ĐẦY ĐỦ CÁC TRƯỜNG: "race", "age", "level", "role", "personality", "background". Không được bỏ trống.
+Trả về JSON: {"story": "...", "journalUpdates": {"npcs": [{"name": "Lão ăn mày", "race": "Nhân tộc", "age": "Không rõ", "level": "Hóa Thần", "role": "Kẻ ẩn cư", "personality": "Gàn dở", "background": "Từng là tuyệt thế cường giả..."}]}}`,
+          verify: (data, updateLogs) => {
+              let passed = true;
+              const npcs = data.journalUpdates?.npcs || [];
+              if (npcs.length > 0) {
+                  const n = npcs[0];
+                  if (n.race && n.age && n.level && n.role && n.personality && n.background) {
+                      updateLogs('success', `✅ Pass: Khai báo NPC hoàn hảo (${n.name} - ${n.race} - ${n.level}). Chi tiết lai lịch đã được ghi nhận.`);
+                  } else {
+                      updateLogs('error', `❌ Fail: Khai báo NPC thiếu sót dữ liệu. (Race: ${n.race}, Age: ${n.age}, Level: ${n.level}, Role: ${n.role})`); passed = false;
+                  }
+              } else {
+                  updateLogs('error', `❌ Fail: Không tạo hồ sơ NPC trong sổ tay.`); passed = false;
+              }
+              return passed;
+          }
+      }
+  ];
+
+  const runSpecificRobotTest = async (testCase) => {
+      setIsDiagnosing(true);
+      setDiagnosticProgress({ percent: 10, text: `Khởi động kịch bản: ${testCase.name}...` });
+      let logs = [{ status: 'info', msg: `🤖 Robot Min đang thực thi: [${testCase.name}]` }];
+      setDiagnosticLogs(logs);
+
+      const updateLogs = (status, msg) => {
+          logs = [...logs, { status, msg }];
+          setDiagnosticLogs(logs);
+      };
+
+      updateLogs('info', `📨 Payload gửi đi: "${testCase.payload}"`);
+      updateLogs('info', '⏳ Đang chờ Thiên Đạo giáng hạ thần niệm (Khoảng 5 - 15 giây)...');
+      setDiagnosticProgress({ percent: 40, text: 'Đang chờ Thiên Đạo xử lý...' });
+
+      try {
+          const payload = {
+              contents: [{ parts: [{ text: "Hãy xử lý kịch bản trên." }] }],
+              systemInstruction: { parts: [{ text: `BẠN LÀ THIÊN ĐẠO. CHỈ TRẢ VỀ JSON.\n${testCase.prompt}` }] },
+              generationConfig: { responseMimeType: "application/json" }
+          };
+
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const result = await response.json();
+          const textResult = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+          if (!textResult) throw new Error("AI trả về kết quả rỗng.");
+
+          let jsonString = textResult;
+              const first = textResult.indexOf('{');
+              if (first !== -1) {
+                  let count = 0;
+                  for (let i = first; i < textResult.length; i++) {
+                      if (textResult[i] === '{') count++;
+                      else if (textResult[i] === '}') {
+                          count--;
+                          if (count === 0) {
+                              jsonString = textResult.substring(first, i + 1);
+                              break;
+                          }
+                      }
+                  }
+              }
+              const data = JSON.parse(jsonString.replace(/```json/gi, '').replace(/```/g, '').trim());
+              updateLogs('success', '📥 Đã nhận phản hồi. Tiến hành mổ xẻ phân tích JSON...');
+          setDiagnosticProgress({ percent: 80, text: 'Đang phân tích JSON trả về...' });
+
+          const passed = testCase.verify(data, updateLogs);
+
+          if (passed) {
+              updateLogs('success', '🎉 KẾT LUẬN: BÀI TEST VIÊN MÃN. Thiên Đạo tuân thủ luật lệ nghiêm ngặt!');
+          } else {
+              updateLogs('error', '❌ KẾT LUẬN: BÀI TEST THẤT BẠI. Thiên Đạo để lọt sơ hở!');
+          }
+          setDiagnosticProgress({ percent: 100, text: 'Hoàn tất bài test!' });
+
+      } catch (error) {
+          updateLogs('error', `❌ LỖI HỆ THỐNG: Khâu giao tiếp hoặc Parse JSON sụp đổ. Chi tiết: ${error.message}`);
+          setDiagnosticProgress({ percent: 100, text: 'Gặp lỗi trong quá trình test!' });
+      }
+
+      setTimeout(() => {
+          setDiagnosticProgress({ percent: 0, text: '' });
+          setIsDiagnosing(false);
+      }, 2000);
+  };
+
+  // V5.35: Hàm Auto Run toàn bộ kịch bản Robot Min
+  const runAllRobotTests = async () => {
+      if (isDiagnosing) return;
+      setIsDiagnosing(true);
+      
+      let logs = [{ status: 'info', msg: `🤖 ROBOT MIN BẮT ĐẦU CHUỖI DÒ LỖI TỔNG HỢP (${ROBOT_MIN_TEST_CASES.length} KỊCH BẢN)...` }];
+      setDiagnosticLogs(logs);
+
+      const updateLogs = (status, msg) => {
+          logs = [...logs, { status, msg }];
+          setDiagnosticLogs(logs);
+      };
+
+      let totalPassed = 0;
+
+      for (let i = 0; i < ROBOT_MIN_TEST_CASES.length; i++) {
+          const tc = ROBOT_MIN_TEST_CASES[i];
+          setDiagnosticProgress({ percent: Math.round(((i) / ROBOT_MIN_TEST_CASES.length) * 100), text: `Đang chạy kịch bản ${i+1}/${ROBOT_MIN_TEST_CASES.length}: ${tc.name}...` });
+          
+          updateLogs('info', `\n▶️ [KỊCH BẢN ${i+1}/${ROBOT_MIN_TEST_CASES.length}]: ${tc.name}`);
+          updateLogs('info', `📨 Payload: "${tc.payload}"`);
+
+          try {
+              const payload = {
+                  contents: [{ parts: [{ text: "Hãy xử lý kịch bản trên." }] }],
+                  systemInstruction: { parts: [{ text: `BẠN LÀ THIÊN ĐẠO. CHỈ TRẢ VỀ JSON.\n${tc.prompt}` }] },
+                  generationConfig: { responseMimeType: "application/json" }
+              };
+
+              const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+              });
+
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              const result = await response.json();
+              const textResult = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+              if (!textResult) throw new Error("AI trả về kết quả rỗng.");
+
+              let jsonString = textResult;
+              const first = textResult.indexOf('{');
+              if (first !== -1) {
+                  let count = 0;
+                  for (let i = first; i < textResult.length; i++) {
+                      if (textResult[i] === '{') count++;
+                      else if (textResult[i] === '}') {
+                          count--;
+                          if (count === 0) {
+                              jsonString = textResult.substring(first, i + 1);
+                              break;
+                          }
+                      }
+                  }
+              }
+              const data = JSON.parse(jsonString.replace(/```json/gi, '').replace(/```/g, '').trim());
+              const passed = tc.verify(data, updateLogs);
+
+              if (passed) {
+                  totalPassed++;
+                  updateLogs('success', `🎉 KẾT LUẬN: BÀI TEST VIÊN MÃN.`);
+              } else {
+                  updateLogs('error', `❌ KẾT LUẬN: BÀI TEST THẤT BẠI. THIÊN ĐẠO ĐỂ LỌT SƠ HỞ!`);
+              }
+
+          } catch (error) {
+              updateLogs('error', `❌ LỖI HỆ THỐNG / MẠNG SỤP ĐỔ: ${error.message}`);
+          }
+
+          // Nghỉ ngơi giữa các kịch bản để Đám mây không bóp nghẹt (Rate limit)
+          if (i < ROBOT_MIN_TEST_CASES.length - 1) {
+              setDiagnosticProgress({ percent: Math.round(((i+0.5) / ROBOT_MIN_TEST_CASES.length) * 100), text: `Đang nghỉ 3s để tránh làm sập Đám Mây...` });
+              await new Promise(r => setTimeout(r, 3000));
+          }
+      }
+
+      updateLogs('info', `\n🏁 ĐÃ HOÀN TẤT TẤT CẢ KỊCH BẢN! THÀNH CÔNG: ${totalPassed}/${ROBOT_MIN_TEST_CASES.length}`);
+      setDiagnosticProgress({ percent: 100, text: 'Hoàn tất dò lỗi tổng hợp!' });
+      
+      setTimeout(() => {
+          setDiagnosticProgress({ percent: 0, text: '' });
+          setIsDiagnosing(false);
+      }, 3000);
+  };
+
+  // V4.92 & V7.47: Cập nhật globalStateRef cho Bảng Cài Đặt

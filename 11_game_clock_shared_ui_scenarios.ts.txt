@@ -1,0 +1,279 @@
+let __GlobalUniverse = 'tutien';
+let __GlobalStartAge = 18;
+let __GlobalPremadeWorld = '';
+
+const getInGameDate = (age, startAge = 18) => {
+  const safeAge = Number(age) || 18;
+  const safeStart = Number(startAge) || 18;
+  const yearsPassed = Math.max(0, safeAge - safeStart);
+  
+  const totalAbsoluteMinutes = Math.round(yearsPassed * 360 * 24 * 60);
+  
+  let year = Math.floor(totalAbsoluteMinutes / (360 * 24 * 60)) + 1;
+  
+  const remainingMinutesAfterYear = totalAbsoluteMinutes % (360 * 24 * 60);
+  
+  const totalDays = Math.floor(remainingMinutesAfterYear / (24 * 60));
+  const remainingMinutesAfterDay = remainingMinutesAfterYear % (24 * 60);
+  
+  const month = Math.floor(totalDays / 30) + 1;
+  const day = (totalDays % 30) + 1;
+  
+  const hour = Math.floor(remainingMinutesAfterDay / 60);
+  const minute = remainingMinutesAfterDay % 60;
+  
+  const formattedHour = hour.toString().padStart(2, '0');
+  const formattedMinute = minute.toString().padStart(2, '0');
+  
+  let timeDesc = "";
+  if (hour >= 3 && hour < 5) timeDesc = "Rạng sáng";
+  else if (hour >= 5 && hour < 8) timeDesc = "Sáng sớm";
+  else if (hour >= 8 && hour < 11) timeDesc = "Buổi sáng";
+  else if (hour >= 11 && hour < 13) timeDesc = "Giữa trưa";
+  else if (hour >= 13 && hour < 15) timeDesc = "Đầu chiều";
+  else if (hour >= 15 && hour < 18) timeDesc = "Chiều muộn";
+  else if (hour >= 18 && hour < 19) timeDesc = "Chập tối";
+  else if (hour >= 19 && hour < 22) timeDesc = "Tối";
+  else if (hour >= 22 && hour < 24) timeDesc = "Khuya";
+  else timeDesc = "Nửa đêm"; // Từ 00:00 đến 02:59
+  
+  return `${timeDesc} (${formattedHour}:${formattedMinute}) - Ngày ${day} Tháng ${month} Năm ${year}`;
+};
+
+const getClockTime = (age, startAge = 18) => {
+  const safeAge = Number(age) || 18;
+  const safeStart = Number(startAge) || 18;
+  const yearsPassed = Math.max(0, safeAge - safeStart);
+  const totalAbsoluteMinutes = Math.round(yearsPassed * 360 * 24 * 60);
+  const remainingMinutesAfterDay = totalAbsoluteMinutes % (24 * 60);
+  const hour = Math.floor(remainingMinutesAfterDay / 60);
+  const minute = remainingMinutesAfterDay % 60;
+  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+};
+
+const getRealmTimeStr = (realmName, knownRealms) => {
+    const realm = knownRealms[realmName] || { accumulated: 0 };
+    return getInGameDate(__GlobalStartAge + realm.accumulated, __GlobalStartAge);
+};
+const getRealmClockTime = (realmName, knownRealms) => {
+    const realm = knownRealms[realmName] || { accumulated: 0 };
+    return getClockTime(__GlobalStartAge + realm.accumulated, __GlobalStartAge);
+};
+
+const StaticPanel = ({ title, icon: Icon, children, titleRightNode, collapsible = false, fullHeight = true, defaultCollapsed = false }) => {
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  useEffect(() => {
+    if (defaultCollapsed !== undefined) setIsCollapsed(defaultCollapsed);
+  }, [defaultCollapsed]);
+  return (
+    <div className={`flex flex-col bg-[var(--bg-panel)] rounded-lg shadow-xl border border-[var(--border-main)] ${isCollapsed ? 'h-auto' : (fullHeight ? 'h-full' : 'h-auto')}`}>
+      <div className={`h-12 shrink-0 bg-[var(--bg-surface)] ${isCollapsed ? '' : 'border-b'} border-[var(--border-main)] flex items-center px-4 justify-between sticky top-0 z-10 ${isCollapsed ? 'rounded-lg' : 'rounded-t-lg'}`}>
+        <div className={`flex items-center gap-2 overflow-hidden ${collapsible ? 'cursor-pointer select-none' : ''}`} onClick={() => collapsible && setIsCollapsed(!isCollapsed)}>
+          <Icon size={16} className="text-teal-500" />
+          <span className="text-sm font-bold uppercase truncate text-[var(--text-bold)]" style={{ letterSpacing: '0.02em', lineHeight: 1.5 }}>{title}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {titleRightNode}
+          {collapsible && (
+            <button onClick={() => setIsCollapsed(!isCollapsed)} className="text-[var(--text-muted)] hover:text-teal-500 transition-colors p-1 rounded hover:bg-[var(--bg-hover)]" title={isCollapsed ? "Mở rộng" : "Thu gọn"}>
+              <ChevronDown size={18} className={`transition-transform duration-300 ${isCollapsed ? '' : 'rotate-180'}`} />
+            </button>
+          )}
+        </div>
+      </div>
+      {!isCollapsed && (
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const StatBar = ({ icon: Icon, label, value, max, colorClass, showPercent = false, isImmersion = false, tooltip, onClick }) => {
+  const safeVal = Number(value) || 0;
+  const safeMax = Number(max) || 1;
+  const percent = Math.min(100, (safeVal / safeMax) * 100);
+  
+  // V5.47 FIX: Nhận diện thọ nguyên vô cực (Biên độ trên 1 triệu năm)
+  const isInfinite = safeMax >= 999999 && label === 'Tuổi Tác Sinh Học';
+  
+  let displayValue = formatLargeNumber(safeVal);
+  if (max) {
+      if (isInfinite) {
+          displayValue += ' / ∞';
+      } else {
+          displayValue += '/' + formatLargeNumber(safeMax);
+      }
+  }
+  if (showPercent && max && !isInfinite) displayValue += ' (' + Math.floor(percent) + '%)';
+  
+  return (
+  <div className={"mb-4 " + (onClick ? "cursor-pointer group" : "")} onClick={onClick} title={tooltip}>
+    <div className="flex justify-between text-sm mb-1.5 text-[var(--text-muted)] font-bold tracking-wider">
+      <span className={"flex items-center gap-1 uppercase " + (onClick ? "group-hover:text-teal-400 transition-colors" : "")}>
+        <Icon size={14} /> {label}
+      </span>
+      <span className={isImmersion ? "" : "border-b border-dashed border-[var(--text-muted)] hover:text-[var(--text-bold)] transition-colors"}>
+        {isImmersion ? '???' : displayValue}
+      </span>
+    </div>
+    {!isImmersion && (
+      <div className="h-2.5 w-full bg-[var(--border-main)] rounded-full overflow-hidden">
+         <div className={"h-full transition-all duration-500 " + colorClass} style={{ width: percent + '%' }} />
+      </div>
+    )}
+  </div>
+)};
+
+// KHO KỊCH BẢN KHỞI ĐẦU DÂN BẢN ĐỊA (TIẾP NỐI CUỘC SỐNG ĐỜI THƯỜNG TỰ NHIÊN)
+const NATIVE_STARTING_SCENARIOS_POOL = [
+  "Đang ngồi trước hiên nhà quen thuộc sau bữa cơm thanh đạm, ngắm nhìn sương sớm lãng đãng bay qua rặng cây và dòng người địa phương bắt đầu một ngày làm lụng mới.",
+  "Vừa hoàn thành công việc quen thuộc lúc sáng sớm, lau mồ hôi trên trán, quen tay thu dọn đồ nghề phòng thân và chuẩn bị cho những dự định tiếp theo trong ngày.",
+  "Đang đứng bên giếng nước hoặc bờ kênh quen thuộc của bản thôn/phố thị, nghe tiếng trò chuyện rôm rả của láng giềng và những lời bàn tán về tin tức tu chân giới xa xôi.",
+  "Đang kiểm đếm lại số tiền ít ỏi cùng vài thứ vật phẩm mưu sinh tích góp bấy lâu trong ngăn tủ cũ kỹ, suy tính con đường tương lai giữa thời thế biến động.",
+  "Vừa bước ra khỏi gian phòng hoặc lều trại quen thuộc đón làn gió mát lành ban mai, hít một hơi thật sâu cảm nhận linh khí quen thuộc của mảnh đất quê hương.",
+  "Đang thong thả dạo bước qua con đường mòn quen thuộc dẫn ra bìa rừng hoặc bến đò, hai bên là cảnh sắc non nước đã gắn liền với ký ức từ thuở ấu thơ.",
+  "Vừa thu dọn xong góc làm việc thường ngày, ngẩng đầu nhìn ráng chiều đỏ rực chân trời và lắng nghe tiếng chuông ngân vang từ ngôi chùa hoặc đạo quán đằng xa.",
+  "Đang ngồi tựa lưng vào gốc cây đại thụ đầu làng/sư môn, lật giở cuốn sách cũ hoặc ngắm nhìn đàn chim lượn trên bầu trời trong một buổi chiều yên ả thanh bình."
+];
+
+// KHO KỊCH BẢN KHỞI ĐẦU BIẾN HÓA NGẪU NHIÊN (DÙ TRÙNG XUẤT THÂN VÀ KHÍ VẬN)
+const STARTING_SCENARIOS_POOL = [
+  "Tỉnh dậy sau cơn hôn mê li bì do trúng cảm sốt phong hàn nhiều ngày tại góc thảo am tồi tàn, bên cạnh chỉ có một ấm nước nguội ngắt và tàn nhang lụi tắt.",
+  "Vừa may mắn sống sót thoát khỏi một vụ sạt lở núi đá ven đường mòn khi đang đi bộ đường dài, cả người phủ đầy bụi đất phong trần, tay chân còn râm ran nhức mỏi.",
+  "Đang ngồi nép mình nơi góc tối của một quán trà dịch trạm ven đường, nhấp ngụm nước nhạt đếm từng đồng tiền lẻ phòng thân, nghe lữ khách bàn tán về thế sự giang hồ xa xôi.",
+  "Vừa nhận tiền công còm cõi sau cả tháng trời làm thuê bốc vác nặng nhọc, ngồi bần thần dưới bóng cây cổ thụ ngắm nhìn dòng người qua lại tấp nập chốn trần gian.",
+  "Đang trú mưa dưới mái hiên xiêu vẹo của một ngôi miếu hoang rêu phong, tiếng sấm sét rền vang chân trời làm dấy lên linh cảm về một thời đại biến động sắp tới.",
+  "Vừa trải qua một cuộc cãi vã lớn vì bị chủ phố chèn ép đuổi đi, đứng giữa ngã ba đường nhìn bốn phương mây mù chưa biết đêm nay sẽ nương náu chốn nào.",
+  "Tỉnh giấc bên bờ suối róc rách sau giấc ngủ say giữa sương sớm vùng sơn cước, rửa mặt bằng dòng nước lạnh buốt để lấy lại sự tỉnh táo trước khi tiếp tục hành trình.",
+  "Đang theo sau một đoàn lữ khách xa lạ vừa dừng chân hạ trại nghỉ ngựa, bản thân ngồi bên mép đống lửa sưởi ấm bàn tay buốt giá trong đêm khuya tịch mịch.",
+  "Vừa leo lên đến đỉnh một sườn dốc đất đỏ đón ngọn gió lộng thổi tung vạt áo, phóng tầm mắt nhìn xuống toàn cảnh khói bếp lượn lờ nơi các xóm ấp phía xa.",
+  "Vừa rời khỏi một khu chợ ồn ào với vài món đồ thiết yếu trong túi nải, lặng lẽ đi dọc theo hàng liễu ven hào nước để tìm một góc vắng vẻ tĩnh tâm."
+];
+
+// V4.53 & V4.94: Import Google Fonts để sửa lỗi rớt dấu tiếng Việt (Thêm Lexend)
+const themeStyles = `
+  /* V1.20 FIX FONT: nạp font có bộ dấu tiếng Việt đầy đủ */
+  @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Lexend:wght@400;700&family=Noto+Sans:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,700;1,400&family=Open+Sans:ital,wght@0,400;0,700;1,400&family=Roboto:ital,wght@0,400;0,700;1,400&display=swap');
+  /* V1.20 FIX FONT: font stack ưu tiên tiếng Việt — chống mất glyph dấu ở chữ nhỏ */
+  :root { --font-ui: 'Be Vietnam Pro', 'Noto Sans', 'Lexend', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+  html, body, #root, button, input, select, textarea { font-family: var(--font-ui); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+  .font-sans { font-family: var(--font-ui) !important; }
+  /* V1.20 FIX FONT: nới line-height cho chữ cắt ngắn để dấu tiếng Việt không bị cắt */
+  .truncate { line-height: 1.5; padding-top: 1px; padding-bottom: 1px; }
+  /* V1.20 FIX FONT: tracking-widest (0.1em) làm dấu tiếng Việt tách khỏi nguyên âm ở chữ nhỏ.
+     Hạ trần giãn chữ xuống mức an toàn cho mọi nhãn uppercase. */
+  [class*="tracking-widest"], [class*="tracking-wider"], [class*="tracking-wide"] { letter-spacing: 0.03em !important; }
+  /* V1.20 FIX FONT: mọi cỡ chữ <= 11px phải có line-height đủ để không cắt dấu mũ / dấu nặng */
+  span[class*="text-[9px]"], span[class*="text-[10px]"], div[class*="text-[9px]"], div[class*="text-[10px]"] { line-height: 1.45 !important; }
+  :root { --bg-body: #090c10; --bg-panel: #0d1117; --bg-surface: #161b22; --bg-item: #1a1f26; --bg-hover: #1f2937; --bg-overlay: rgba(9, 12, 16, 0.85); --text-main: #d1d5db; --text-bold: #f3f4f6; --text-muted: #8b949e; --border-main: #30363d; --border-focus: #484f58; --scrollbar-thumb: #1f2937; color-scheme: dark; }
+  [data-theme="light"] { --bg-body: #f6f8fa; --bg-panel: #ffffff; --bg-surface: #f3f4f6; --bg-item: #ffffff; --bg-hover: #e5e7eb; --bg-overlay: rgba(246, 248, 250, 0.85); --text-main: #24292f; --text-bold: #0f1419; --text-muted: #57606a; --border-main: #d0d7de; --border-focus: #afb8c1; --scrollbar-thumb: #c1c9d2; color-scheme: light; }
+  [data-theme="sepia"] { --bg-body: #f4ecd8; --bg-panel: #fbf0d9; --bg-surface: #f0e2c8; --bg-item: #fbf0d9; --bg-hover: #e6d5b8; --bg-overlay: rgba(244, 236, 216, 0.85); --text-main: #433422; --text-bold: #2c2216; --text-muted: #735f42; --border-main: #d3c4a9; --border-focus: #bdae93; --scrollbar-thumb: #c2b295; color-scheme: light; }
+  ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+      details > summary { list-style: none; } details > summary::-webkit-details-marker { display: none; }
+      @keyframes spin-slow { 100% { transform: rotate(360deg); } }
+      
+      /* V10.23 FIX: Đồng bộ màu nền cho mọi danh sách thả xuống trên trình duyệt Desktop/Mobile */
+      select option { background-color: var(--bg-panel); color: var(--text-main); font-weight: bold; padding: 10px; }
+      
+      .dark-matter-aura { position: relative; overflow: hidden; border: none !important; background: #1a1c23; }
+      .dark-matter-aura::before { content: ''; position: absolute; inset: 0; background: linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000), linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000); background-size: 20px 20px; background-position: 0 0, 10px 10px; opacity: 0.1; }
+      .dark-matter-aura::after { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: conic-gradient(transparent, rgba(168, 85, 247, 0.4), rgba(75, 85, 99, 0.8), transparent 30%); animation: spin-slow 1s linear infinite; }
+      .dark-matter-content { position: relative; z-index: 10; background: #0f1115 !important; border-radius: calc(0.25rem - 1px); margin: 1.5px; }
+
+      /* V2.23 (GÓP Ý ETSUO): KHUNG HIỆU ỨNG HỐ ĐEN CHO ĐẠI ĐẠO QUY KHƯ */
+      .black-hole-frame {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(147, 51, 234, 0.4) !important;
+        background: radial-gradient(circle at 15% 50%, #000000 0%, #08020f 45%, #18052e 100%) !important;
+        box-shadow: 0 0 16px rgba(147, 51, 234, 0.5), inset 0 0 12px rgba(0, 0, 0, 0.95);
+        animation: blackhole-pulse 4s ease-in-out infinite;
+      }
+      .black-hole-accretion {
+        position: absolute;
+        inset: -50%;
+        background: conic-gradient(from 0deg, transparent 0%, rgba(168, 85, 247, 0.8) 25%, rgba(59, 130, 246, 0.9) 50%, rgba(147, 51, 234, 0.8) 75%, transparent 100%);
+        animation: spin-slow 8s linear infinite;
+        opacity: 0.6;
+        pointer-events: none;
+      }
+      .black-hole-event-horizon {
+        position: absolute;
+        top: -6px;
+        left: -6px;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #000;
+        box-shadow: 0 0 10px rgba(168, 85, 247, 0.9), inset 0 0 6px #000;
+        border: 1.5px solid rgba(192, 132, 252, 0.8);
+        animation: spin-reverse 5s linear infinite;
+        z-index: 5;
+        pointer-events: none;
+      }
+      .black-hole-text {
+        position: relative;
+        z-index: 10;
+        color: #ffffff;
+        text-shadow: 0 0 8px rgba(192, 132, 252, 0.9), 0 0 16px rgba(147, 51, 234, 0.7);
+        letter-spacing: 0.08em;
+      }
+      @keyframes blackhole-pulse {
+        0%, 100% { transform: scale(1); box-shadow: 0 0 14px rgba(147, 51, 234, 0.4); }
+        50% { transform: scale(0.985); box-shadow: 0 0 22px rgba(168, 85, 247, 0.7); }
+      }
+      @keyframes spin-reverse {
+        from { transform: rotate(360deg); }
+        to { transform: rotate(0deg); }
+      }
+
+      .supreme-aura { position: relative; overflow: hidden; border: none !important; background: #000; }
+      .supreme-aura::before { content: ''; position: absolute; left: 0; top: 0; width: 50%; height: 100%; background: linear-gradient(to right, rgba(234, 179, 8, 0.8), transparent); z-index: 1; }
+      .supreme-aura::after { content: ''; position: absolute; right: 0; top: 0; width: 50%; height: 100%; background: linear-gradient(to left, rgba(168, 85, 247, 0.8), transparent); z-index: 1; }
+      .supreme-aura-sparkle { position: absolute; inset: 0; background: url('https://www.transparenttextures.com/patterns/stardust.png'); opacity: 0.8; z-index: 2; animation: spin-slow 20s linear infinite; }
+      .supreme-content { position: relative; z-index: 10; background: #000 !important; border-radius: calc(0.25rem - 2px); margin: 2px; }
+      
+      .golden-aura { position: relative; overflow: hidden; border: none !important; }
+  .golden-aura::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: conic-gradient(transparent, rgba(234, 179, 8, 0.1), #eab308, transparent 30%); animation: spin-slow 3s linear infinite; }
+  .golden-aura::after { content: ''; position: absolute; inset: 1.5px; background: var(--bg-item); border-radius: calc(0.25rem - 1px); }
+  .golden-content { position: relative; z-index: 10; background: transparent !important; }
+  
+  /* V8.61 FIX: CSS CHO THẺ NHÃN (OPTIONS TAGS) CHỐNG CHÓI MẮT THEO THEME */
+  .tag-red { background-color: rgba(127, 29, 29, 0.3); color: #f87171; border-color: rgba(239, 68, 68, 0.3); box-shadow: 0 0 10px rgba(239, 68, 68, 0.15); }
+  .tag-emerald { background-color: rgba(6, 78, 59, 0.3); color: #34d399; border-color: rgba(16, 185, 129, 0.3); box-shadow: 0 0 10px rgba(16, 185, 129, 0.15); }
+  .tag-yellow { background-color: rgba(113, 63, 18, 0.3); color: #facc15; border-color: rgba(234, 179, 8, 0.3); box-shadow: 0 0 10px rgba(234, 179, 8, 0.15); }
+  .tag-purple { background-color: rgba(88, 28, 135, 0.3); color: #c084fc; border-color: rgba(168, 85, 247, 0.3); box-shadow: 0 0 10px rgba(168, 85, 247, 0.15); }
+  .tag-orange { background-color: rgba(124, 45, 18, 0.3); color: #fb923c; border-color: rgba(249, 115, 22, 0.3); box-shadow: 0 0 10px rgba(249, 115, 22, 0.15); }
+  .tag-blue { background-color: rgba(30, 58, 138, 0.3); color: #60a5fa; border-color: rgba(59, 130, 246, 0.3); box-shadow: none; }
+  .tag-gray { background-color: #1f2937; color: #9ca3af; border-color: #4b5563; box-shadow: none; }
+
+  [data-theme="light"] .tag-red, [data-theme="sepia"] .tag-red { background-color: #fee2e2; color: #b91c1c; border-color: #fca5a5; box-shadow: none; }
+  [data-theme="light"] .tag-emerald, [data-theme="sepia"] .tag-emerald { background-color: #d1fae5; color: #047857; border-color: #6ee7b7; box-shadow: none; }
+  [data-theme="light"] .tag-yellow, [data-theme="sepia"] .tag-yellow { background-color: #fef9c3; color: #a16207; border-color: #fde047; box-shadow: none; }
+  [data-theme="light"] .tag-purple, [data-theme="sepia"] .tag-purple { background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe; box-shadow: none; }
+  [data-theme="light"] .tag-orange, [data-theme="sepia"] .tag-orange { background-color: #ffedd5; color: #c2410c; border-color: #fdba74; box-shadow: none; }
+  [data-theme="light"] .tag-blue, [data-theme="sepia"] .tag-blue { background-color: #dbeafe; color: #1d4ed8; border-color: #93c5fd; box-shadow: none; }
+  [data-theme="light"] .tag-gray, [data-theme="sepia"] .tag-gray { background-color: #e5e7eb; color: #374151; border-color: #d1d5db; box-shadow: none; }
+
+  /* V8.73 FIX: TỰ ĐỘNG ĐIỀU CHỈNH ĐỘ TƯƠNG PHẢN MÀU CHỮ TRÊN NỀN SÁNG (SMART TEXT CONTRAST) */
+  /* Thay vì sửa tay từng chữ, CSS này sẽ tự bắt tất cả các màu chói và dìm xuống màu đậm để dễ đọc! */
+  [data-theme="light"] .text-teal-500, [data-theme="sepia"] .text-teal-500, [data-theme="light"] .text-teal-400, [data-theme="sepia"] .text-teal-400 { color: #0f766e !important; }
+  [data-theme="light"] .text-yellow-500, [data-theme="sepia"] .text-yellow-500, [data-theme="light"] .text-yellow-400, [data-theme="sepia"] .text-yellow-400 { color: #a16207 !important; }
+  [data-theme="light"] .text-emerald-500, [data-theme="sepia"] .text-emerald-500, [data-theme="light"] .text-emerald-400, [data-theme="sepia"] .text-emerald-400 { color: #047857 !important; }
+  [data-theme="light"] .text-purple-500, [data-theme="sepia"] .text-purple-500, [data-theme="light"] .text-purple-400, [data-theme="sepia"] .text-purple-400 { color: #7e22ce !important; }
+  [data-theme="light"] .text-red-500, [data-theme="sepia"] .text-red-500, [data-theme="light"] .text-red-400, [data-theme="sepia"] .text-red-400 { color: #b91c1c !important; }
+  [data-theme="light"] .text-orange-500, [data-theme="sepia"] .text-orange-500, [data-theme="light"] .text-orange-400, [data-theme="sepia"] .text-orange-400 { color: #c2410c !important; }
+  [data-theme="light"] .text-blue-500, [data-theme="sepia"] .text-blue-500, [data-theme="light"] .text-blue-400, [data-theme="sepia"] .text-blue-400 { color: #1d4ed8 !important; }
+  [data-theme="light"] .text-rose-500, [data-theme="sepia"] .text-rose-500, [data-theme="light"] .text-rose-400, [data-theme="sepia"] .text-rose-400 { color: #be123c !important; }
+
+  /* V11.34 FIX: CƯỠNG CHẾ XUYÊN THẤU ICON TRÊN MÔI TRƯỜNG LIVE WEB */
+  button svg, button svg * {
+      pointer-events-none !important;
+      display: block !important;
+  }
+
+`;
+
+// --- HỆ THỐNG XỬ LÝ "SƯƠNG MÙ TRI THỨC" (FOG OF KNOWLEDGE) ---

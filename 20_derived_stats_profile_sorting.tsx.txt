@@ -1,0 +1,499 @@
+  const globalStateRef = useRef({ isTraitsListOpen, menuTab, gameStarted, dialog, isBgSelectOpen, isDataModalOpen, isUpdateHistoryOpen, isHelpOpen, isStoneConverterOpen, discardItemModal, isArenaOpen, isEncyclopediaOpen, isAdminModalOpen, isMapOpen, isDeathNoteOpen, isSectModalOpen, isSettingsOpen, isAutoPlayModalOpen, currentProfileId, isSystemModalOpen, isWeaponModalOpen, isAppearanceModalOpen, isPersonalityModalOpen, isSystemRechargeModalOpen, viewingSkill, isPlayerAIAssistantOpen, isKnowledgeModalOpen });
+  useEffect(() => {
+      globalStateRef.current = { isTraitsListOpen, menuTab, gameStarted, dialog, isBgSelectOpen, isDataModalOpen, isUpdateHistoryOpen, isHelpOpen, isStoneConverterOpen, discardItemModal, isArenaOpen, isEncyclopediaOpen, isAdminModalOpen, isMapOpen, isDeathNoteOpen, isSectModalOpen, isSettingsOpen, isAutoPlayModalOpen, currentProfileId, isSystemModalOpen, isWeaponModalOpen, isAppearanceModalOpen, isPersonalityModalOpen, isSystemRechargeModalOpen, viewingSkill, isPlayerAIAssistantOpen, isKnowledgeModalOpen };
+  }, [isTraitsListOpen, menuTab, gameStarted, dialog, isBgSelectOpen, isDataModalOpen, isUpdateHistoryOpen, isHelpOpen, isStoneConverterOpen, discardItemModal, isArenaOpen, isEncyclopediaOpen, isAdminModalOpen, isMapOpen, isDeathNoteOpen, isSectModalOpen, isSettingsOpen, isAutoPlayModalOpen, currentProfileId, isSystemModalOpen, isWeaponModalOpen, isAppearanceModalOpen, isPersonalityModalOpen, isSystemRechargeModalOpen, viewingSkill, isPlayerAIAssistantOpen, isKnowledgeModalOpen]);
+
+  useEffect(() => {
+      const handleGlobalKeyDown = (e) => {
+          if (e.key === 'Enter') {
+              const state = globalStateRef.current;
+              if (state.dialog || state.gameStarted || state.discardItemModal || state.isStoneConverterOpen || state.isAdminModalOpen || state.isSettingsOpen || state.isSystemModalOpen || state.isWeaponModalOpen || state.viewingSkill || state.isPlayerAIAssistantOpen || state.isKnowledgeModalOpen) return; 
+
+              if (state.isKnowledgeModalOpen) { e.preventDefault(); setIsKnowledgeModalOpen(false); return; }
+              if (state.isTraitsListOpen) { e.preventDefault(); setIsTraitsListOpen(false); return; }
+              if (state.isSectModalOpen) { e.preventDefault(); setIsSectModalOpen(false); return; }
+              if (state.isBgSelectOpen) { e.preventDefault(); setIsBgSelectOpen(false); return; }
+              if (state.isDataModalOpen) { e.preventDefault(); setIsDataModalOpen(false); return; }
+              if (state.isUpdateHistoryOpen) { e.preventDefault(); setIsUpdateHistoryOpen(false); return; }
+              if (state.isEncyclopediaOpen) { e.preventDefault(); setIsEncyclopediaOpen(false); return; }
+              if (state.isMapOpen) { e.preventDefault(); setIsMapOpen(false); return; }
+              if (state.isDeathNoteOpen) { e.preventDefault(); setIsDeathNoteOpen(false); return; }
+
+              if (state.menuTab === 'create' && !state.isArenaOpen) {
+                  e.preventDefault();
+                  document.getElementById('btn-start-luan-hoi')?.click();
+              }
+          }
+      };
+      window.addEventListener('keydown', handleGlobalKeyDown);
+      return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
+  useEffect(() => {
+      setEncVisibleCount(1000);
+  }, [encSearch, encFilter, encSort, isEncyclopediaOpen]);
+
+  // SỬA LỖI FIX CUỘN TRANG: Tự động cuộn xuống cuối màn hình diễn biến cốt truyện
+  useEffect(() => {
+      if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTo({
+              top: scrollContainerRef.current.scrollHeight,
+              behavior: 'smooth'
+          });
+      }
+  }, [storyLog, isGenerating]); // Cắt bỏ expansionState.isExpanding để không bị giật màn hình khi Sáng thế ngầm chạy xong
+
+  const stageConfig = getStageConfigByPath(gameState.cultivationLevel, gameState.cultivationPath);
+
+  // V12.15: Đọc hiệu ứng Khí Linh
+  const khiLinhFx = getKhiLinhEffects(gameState.inventory, gameState.equipped);
+
+  // DỜI LÊN ĐÂY V12.15: Tính toán chỉ số gốc để lấy được Thần Thức trước khi suy ra Máu/Năng lượng
+  const mountSpd = gameState.mount ? Number(gameState.mount.speedBonus || 0) : 0;
+  const dsAtk = (gameState.isTransformed && gameState.demonSpirit) ? Number(gameState.demonSpirit.attackBonus || 0) : 0;
+  const dsDef = (gameState.isTransformed && gameState.demonSpirit) ? Number(gameState.demonSpirit.defenseBonus || 0) : 0;
+  const dsSpd = (gameState.isTransformed && gameState.demonSpirit) ? Number(gameState.demonSpirit.speedBonus || 0) : 0;
+  const dsSpP = (gameState.isTransformed && gameState.demonSpirit) ? Number(gameState.demonSpirit.spiritPowerBonus || 0) : 0;
+  const dsHp = (gameState.isTransformed && gameState.demonSpirit) ? Number(gameState.demonSpirit.hpBonus || gameState.demonSpirit.maxHp || 0) : 0;
+  const dsMp = (gameState.isTransformed && gameState.demonSpirit) ? Number(gameState.demonSpirit.mpBonus || gameState.demonSpirit.maxMp || 0) : 0;
+
+  const effAtk = (gameState.activeEffects || []).reduce((sum, e) => sum + (e.statMods?.attack || 0), 0);
+  const effDef = (gameState.activeEffects || []).reduce((sum, e) => sum + (e.statMods?.defense || 0), 0);
+  const effSpd = (gameState.activeEffects || []).reduce((sum, e) => sum + (e.statMods?.speed || 0), 0);
+  const effSpP = (gameState.activeEffects || []).reduce((sum, e) => sum + (e.statMods?.spiritPower || 0), 0);
+
+  const getEffectiveEquipStat = (item, statKey, userStageId = 1) => {
+      if (!item || !item[statKey]) return 0;
+      let baseStat = item[statKey];
+      
+      const itemSubLevel = Number(item.subLevel) || 1;
+      const safeUserStageId = Number(userStageId) || 1;
+      
+      if (itemSubLevel > safeUserStageId) {
+          const levelGap = itemSubLevel - safeUserStageId;
+          
+          // 1. Áp chế gốc (Base Suppression)
+          let suppressRatio = Math.pow(safeUserStageId / itemSubLevel, 2);
+          
+          // 2. Tính toán Trần Thấu Hiểu (Mastery Cap) dựa trên độ chênh lệch
+          let masteryCap = 0;
+          if (levelGap === 1) masteryCap = 0.80;       // Chênh 1 cấp: Trần 80%
+          else if (levelGap === 2) masteryCap = 0.50;  // Chênh 2 cấp: Trần 50%
+          else if (levelGap === 3) masteryCap = 0.30;  // Chênh 3 cấp: Trần 30%
+          else if (levelGap === 4) masteryCap = 0.15;  // Chênh 4 cấp: Trần 15%
+          else masteryCap = 0.15 / (levelGap - 3);     // Chênh từ 5 cấp trở lên: Giảm cực mạnh
+
+          // 3. Lấy độ thuần thục hiện tại của trang bị (Mặc định 0 nếu mới nhặt)
+          const itemProficiency = Number(item.proficiency) || 0;
+          
+          // 4. Chỉ số Độ Quen Thuộc được cộng thêm
+          const masteryBonus = (itemProficiency / 100) * masteryCap;
+          
+          // 5. Tính Hệ số tổng (Không bao giờ vượt quá 1.0 tức 100% sức mạnh gốc)
+          const finalRatio = Math.min(1.0, suppressRatio + masteryBonus);
+          
+          baseStat = Math.floor(baseStat * finalRatio);
+      }
+
+      // Xử lý giảm chỉ số nếu rớt Độ bền (Như cũ)
+      if (item.durability === undefined || !item.maxDurability) return baseStat;
+      const ratio = Math.max(0, item.durability / item.maxDurability);
+      return Math.floor(baseStat * ratio);
+  };
+
+  const eqAtk = Object.values(gameState.equipped || {}).reduce((sum, item) => sum + getEffectiveEquipStat(item, 'attackBonus'), 0);
+  const eqDef = Object.values(gameState.equipped || {}).reduce((sum, item) => sum + getEffectiveEquipStat(item, 'defenseBonus'), 0);
+  const eqSpd = Object.values(gameState.equipped || {}).reduce((sum, item) => sum + getEffectiveEquipStat(item, 'speedBonus'), 0);
+  const eqSpP = Object.values(gameState.equipped || {}).reduce((sum, item) => sum + getEffectiveEquipStat(item, 'spiritPowerBonus'), 0);
+
+  const baseAtk = Number(gameState.attack) || 10;
+  const baseDef = Number(gameState.defense) || 10;
+  const baseSpd = Number(gameState.speed) || 10;
+  const baseSpP = Number(gameState.spiritPower) || 10;
+
+  const passives = getPassiveStats(gameState.traits, gameState.spiritualRoot, gameState.soulAge, gameState.age, gameState.equippedCoreMethod, gameState.journal?.skills, stageConfig.id, gameState.runeCount);
+
+ const minorMultiplier = 1 + (Math.max(0, (Number(gameState.minorLevel) || 1) - 1) * 0.15);
+              const finalStatMult = stageConfig.statMult * minorMultiplier;
+
+              // V1.98 & V2.84 & V3.17 (HOENGGG, DARK & HOÀNG ĐẠT): ĐỒNG BỘ CHỈ SỐ NHÂN THỂ (-50%) VS CHÂN THÂN (100% - GẤP ĐÔI NHÂN THỂ)
+              const yeuHumanMult = getTurnYeuHumanMult(gameState);
+              const isPureYeuCharacter = isYeuTocEntity(gameState);
+              const isBeastByBirth = isPureYeuTocBg(gameState.backgroundId);
+              const isYeuInHumanForm = yeuHumanMult === 0.5;
+
+              // TÍNH TOÁN THẦN THỨC VÀ HỒN TU (ĐỂ LẤY THÔNG SỐ BUFF)
+              const hasCloneSystem = gameState.traits?.some(t => t.name === 'Hệ Thống Phân Thân');
+              const activeCompsCount = (gameState.companions || []).filter(c => !c.isFused).length;
+              const sppBandwidthPenalty = hasCloneSystem ? 0 : (activeCompsCount * 15);
+              let finalSppValue = Math.max(1, baseSpP + dsSpP + effSpP + eqSpP + passives.spp - sppBandwidthPenalty);
+              const totalSpPRaw = Math.floor(finalSppValue * finalStatMult * (passives.mult || 1));
+              const totalSpP = Math.floor(Math.floor(totalSpPRaw * (1 + khiLinhFx.sppBonusPct / 100)) * yeuHumanMult);
+
+              const currentSoulAgeGap = Math.max(0, Math.floor(Number(gameState.soulAge) || 18) - Math.floor(Number(gameState.age) || 18));
+              const soulInfo = getSoulRealmInfo(totalSpP, currentSoulAgeGap);
+
+              // TÍNH TOÁN CÁC CHỈ SỐ GỐC CÒN LẠI (Tích hợp Buff Hồn Tu & V2.41 minorMultiplier cho Máu/Mana gốc)
+              const baseHpCore = 100 * finalStatMult * Math.pow(1.15, stageConfig.id - 1);
+              const baseMpCore = 50 * finalStatMult * Math.pow(1.15, stageConfig.id - 1);
+              
+              const currentMaxHpRaw = Math.max(1, Math.floor(baseHpCore) + (Number(gameState.bonusMaxHp) || 0) + dsHp);
+              const currentMaxHp = Math.floor(Math.floor(currentMaxHpRaw * (1 + khiLinhFx.hpBonusPct / 100)) * yeuHumanMult); 
+
+              const currentMaxMpRaw = Math.max(1, Math.floor(baseMpCore) + (Number(gameState.bonusMaxMp) || 0) + dsMp);
+              const currentMaxMp = Math.floor(Math.floor(currentMaxMpRaw * (1 + soulInfo.mpPct / 100)) * yeuHumanMult); // Áp dụng Thần Hồn bổ trợ & Chân Thân x2
+              
+              const currentMaxStaminaRaw = Math.max(1, 100 + (Number(gameState.bonusMaxStamina) || 0));
+              const currentMaxStamina = Math.max(1, Math.floor(currentMaxStaminaRaw * yeuHumanMult));
+              
+              const hpRatio = currentMaxHp > 0 ? (Number(gameState.health) / currentMaxHp) * 100 : 0;
+              const mpRatio = currentMaxMp > 0 ? (Number(gameState.spiritualEnergy) / currentMaxMp) * 100 : 0;
+              const staminaRatio = (Number(gameState.stamina) / currentMaxStamina) * 100;
+              const foodRatio = (Number(gameState.food) / 100) * 100;
+              const nguonSong = stageConfig.mpPrio ? mpRatio : (foodRatio * stageConfig.coefNo) + (mpRatio * stageConfig.coefMp);
+
+              const totalAtkRaw = Math.floor(Math.max(1, baseAtk + dsAtk + effAtk + eqAtk + passives.atk) * finalStatMult * (passives.mult || 1));
+              const totalAtk = Math.floor(Math.floor(totalAtkRaw * (1 + khiLinhFx.atkBonusPct / 100) * (1 + soulInfo.atkPct / 100)) * yeuHumanMult); 
+              
+              let finalDefValue = Math.max(1, baseDef + dsDef + effDef + eqDef + passives.def);
+              const totalDefRaw = Math.floor((staminaRatio < 20 ? finalDefValue * 0.5 : finalDefValue) * finalStatMult * (passives.mult || 1));
+              const totalDef = Math.floor(Math.floor(totalDefRaw * (1 + khiLinhFx.defBonusPct / 100) * (1 + (soulInfo.defPct / 100))) * yeuHumanMult); 
+              
+              let finalSpdValue = Math.max(1, baseSpd + mountSpd + dsSpd + effSpd + eqSpd + passives.spd);
+              const totalSpdRaw = Math.floor((staminaRatio < 20 ? finalSpdValue * 0.2 : finalSpdValue) * finalStatMult * (passives.mult || 1));
+              const totalSpd = Math.floor(Math.floor(totalSpdRaw * (1 + khiLinhFx.spdBonusPct / 100) * (1 + soulInfo.spdPct / 100)) * yeuHumanMult); 
+
+  const finalEnlightenment = (gameState.enlightenment || 0) + soulInfo.engBonus;
+  const finalTalent = (gameState.talent || 0) + soulInfo.talentBonus;
+
+  const activeEnergy = useMemo(() => getEnergyDetails(gameState.backgroundId, gameState.traits || [], gameState.cultivationLevel), [gameState.backgroundId, gameState.traits, gameState.cultivationLevel]);
+
+  const dynamicStatusDesc = useMemo(() => {
+    const behavior = String(gameState.recentBehavior || '').toLowerCase();
+    let context = 'normal';
+    if (/(tu luyện|bế quan|hấp thu|ngộ đạo|đột phá|vận công|củng cố)/.test(behavior)) context = 'cultivate';
+    else if (/(chiến đấu|đánh|giết|chạy|trốn|kẻ thù|truy sát|sát sinh)/.test(behavior)) context = 'combat';
+    else if (/(nghỉơi|ngủ|chữa thương|dưỡng thương|phục hồi)/.test(behavior)) context = 'rest';
+
+    let pool = [];
+    if (hpRatio <= 30) {
+        pool = ["Khí huyết suy kiệt, thân thể gần như không chịu nổi.", "Sinh cơ mong manh như chuông treo chỉ mành, chỉ cần sơ suất sẽ mất mạng.", "Tầm nhìn mờ dần, kinh mạch đứt đoạn, cái chết đã cận kề."];
+    } else if (nguonSong <= 15) {
+        pool = ["Sinh lực héo mòn, thân xác như cành khô chực chờ gãy gục.", "Cơ thể trống rỗng, một tia sức lực cũng khó lòng vắt kiệt."];
+    } else if (staminaRatio <= 20) {
+        pool = ["Cơ thể rã rời, tay chân nặng trĩu như đeo chì, kiệt sức đến mức thở dốc.", "Mồ hôi đầm đìa, cơ bắp đau nhức vì lao lực quá độ, cần phải nghỉ ngơi ngay.", "Thể lực cạn kiệt hoàn toàn, lồng ngực bỏng rát sau những nỗ lực tột cùng."];
+    } else if (foodRatio <= 20 && !stageConfig.mpPrio) {
+        pool = ["Cơn đói cồn cào cắn xé ruột gan, tay chân bủn rủn vô lực.", "Bụng đói hoa mắt, phàm thai nhục thể gào thét đòi thức ăn."];
+    } else if (mpRatio <= 20 && stageConfig.mpPrio) {
+        pool = activeEnergy.isPhysical 
+          ? [`Khí huyết khô cạn, Cương Khí mỏng manh chực chờ sụp đổ.`, `Thể xác trống rỗng, ${activeEnergy.name.toLowerCase()} đã cạn kiệt đến giọt cuối cùng.`]
+          : [`Linh hải khô cạn, nguyên thần ảm đạm không chút sinh khí.`, `Đan điền trống rỗng, ${activeEnergy.name.toLowerCase()} đã cạn kiệt đến giọt cuối cùng.`];
+    } else {
+        if (gameState.isTransformed) pool = ["Cơ bắp phình to, uy áp yêu thú tỏa ra cuồn cuộn. Tinh lực đang bị bòn rút cực nhanh!", "Nhãn quang sắc lẹm của yêu thú, sẵn sàng xé xác kẻ thù."];
+        else if (context === 'cultivate' && mpRatio > 50) pool = [`${activeEnergy.name} vận chuyển trôi chảy, trạng thái cực tốt.`, "Nội nguyên sục sôi, khí tức thiên địa không ngừng tụ hội."];
+        else if (context === 'combat' && hpRatio > 50) pool = [`Chiến ý bừng bừng, ${activeEnergy.name.toLowerCase()} cuộn trào sẵn sàng chém giết.`, "Khí huyết dồi dào, ánh mắt sắc bén đảo quanh chiến trường."];
+        else if (context === 'rest') pool = ["Nhịp thở đều đặn, khí huyết từ từ lắng đọng để phục hồi.", "Cơ bắp thả lỏng, sinh cơ nhẹ nhàng chữa lành cơ thể."];
+        else if (nguonSong > 60 && hpRatio > 60) pool = ["Khí huyết ổn định, thể lực sung mãn.", "Cơ thể tràn đầy sức mạnh, vạn sự đều nằm trong tầm kiểm soát."];
+        else pool = ["Trạng thái bình phàm, duy trì nhịp thở ổn định.", "Khí tức dao động nhẹ nhưng không đáng lo ngại."];
+    }
+
+    const hash = Math.abs(Math.floor(hpRatio || 0) + Math.floor(mpRatio || 0) + ((Number(gameState.chapterCount) || 0) * 17)) % Math.max(1, pool.length);
+    return pool[hash] || "Trạng thái ổn định.";
+  }, [gameState.health, gameState.spiritualEnergy, gameState.food, gameState.stamina, gameState.recentBehavior, gameState.chapterCount, hpRatio, mpRatio, staminaRatio, foodRatio, nguonSong, stageConfig.mpPrio, activeEnergy.name, activeEnergy.isPhysical, gameState.isTransformed]);
+
+  const displayCultivationLevel = useMemo(() => {
+      if (gameState.cultivationLevel === 'Phàm Nhân' || gameState.cultivationLevel === 'Người Thường') return gameState.cultivationLevel;
+      
+      
+
+      const minorName = getMinorLevelName(gameState.cultivationLevel, gameState.minorLevel || 1, gameState.traits);
+      const stageCfg = getStageConfig(gameState.cultivationLevel);
+      
+      let baseName = String(gameState.cultivationLevel).replace(/\s+Kỳ$/i, '').trim();
+
+      if (stageCfg.id === 2) {
+          if (minorName === 'Viên Mãn') return `${baseName} Viên Mãn`;
+          return `${baseName} ${minorName}`;
+      }
+      return `${baseName} [${minorName}]`;
+  }, [gameState.cultivationLevel, gameState.minorLevel, gameState.universe]);
+
+  const sortedProfiles = useMemo(() => [...profiles].sort((a,b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)), [profiles]);
+  const sortedTraitsPool = useMemo(() => {
+    const rarityOrder = { 'Đỏ': 1, 'Cam': 2, 'Tím': 3, 'Vàng': 4, 'Xanh lam': 5, 'Xanh lá': 6, 'Trắng': 7, 'Đen': 8, 'Xám': 9 };
+    const selectableTraits = TRAITS_POOL.filter(t => {
+        if (t.isDynamic) return false;
+        if (t.premadeWorld) return false;
+        if (t.onlyMongAo && gameState.gameMode !== 'mong_ao') return false;
+        
+        return t.id < 10000;
+    });
+    return [...selectableTraits].sort((a, b) => (rarityOrder[a.rarity] || 99) - (rarityOrder[b.rarity] || 99));
+  }, [selectedGame, gameState.gameMode]);
+
+  const groupedSkills = useMemo(() => {
+    const safeSkills = Array.isArray(gameState.journal?.skills) ? gameState.journal.skills : [];
+    const groups = {};
+    safeSkills.forEach(s => {
+       if (!s) return;
+       const owner = String(s.owner || gameState.name || 'Vô danh');
+       if (!groups[owner]) groups[owner] = [];
+       groups[owner].push(s);
+    });
+    return groups;
+  }, [gameState.journal?.skills, gameState.name]);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        await auth.authStateReady(); 
+        if (!auth.currentUser) {     
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            // V2.90 FIX: Tự động đăng nhập ẩn danh khi không có Canvas Token để người chơi dùng được Cloud & Liên Giới
+            try {
+              await signInAnonymously(auth);
+            } catch(e) {
+              console.warn("Tự động đăng nhập ẩn danh ban đầu:", e);
+            }
+          }
+        }
+      } catch (err) { console.error("Lỗi đăng nhập ban đầu:", err); }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser); 
+        setAuthLoading(false);
+        // V1.96 ETSUO FIX: Nạp cấu hình toàn cục người dùng từ Firestore Cloud khi đăng nhập
+        if (currentUser?.uid) {
+          try {
+            const globalSnap = await getDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'settings', 'global'));
+            if (globalSnap.exists() && globalSnap.data().systemSettings) {
+              applySystemSettings(globalSnap.data().systemSettings);
+            }
+          } catch(e) {}
+        }
+      } else {
+        // V1.97 ETHAN195 & V2.90 FIX: Tự động kết nối lại ngầm nếu token bị rớt hoặc hết hạn
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          try {
+            await signInWithCustomToken(auth, __initial_auth_token);
+            return;
+          } catch (e) {
+            console.warn("Tự động kết nối lại token Canvas thất bại:", e);
+          }
+        } else {
+          try {
+            await signInAnonymously(auth);
+            return;
+          } catch (e) {
+            console.warn("Tự động đăng nhập ẩn danh thất bại:", e);
+          }
+        }
+        // Khi người chơi đang trong game (gameStarted = true), KHÔNG hủy session user để chống văng giao diện
+        setUser(prevUser => {
+          if (globalStateRef.current?.gameStarted && prevUser) {
+            console.warn("Bảo lưu phiên người dùng khi đang chơi để chống văng màn hình.");
+            return prevUser;
+          }
+          return null;
+        });
+        setAuthLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) { setProfiles([]); return; }
+    const profilesRef = collection(db, 'artifacts', appId, 'users', user?.uid, 'profiles');
+    const unsubscribe = onSnapshot(profilesRef, (snapshot) => {
+      const loadedProfiles = [];
+      snapshot.forEach(doc => { 
+          // V8.48 FIX: Ép gán ID gốc từ tài liệu Đám Mây để MỞ KHÓA NÚT XÓA cho các nhân vật hỏng
+          loadedProfiles.push({ id: doc.id, ...doc.data() }); 
+      });
+             setProfiles(loadedProfiles);
+        // V1.96 ETSUO FIX: Tự động khôi phục Cài Đặt Hệ Thống từ profile mới nhất khi vừa mở game / F5
+        if (loadedProfiles.length > 0) {
+            const sorted = [...loadedProfiles].sort((a, b) => (Number(b.lastPlayed) || 0) - (Number(a.lastPlayed) || 0));
+            const latest = sorted[0];
+            if (latest && latest.systemSettings) {
+                applySystemSettings(latest.systemSettings);
+            }
+        }
+        setRolledTraits(prev => prev.length === 0 ? getRandomTraits(6, selectedGame, gameState.gameMode === 'mong_ao' && gameState.isPremadeWorld ? gameState.premadeWorldId : '', gameState.gameMode) : prev);
+      }, (error) => console.error("Lỗi tải dữ liệu Firestore:", error));
+
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    // Chặn lưu liên tục nếu ĐANG TRONG QUÁ TRÌNH SÁNG THẾ NGẦM để tránh làm cháy Firebase
+    if (!gameStarted || !currentProfileId || !user || expansionState.isExpanding) return;
+
+    const saveToCloud = async () => {
+      const now = Date.now();
+      try {
+        // V11.08 FIX: Gỡ bỏ hoàn toàn dấu ấn Thiên Đạo chống Cheat
+        // V1.96 ETSUO FIX: Đóng gói Cài Đặt Hệ Thống vào profileMeta trên Cloud Firestore
+        const currentSysSettings = getCurrentSystemSettings();
+        const securedState = { ...gameState, playerAiLogs: playerAiChatMessages, systemSettings: currentSysSettings };
+        const compressedState = LZString.compressToBase64(JSON.stringify(securedState));
+        const profileMeta = { 
+            id: currentProfileId, 
+            name: String(gameState.name || 'Vô danh'), 
+            cultivationLevel: String(gameState.cultivationLevel || 'Phàm Nhân'), 
+            lastPlayed: now, 
+            gameStateStr: compressedState, 
+            currentOptions,
+            settingOptionsCount: settingOptionsCount,
+            systemSettings: currentSysSettings, // V1.96: Đồng bộ Cài Đặt Hệ Thống vào Cloud Firestore Profile
+            gameMode: gameState.gameMode || 'chan_thuc',
+            coopRoomId: currentCoopRoom ? currentCoopRoom.id : (gameState.lastCoopRoomId || gameState.coopRoomHost || null)
+        };
+        
+        // V5.34: Tự động sao lưu Liên Giới Ký vào hồ sơ cá nhân để bảo tồn
+        if (currentCoopRoom && currentCoopRoom.worldLog) {
+            profileMeta.coopWorldLogBackup = currentCoopRoom.worldLog;
+        }
+
+        const profileRef = doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', currentProfileId);
+        await setDoc(profileRef, profileMeta, { merge: true });
+
+        // V8.31: TẠO GƯƠNG PHẢN CHIẾU (MIRROR SYNC) CHO ADMIN
+        const mirrorRef = doc(db, 'artifacts', appId, 'public', 'data', 'admin_mirrors', currentProfileId);
+        await setDoc(mirrorRef, { ...profileMeta, uid: user?.uid }, { merge: true });
+
+       // V5.12 FIX: Lấy dữ liệu mới nhất từ máy chủ trước khi lưu để không đè mất tên bạn bè
+        if (gameState.gameMode === 'coop' && currentCoopRoom) {
+            try {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+                const rSnap = await getDoc(roomRef);
+                if (rSnap.exists()) {
+                    const latestPlayers = rSnap.data().players || [];
+                    const newPlayers = latestPlayers.map(p => p.uid === user?.uid ? { 
+                        ...p, 
+                        gameStateStr: compressedState, 
+                        isOnline: true,
+                        lastActive: Date.now(), 
+                        currentLocation: gameState.currentLocation, 
+                        currentAge: gameState.age,
+                        characterName: String(gameState.name || p.characterName) // Khóa chết tôn danh không cho rớt
+                    } : p);
+                    await setDoc(roomRef, { players: newPlayers }, { merge: true });
+                }
+            } catch(e) {}
+        }
+
+        const currentChapterLogs = storyLog.filter(l => l.chapter === gameState.chapterCount);
+        if (currentChapterLogs.length > 0) {
+            const compressedLogs = LZString.compressToBase64(JSON.stringify(currentChapterLogs));
+            const logRef = doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', currentProfileId, 'logs', String(gameState.chapterCount));
+            await setDoc(logRef, { chapter: gameState.chapterCount, dataStr: compressedLogs });
+        }
+
+        // V1.28.1: Tự động giữ đúng 200 chương gần nhất NGAY TRONG QUÁ TRÌNH CHƠI
+        // Khi người chơi vượt mốc 200 chương (ví dụ chương 201, 202...), tự động xóa bỏ các chương cũ hơn 200 chương trước khỏi Đám mây
+        if (gameState.chapterCount > 200) {
+            const oldestChapterToDelete = gameState.chapterCount - 200;
+            try {
+                // Xóa cuốn chiếu chương cũ nhất vừa rớt khỏi cửa sổ 200 chương
+                const oldLogRef = doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', currentProfileId, 'logs', String(oldestChapterToDelete));
+                deleteDoc(oldLogRef).catch(() => {});
+                // Dọn phòng hờ thêm các chương cũ nếu có bước nhảy cóc
+                for (let c = oldestChapterToDelete - 1; c >= Math.max(1, oldestChapterToDelete - 5); c--) {
+                    deleteDoc(doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', currentProfileId, 'logs', String(c))).catch(() => {});
+                }
+            } catch (delErr) { console.warn('Lỗi dọn dẹp chương cũ khỏi Đám mây:', delErr); }
+        }
+      } catch (error) { console.error("Lỗi lưu trữ Cloud:", error); }
+    };
+    const timer = setTimeout(() => saveToCloud(), 2000); 
+    return () => clearTimeout(timer);
+  // Sửa dòng bên dưới: Thêm , expansionState.isExpanding vào cuối
+  }, [storyLog, gameState, currentOptions, gameStarted, currentProfileId, user, expansionState.isExpanding, playerAiChatMessages]);
+
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); localStorage.setItem('tuTienTheme', theme); }, [theme]);
+  useEffect(() => { localStorage.setItem('tuTienViewMode', viewMode); }, [viewMode]);
+  useEffect(() => { localStorage.setItem('tuTienToolbar', isToolbarExpanded); }, [isToolbarExpanded]); // V4.19
+  useEffect(() => { localStorage.setItem('tuTienHeader', isHeaderVisible); }, [isHeaderVisible]); // V4.93
+  useEffect(() => { localStorage.setItem('tuTienChapLength', chapterLengthLevel); }, [chapterLengthLevel]); // V6.98
+  useEffect(() => { localStorage.setItem('tuTienGuideLogs', JSON.stringify(guideChatLogs)); }, [guideChatLogs]); // V7.36: Lưu lại lịch sử chat AI
+
+  // V6.13: Vòng lặp Giám Sát Tiến Độ Nhiệm Vụ Độc Lập Mỗi 5s
+  useEffect(() => {
+      if (!gameStarted || !gameState.quests || gameState.quests.length === 0) return;
+      const autoSyncQuests = () => {
+          let hasChanges = false;
+          const syncedQuests = gameState.quests.map(q => {
+              if (!q.target || q.target <= 0) return q;
+              const allItems = [...(gameState.inventory || [])];
+              (gameState.companions || []).forEach(c => { if (c.inventory) allItems.push(...c.inventory); });
+              let totalCount = 0;
+              const qText = `${q.name} ${q.desc}`.toLowerCase();
+              
+              allItems.forEach(item => {
+                  const iName = item.name.toLowerCase();
+                  if (iName.length < 3) return;
+                  const cleanItemName = iName.replace(/(hư hỏng|ôi thiu|mốc meo|bị phong ấn)/g, '').trim();
+                  
+                  // V8.58 FIX: Bảo vệ pháp bảo xịn, cấm quét nhầm tên
+                  const isHighRarity = ['tím', 'vàng', 'cam', 'đỏ'].includes(String(item.rarity).toLowerCase());
+                  const qTargetName = qText.replace(/(thu thập|tìm|hái|săn)/g, '').trim();
+                  
+                  let isMatch = false;
+                  if (cleanItemName === qTargetName || cleanItemName === q.name.toLowerCase()) {
+                      isMatch = true; 
+                  } else if (!isHighRarity) {
+                      if (qText.includes(cleanItemName) || cleanItemName.includes(qTargetName)) {
+                          isMatch = true;
+                      }
+                  }
+
+                  if (isMatch) {
+                      totalCount += (Number(item.quantity) || 0);
+                  }
+              });
+              if (totalCount > (q.progress || 0)) {
+                  hasChanges = true;
+                  return { ...q, progress: Math.min(q.target, totalCount) };
+              }
+              return q;
+          });
+          if (hasChanges) setGameState(prev => ({ ...prev, quests: syncedQuests }));
+      };
+      const intervalId = setInterval(autoSyncQuests, 5000);
+      return () => clearInterval(intervalId);
+  }, [gameStarted, gameState.quests, gameState.inventory, gameState.companions]);
+  
+  useEffect(() => {
+    let timer;
+    if (isGenerating) {
+      setCalcCountdown(estimatedGenerationTime); 
+      timer = setInterval(() => { setCalcCountdown(prev => (prev > 0 ? prev - 1 : 0)); }, 1000);
+    } else { setCalcCountdown(0); }
+    return () => clearInterval(timer);
+  }, [isGenerating, estimatedGenerationTime]);
+
+  useEffect(() => {
+    let timer;
+    if (expansionState.isExpanding) {
+      timer = setInterval(() => {
+        setExpansionState(prev => {
+          if (prev.timeLeft > 0) return { ...prev, timeLeft: prev.timeLeft - 1 };
+          return prev;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [expansionState.isExpanding]);
+
+  useEffect(() => {
+    const traitSpent = selectedTraitIds.reduce((sum, id) => sum + (Number(TRAITS_POOL.find(t => t.id === id)?.cost) || 0), 0);
+    const bgSpent = gameState.gameMode === 'mong_ao' ? 0 : (BACKGROUNDS_POOL.find(b => b.id === selectedBgId)?.cost || 0);
+    setLuanHoiPoints(10 - traitSpent - bgSpent);
+  }, [selectedTraitIds, selectedBgId, gameState.gameMode]);
+

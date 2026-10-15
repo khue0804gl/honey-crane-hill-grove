@@ -1,0 +1,664 @@
+      {isEquipmentModalOpen && (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-[var(--bg-overlay)] p-2 md:p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--bg-panel)] w-full max-w-4xl h-[85vh] rounded-2xl flex flex-col border border-[var(--border-main)] shadow-2xl relative overflow-hidden">
+            <div className="p-4 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-body)] shrink-0">
+               <div className="flex items-center gap-3">
+                   <div className="bg-teal-900/30 p-2 rounded-full border border-teal-900/50"><ShieldCheck className="text-teal-500" size={24} /></div>
+                   <div>
+                       <h3 className="text-lg md:text-xl font-bold text-teal-500 uppercase tracking-widest">Trang Bị Nhục Thân</h3>
+                       <p className="text-[10px] md:text-xs text-teal-400/60">Nhấp vào vật phẩm đang mặc để xem chi tiết hoặc tháo gỡ.</p>
+                   </div>
+               </div>
+               <button onClick={() => { setIsEquipmentModalOpen(false); setViewingEquipSlot(null); }} className="p-2 hover:bg-teal-900/30 hover:text-teal-500 border border-[var(--border-main)] hover:border-teal-900/50 rounded-lg text-[var(--text-muted)] transition-colors"><X size={20}/></button>
+            </div>
+            
+            <div className="flex-1 flex flex-col md:flex-row overflow-y-auto custom-scrollbar bg-[var(--bg-surface)]">
+                {/* CỘT TRÁI: NHÂN VẬT & CÁC Ô TRANG BỊ */}
+                <div className="w-full md:w-1/2 p-4 md:p-6 flex flex-col relative border-b md:border-b-0 md:border-r border-[var(--border-main)] bg-[var(--bg-surface)] shrink-0">
+                    {/* Hình Bóng Nhục Thân */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
+                        <User size={300} />
+                    </div>
+                    
+                    <div className="flex-1 flex items-center justify-between relative z-10 w-full px-2 sm:px-4 md:px-6">
+                        
+                        {/* Cột Trang Bị Trái */}
+                        <div className="flex flex-col gap-6 md:gap-8 z-20">
+                            {[
+                                { key: 'head', icon: Crown, color: 'text-yellow-500', hover: 'hover:border-yellow-500/50', label: 'Hộ Đầu' },
+                                { key: 'weapon', icon: Axe, color: 'text-red-400', hover: 'hover:border-red-500/50', label: 'Vũ Khí' },
+                                { key: 'accessory', icon: Gem, color: 'text-pink-400', hover: 'hover:border-pink-500/50', label: 'Trang Sức' }
+                            ].map(slot => {
+                                const item = gameState.equipped?.[slot.key];
+                                const isViewing = viewingEquipSlot === slot.key;
+                                return (
+                                    <div key={slot.key} className="flex flex-col items-center gap-1.5">
+                                        <span className={`text-[10px] font-bold ${slot.color} uppercase tracking-widest`}>{slot.label}</span>
+                                        <div onClick={() => item && setViewingEquipSlot(slot.key)} className={`w-16 h-16 md:w-20 md:h-20 rounded-xl border-2 flex items-center justify-center shadow-lg relative transition-all ${item ? `${RARITY_COLORS[item.rarity]?.bg || 'bg-gray-800'} ${RARITY_COLORS[item.rarity]?.border || 'border-gray-600'} cursor-pointer hover:scale-105` : `bg-[var(--bg-body)] border-[var(--border-main)] border-dashed ${slot.hover}`} ${isViewing ? 'ring-2 ring-white ring-offset-2 ring-offset-[#0a0a0f]' : ''}`}>
+                                            {item ? <slot.icon size={32} className={RARITY_COLORS[item.rarity]?.text || 'text-white'}/> : <slot.icon size={28} className="text-gray-700"/>}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Hình Nhân Ở Giữa & Ô Tọa Kỵ / Phi Kiếm */}
+                        <div className="flex-1 flex flex-col justify-center items-center z-10 gap-3">
+                             <div className="w-28 h-36 md:w-36 md:h-44 border border-teal-500/20 rounded-[100px] flex flex-col items-center justify-center bg-gradient-to-t from-teal-900/20 to-transparent shadow-[0_0_30px_rgba(20,184,166,0.05)] pointer-events-none">
+                                 <User size={50} className="text-teal-500/30 md:w-16 md:h-16" />
+                                 <span className="text-teal-500/50 font-bold uppercase tracking-widest mt-2 text-[10px]">Bản Thể</span>
+                             </div>
+                             
+                             {/* Hiển thị Trạng Thái Tọa Kỵ & Ngự Kiếm */}
+                             <div className="flex gap-2 flex-wrap justify-center pointer-events-auto">
+                                 <div className="bg-[var(--bg-body)] border border-emerald-500/40 rounded-lg px-2.5 py-1 flex items-center gap-1.5 shadow-sm">
+                                     <Wind size={12} className="text-emerald-400"/>
+                                     <span className="text-[10px] font-bold text-gray-300">
+                                         {gameState.mount ? `🐎 ${gameState.mount.name}` : 'Đi bộ'}
+                                     </span>
+                                 </div>
+                                 <div className="bg-[var(--bg-body)] border border-cyan-500/40 rounded-lg px-2.5 py-1 flex items-center gap-1.5 shadow-sm">
+                                     <Sparkles size={12} className="text-cyan-400"/>
+                                     <span className="text-[10px] font-bold text-gray-300">
+                                         {(getStageConfig(gameState.cultivationLevel).id || 1) >= 3 ? '🗡️ Phi Kiếm Sẵn Sàng' : 'Chưa Thể Ngự Kiếm'}
+                                     </span>
+                                 </div>
+                             </div>
+                        </div>
+
+                        {/* Cột Trang Bị Phải */}
+                        <div className="flex flex-col gap-6 md:gap-8 z-20">
+                            {[
+                                { key: 'armor', icon: Shield, color: 'text-blue-400', hover: 'hover:border-blue-500/50', label: 'Pháp Y' },
+                                { key: 'artifact', icon: Sparkles, color: 'text-purple-400', hover: 'hover:border-purple-500/50', label: 'Pháp Bảo' },
+                                { key: 'boots', icon: Wind, color: 'text-emerald-400', hover: 'hover:border-emerald-500/50', label: 'Hài Ngoa' }
+                            ].map(slot => {
+                                const item = gameState.equipped?.[slot.key];
+                                const isViewing = viewingEquipSlot === slot.key;
+                                return (
+                                    <div key={slot.key} className="flex flex-col items-center gap-1.5">
+                                        <span className={`text-[10px] font-bold ${slot.color} uppercase tracking-widest`}>{slot.label}</span>
+                                        <div onClick={() => item && setViewingEquipSlot(slot.key)} className={`w-16 h-16 md:w-20 md:h-20 rounded-xl border-2 flex items-center justify-center shadow-lg relative transition-all ${item ? `${RARITY_COLORS[item.rarity]?.bg || 'bg-gray-800'} ${RARITY_COLORS[item.rarity]?.border || 'border-gray-600'} cursor-pointer hover:scale-105` : `bg-[var(--bg-body)] border-[var(--border-main)] border-dashed ${slot.hover}`} ${isViewing ? 'ring-2 ring-white ring-offset-2 ring-offset-[#0a0a0f]' : ''}`}>
+                                            {item ? <slot.icon size={32} className={RARITY_COLORS[item.rarity]?.text || 'text-white'}/> : <slot.icon size={28} className="text-gray-700"/>}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* V6.28: Bảng Chỉ Số Sử Dụng Lưới 4 Ô Đều Nhau Tránh Tràn Viền */}
+                    <div className="mt-6 md:mt-8 w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-xl p-3 md:p-4 shadow-inner relative z-10">
+                        <div className="text-[10px] md:text-xs font-bold text-teal-500 uppercase tracking-widest mb-2 md:mb-3 flex items-center justify-center gap-2 border-b border-[var(--border-main)] pb-2">
+                            <Activity size={14}/> Lực Lượng Pháp Bảo Tăng Cường
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 text-sm font-mono font-bold text-center">
+                            <div className="flex flex-col items-center gap-0.5 md:gap-1 border-r border-[var(--border-main)] last:border-0">
+                                <span className="text-[11px] md:text-[12px] leading-5 text-[var(--text-muted)] uppercase" style={{ letterSpacing: '0.03em' }}>Công</span>
+                                <span className="text-red-400 text-sm md:text-base">+{eqAtk}</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-0.5 md:gap-1 border-r border-[var(--border-main)] last:border-0">
+                                <span className="text-[11px] md:text-[12px] leading-5 text-[var(--text-muted)] uppercase" style={{ letterSpacing: '0.03em' }}>Thủ</span>
+                                <span className="text-blue-400 text-sm md:text-base">+{eqDef}</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-0.5 md:gap-1 border-r border-[var(--border-main)] last:border-0">
+                                <span className="text-[11px] md:text-[12px] leading-5 text-[var(--text-muted)] uppercase" style={{ letterSpacing: '0.03em' }}>Tốc</span>
+                                <span className="text-emerald-400 text-sm md:text-base">+{eqSpd}</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-0.5 md:gap-1 border-r border-[var(--border-main)] last:border-0">
+                                <span className="text-[11px] md:text-[12px] leading-5 text-[var(--text-muted)] uppercase" style={{ letterSpacing: '0.03em' }}>Thức</span>
+                                <span className="text-purple-400 text-sm md:text-base">+{eqSpP}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* CỘT PHẢI: LOGIC CHUYỂN ĐỔI GIỮA KHO ĐỒ VÀ CHI TIẾT TRANG BỊ */}
+                <div className="w-full md:w-1/2 p-4 md:p-6 flex flex-col h-full bg-[var(--bg-body)]">
+                    {viewingEquipSlot && gameState.equipped?.[viewingEquipSlot] ? (
+                        // MÀN HÌNH CHI TIẾT ĐỒ ĐANG MẶC (VLTK STYLE)
+                        <div className="flex-1 flex flex-col animate-in slide-in-from-right-4">
+                            <div className="flex items-center justify-between border-b border-[var(--border-main)] pb-3 mb-4">
+                                <span className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2"><Search size={16}/> Giám Định Pháp Bảo</span>
+                                <button onClick={() => setViewingEquipSlot(null)} className="text-xs bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border-main)] px-3 py-1.5 rounded transition-colors flex items-center gap-1">
+                                    <RotateCcw size={12}/> Quay Lại Kho
+                                </button>
+                            </div>
+
+                            <div className="bg-[var(--bg-surface)] border border-[var(--border-main)] rounded-xl p-5 relative overflow-hidden shadow-lg flex-1 custom-scrollbar overflow-y-auto flex flex-col">
+                                <div className={`absolute top-0 right-0 w-32 h-full bg-gradient-to-l opacity-10 pointer-events-none ${RARITY_COLORS[gameState.equipped[viewingEquipSlot].rarity]?.bg?.replace('/10', '/100') || 'from-gray-500'}`}></div>
+                                
+                                <h4 className={`text-xl md:text-2xl font-bold mb-3 relative z-10 ${RARITY_COLORS[gameState.equipped[viewingEquipSlot].rarity]?.text || 'text-[var(--text-main)]'}`}>{gameState.equipped[viewingEquipSlot].name}</h4>
+                                
+                                <div className="flex flex-wrap items-center gap-2 mb-5 relative z-10">
+                                   <span className="border border-[var(--border-main)] px-2 py-0.5 rounded text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-body)]">{gameState.equipped[viewingEquipSlot].tier || 'Phàm Khí'}</span>
+                                   <span className="border border-[var(--border-main)] px-2 py-0.5 rounded text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-body)]">{gameState.equipped[viewingEquipSlot].rarity || 'Trắng'}</span>
+                                   {gameState.equipped[viewingEquipSlot].subLevel && <span className="border border-red-900/50 px-2 py-0.5 rounded text-xs font-bold text-red-400 bg-red-900/20">Cấp {gameState.equipped[viewingEquipSlot].subLevel}</span>}
+                                   <span className="border border-teal-900/50 px-2 py-0.5 rounded text-xs font-bold text-teal-500 bg-teal-900/20 uppercase tracking-wider">{viewingEquipSlot}</span>
+                                </div>
+
+                                {/* Bảng chỉ số chi tiết (V7.21: Hiển thị chỉ số rớt theo Độ Bền) */}
+                                <div className="bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg p-4 mb-5 relative z-10 space-y-2 font-mono text-sm font-bold">
+                                    {(() => {
+                                        const eqItem = gameState.equipped[viewingEquipSlot];
+                                        const ratio = eqItem.maxDurability ? Math.max(0, eqItem.durability / eqItem.maxDurability) : 1;
+                                        const isDamaged = ratio < 1;
+                                        
+                                        return (
+                                            <>
+                                                {eqItem.durability !== undefined && (
+                                                    <div className="flex justify-between border-b border-gray-700/50 pb-2 mb-2">
+                                                        <span className="text-[var(--text-muted)]">Tình trạng (Độ Bền):</span>
+                                                        <span className={ratio < 0.3 ? 'text-red-500 animate-pulse' : ratio < 0.7 ? 'text-yellow-500' : 'text-emerald-500'}>
+                                                            {Math.round(ratio * 100)}% ({eqItem.durability}/{eqItem.maxDurability})
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {eqItem.proficiency !== undefined && (
+                                                    <div className="mb-2 border-b border-gray-700/50 pb-2" title="Mức độ quen thuộc với trang bị. Độ quen thuộc càng cao, sức mạnh vượt cấp càng được phát huy!">
+                                                        <div className="flex justify-between text-xs font-bold text-teal-400 mb-1">
+                                                            <span>Độ Quen Thuộc:</span>
+                                                            <span>{Math.min(100, Math.max(0, Number(eqItem.proficiency) || 0))}%</span>
+                                                        </div>
+                                                        <div className="h-1.5 w-full bg-[var(--bg-body)] rounded-full overflow-hidden border border-[var(--border-main)] shadow-inner">
+                                                            <div className="h-full bg-teal-500 transition-all duration-300" style={{width: `${Math.min(100, Math.max(0, Number(eqItem.proficiency) || 0))}%`}}></div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {(eqItem.attackBonus || 0) > 0 && <div className="flex justify-between"><span className="text-[var(--text-muted)]">Tăng Sát Thương (Công):</span><span className="text-red-400">+{getEffectiveEquipStat(eqItem, 'attackBonus')} {isDamaged && <span className="text-[10px] text-gray-500 line-through ml-1">(Gốc: {eqItem.attackBonus})</span>}</span></div>}
+                                                {(eqItem.defenseBonus || 0) > 0 && <div className="flex justify-between"><span className="text-[var(--text-muted)]">Tăng Hộ Thể (Thủ):</span><span className="text-blue-400">+{getEffectiveEquipStat(eqItem, 'defenseBonus')} {isDamaged && <span className="text-[10px] text-gray-500 line-through ml-1">(Gốc: {eqItem.defenseBonus})</span>}</span></div>}
+                                                {(eqItem.speedBonus || 0) > 0 && <div className="flex justify-between"><span className="text-[var(--text-muted)]">Tăng Thân Pháp (Tốc):</span><span className="text-emerald-400">+{getEffectiveEquipStat(eqItem, 'speedBonus')} {isDamaged && <span className="text-[10px] text-gray-500 line-through ml-1">(Gốc: {eqItem.speedBonus})</span>}</span></div>}
+                                                {(eqItem.spiritPowerBonus || 0) > 0 && <div className="flex justify-between"><span className="text-[var(--text-muted)]">Tăng Cảm Quan (Thức):</span><span className="text-purple-400">+{getEffectiveEquipStat(eqItem, 'spiritPowerBonus')} {isDamaged && <span className="text-[10px] text-gray-500 line-through ml-1">(Gốc: {eqItem.spiritPowerBonus})</span>}</span></div>}
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+
+                                <div className="text-sm text-[var(--text-main)] italic leading-relaxed mb-5 relative z-10">"{gameState.equipped[viewingEquipSlot].desc}"</div>
+                                
+                                {gameState.equipped[viewingEquipSlot].perks && gameState.equipped[viewingEquipSlot].perks.length > 0 && (
+                                   <div className="mb-5 relative z-10">
+                                      <span className="text-xs uppercase font-bold text-[var(--text-muted)] mb-2 block">Đặc Tính Ẩn (Bấm xem chi tiết):</span>
+                                      <div className="flex flex-wrap gap-2">
+                                         {gameState.equipped[viewingEquipSlot].perks.map((p, i) => {
+                                            const pInfo = getItemPerkInfo(p);
+                                            return (
+                                               <button 
+                                                  key={i} 
+                                                  type="button"
+                                                  onClick={(e) => { e.stopPropagation(); setViewingPerk(pInfo); }}
+                                                  className={`border px-2.5 py-1 rounded text-xs font-bold shadow-sm transition-transform hover:scale-105 cursor-pointer flex items-center gap-1 ${pInfo.color}`}
+                                                  title="Bấm để xem công dụng chi tiết đặc tính"
+                                               >
+                                                  <Sparkles size={12} className="shrink-0 opacity-70" />
+                                                  <span>{p}</span>
+                                               </button>
+                                            );
+                                         })}
+                                      </div>
+                                   </div>
+                                )}
+
+                                <div className="mt-auto relative z-10 pt-4 border-t border-[var(--border-main)] border-dashed">
+                                    <button onClick={() => { handleUnequipItem(viewingEquipSlot); setViewingEquipSlot(null); }} className="w-full bg-red-800 hover:bg-red-600 text-white rounded-xl font-bold text-base py-4 shadow-lg transition-transform hover:scale-[1.02] flex items-center justify-center gap-2 uppercase tracking-widest">
+                                        <Trash2 size={18}/> Tháo Khỏi Người
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        // MÀN HÌNH KHO KHÍ CỤ BÌNH THƯỜNG
+                        <>
+                            <div className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-[var(--border-main)] pb-2">
+                                <Backpack size={16}/> Kho Khí Cụ (Trong Túi)
+                            </div>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2 animate-in fade-in">
+                                {(() => {
+                                    const equipItems = gameState.inventory.filter(i => i.type === 'equip');
+                                    if (equipItems.length === 0) return <div className="text-center py-10 text-[var(--text-muted)] italic">Bạn không mang theo vũ khí hay giáp trụ nào trong không gian trữ vật. Hãy đi thám hiểm hoặc giao dịch để tìm kiếm.</div>;
+                                    
+                                    return equipItems.map((item, idx) => {
+                                        const enrichedItem = enrichEquipStats(item);
+                                        const slot = getEquipSlot(item); // V7.11 Update
+                                        
+                                        return (
+                                        <div key={idx} className="bg-[var(--bg-surface)] p-3 rounded-xl border border-[var(--border-main)] flex justify-between items-center group hover:border-teal-500/50 transition-colors">
+                                            <div className="flex flex-col w-full pr-2">
+                                                <div className="flex justify-between items-center w-full">
+                                                    <span className={`font-bold text-sm truncate ${RARITY_COLORS[item.rarity]?.text || 'text-white'}`}>{item.name} <span className="text-[10px] font-mono text-gray-500 ml-1">x{item.quantity}</span></span>
+                                                    {item.durability !== undefined && (
+                                                        <span className={`text-[10px] font-mono font-bold shrink-0 ml-2 ${item.durability/item.maxDurability < 0.3 ? 'text-red-500 animate-pulse' : item.durability/item.maxDurability < 0.7 ? 'text-yellow-500' : 'text-gray-500'}`}>
+                                                            Bền: {Math.round((item.durability/item.maxDurability)*100)}%
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-1.5 overflow-hidden">
+                                                    <span className="text-[11px] leading-5 bg-[var(--bg-body)] px-1.5 py-0.5 rounded border border-[var(--border-main)] text-gray-400 uppercase shrink-0" style={{ letterSpacing: '0.03em' }}>{slot}</span>
+                                                    <span className="text-[10px] font-mono font-bold text-[var(--text-muted)] truncate">
+                                                        {enrichedItem.attackBonus > 0 && <span className="text-red-400 mr-1.5" title={`Công Gốc: ${enrichedItem.attackBonus}`}>Công+{getEffectiveEquipStat(enrichedItem, 'attackBonus')}</span>}
+                                                        {enrichedItem.defenseBonus > 0 && <span className="text-blue-400 mr-1.5" title={`Thủ Gốc: ${enrichedItem.defenseBonus}`}>Thủ+{getEffectiveEquipStat(enrichedItem, 'defenseBonus')}</span>}
+                                                        {enrichedItem.speedBonus > 0 && <span className="text-emerald-400 mr-1.5" title={`Tốc Gốc: ${enrichedItem.speedBonus}`}>Tốc+{getEffectiveEquipStat(enrichedItem, 'speedBonus')}</span>}
+                                                        {enrichedItem.spiritPowerBonus > 0 && <span className="text-purple-400" title={`Thức Gốc: ${enrichedItem.spiritPowerBonus}`}>Thức+{getEffectiveEquipStat(enrichedItem, 'spiritPowerBonus')}</span>}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => handleEquipItem(item)} className="px-4 py-2 bg-teal-900/20 text-teal-400 hover:bg-teal-600 hover:text-white rounded-lg border border-teal-800/50 text-xs font-bold transition-colors shadow-sm">
+                                                Đeo Lên
+                                            </button>
+                                        </div>
+                                    )});
+                                })()}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* V6.32: VẠN GIỚI PHONG THẦN BẢNG (GLOBAL LEADERBOARD) */}
+      {isGlobalBoardOpen && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[var(--bg-overlay)] p-2 md:p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--bg-panel)] w-full max-w-3xl h-[85vh] rounded-2xl flex flex-col border border-[var(--border-main)] shadow-2xl relative overflow-hidden">
+            <div className="p-4 border-b border-[var(--border-main)] flex justify-between items-center bg-[#0a0805] shrink-0">
+               <div className="flex items-center gap-3">
+                   <div className="bg-yellow-900/30 p-2 rounded-full border border-yellow-900/50"><Crown className="text-yellow-500" size={24} /></div>
+                   <div>
+                       <h3 className="text-lg md:text-xl font-bold text-yellow-500 uppercase tracking-widest">Vạn Giới Phong Thần</h3>
+                       <p className="text-[10px] md:text-xs text-yellow-400/60">Quần hùng tụ hội, lưu danh thiên cổ vĩnh viễn trên Đám Mây.</p>
+                   </div>
+               </div>
+               <button onClick={() => setIsGlobalBoardOpen(false)} className="p-2 hover:bg-yellow-900/30 hover:text-yellow-500 border border-[var(--border-main)] hover:border-yellow-900/50 rounded-lg text-[var(--text-muted)] transition-colors"><X size={20}/></button>
+            </div>
+            
+            {/* Tabs */}
+            <div className="flex bg-[var(--bg-surface)] border-b border-[var(--border-main)] shrink-0">
+                <button onClick={() => setGlobalBoardTab('tower')} className={`flex-1 py-3 text-sm md:text-base font-bold flex items-center justify-center gap-2 transition-all ${globalBoardTab === 'tower' ? 'text-indigo-400 border-b-2 border-indigo-400 bg-indigo-900/10' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}><Flame size={18}/> Đỉnh Hỗn Độn Tháp</button>
+                <button onClick={() => setGlobalBoardTab('arena')} className={`flex-1 py-3 text-sm md:text-base font-bold flex items-center justify-center gap-2 transition-all ${globalBoardTab === 'arena' ? 'text-red-400 border-b-2 border-red-400 bg-red-900/10' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}><Swords size={18}/> Đấu Trường Sinh Tử</button>
+                <button onClick={() => setGlobalBoardTab('chapter')} className={`flex-1 py-3 text-sm md:text-base font-bold flex items-center justify-center gap-2 transition-all ${globalBoardTab === 'chapter' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-emerald-900/10' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}><BookOpen size={18}/> Cần Mẫn Tu Đạo</button>
+            </div>
+
+            {globalBoardTab === 'chapter' && (
+                <div className="flex bg-[var(--bg-body)] justify-center gap-4 py-2 border-b border-[var(--border-main)] shrink-0">
+                    <button onClick={() => setGlobalBoardSubTab('week')} className={`px-4 py-1.5 text-xs font-bold rounded-full transition-all ${globalBoardSubTab === 'week' ? 'bg-emerald-600 text-white' : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-main)]'}`}>Tuần Này</button>
+                    <button onClick={() => setGlobalBoardSubTab('month')} className={`px-4 py-1.5 text-xs font-bold rounded-full transition-all ${globalBoardSubTab === 'month' ? 'bg-emerald-600 text-white' : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-main)]'}`}>Tháng Này</button>
+                </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[var(--bg-body)] relative">
+                {globalBoardData.isLoading ? (
+                    <div className="h-full flex flex-col items-center justify-center text-yellow-500/50">
+                        <Activity size={40} className="animate-spin mb-4"/>
+                        <p className="font-bold">Đang kết nối Đám Mây Thiên Đạo...</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {(() => {
+                            let list = [];
+                            let valLabel = "";
+                            let colorTheme = "";
+                            
+                            if (globalBoardTab === 'tower') {
+                                list = globalBoardData.tower;
+                                valLabel = "Tầng";
+                                colorTheme = "text-indigo-400";
+                            } else if (globalBoardTab === 'arena') {
+                                list = globalBoardData.arena;
+                                valLabel = "Hạng";
+                                colorTheme = "text-red-400";
+                            } else if (globalBoardTab === 'chapter') {
+                                colorTheme = "text-emerald-400";
+                                valLabel = "Chương";
+                                const curW = getCurrentWeekStr();
+                                const curM = getCurrentMonthStr();
+                                if (globalBoardSubTab === 'week') {
+                                    list = globalBoardData.chapters.filter(r => r.weekStr === curW && (r.weekCount || 0) > 0).sort((a,b) => b.weekCount - a.weekCount);
+                                } else {
+                                    list = globalBoardData.chapters.filter(r => r.monthStr === curM && (r.monthCount || 0) > 0).sort((a,b) => b.monthCount - a.monthCount);
+                                }
+                            }
+
+                            if (list.length === 0) return <div className="text-center py-20 text-[var(--text-muted)] italic">Bảng Phong Thần hiện đang bỏ trống. Chờ người khai mở!</div>;
+
+                            return list.slice(0, 50).map((p, i) => {
+                                const rank = i + 1;
+                                let rankStyle = 'bg-[var(--bg-surface)] border-[var(--border-main)] text-[var(--text-muted)]';
+                                let rankIcon = <span className="font-mono text-lg font-black">{rank}</span>;
+                                
+                                if (rank === 1) { rankStyle = 'bg-yellow-900/20 border-yellow-500/50 text-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.2)]'; rankIcon = <Crown size={24} className="text-yellow-400"/>; }
+                                else if (rank === 2) { rankStyle = 'bg-gray-800/50 border-gray-400/50 text-gray-300'; rankIcon = <Crown size={20} className="text-gray-300"/>; }
+                                else if (rank === 3) { rankStyle = 'bg-orange-900/20 border-orange-700/50 text-orange-600'; rankIcon = <Crown size={20} className="text-orange-500"/>; }
+
+                                const isMe = p.uid === user?.uid && p.profileId === currentProfileId;
+
+                                let displayValue = 0;
+                                if (globalBoardTab === 'tower') displayValue = p.towerFloor;
+                                else if (globalBoardTab === 'arena') displayValue = p.rankPosition;
+                                else if (globalBoardTab === 'chapter') displayValue = globalBoardSubTab === 'week' ? p.weekCount : p.monthCount;
+
+                                return (
+                                    <div key={i} className={`flex items-center p-3 rounded-xl border transition-all ${isMe ? 'border-teal-500 bg-teal-900/10' : rankStyle} ${rank <= 3 ? 'py-4' : ''}`}>
+                                        <div className={`w-12 h-12 shrink-0 flex items-center justify-center ${rank <= 3 ? '' : 'bg-[var(--bg-body)] rounded-full border border-[var(--border-main)]'}`}>
+                                            {rankIcon}
+                                        </div>
+                                        
+                                        <div className="flex-1 px-4 overflow-hidden">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`font-bold text-lg truncate ${rank === 1 ? 'text-yellow-500' : rank === 2 ? 'text-gray-200' : rank === 3 ? 'text-orange-500' : 'text-[var(--text-bold)]'}`}>
+                                                    {p.name}
+                                                </span>
+                                                {isMe && <span className="text-[11px] leading-5 bg-teal-600 text-white px-1.5 py-0.5 rounded uppercase" style={{ letterSpacing: '0.03em' }}>Bản Tôn</span>}
+                                            </div>
+                                            <div className="text-[11px] text-[var(--text-muted)] flex items-center gap-2 mt-0.5">
+                                                <span className="bg-[var(--bg-body)] px-1.5 py-0.5 rounded border border-[var(--border-main)]">{p.level}</span>
+                                                {rank <= 3 && <span className="italic">Cập nhật: {new Date(p.lastUpdated).toLocaleDateString('vi-VN')}</span>}
+                                            </div>
+                                        </div>
+
+                                        <div className="shrink-0 flex flex-col items-end pr-2">
+                                            <span className={`text-2xl font-black font-mono ${colorTheme}`}>{displayValue}</span>
+                                            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-widest">{valLabel}</span>
+                                        </div>
+                                    </div>
+                                );
+                            });
+                        })()}
+                    </div>
+                )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* V2.16: CỬA HÀNG BẠI GIA BIG MODAL (ETSUO ĐỀ XUẤT) */}
+      {isBaiGiaShopOpen && (() => {
+        const curSysLvl = gameState.baiGiaSystemLevel || 1;
+        const catalog = getBaiGiaShopCatalog(curSysLvl);
+        const filteredItems = catalog.filter(it => {
+          if (baiGiaShopTab === 'equipment') return it.type === 'equipment';
+          if (baiGiaShopTab === 'pills') return it.type === 'pill';
+          if (baiGiaShopTab === 'maps') return it.type === 'map';
+          if (baiGiaShopTab === 'intel') return it.type === 'intel';
+          if (baiGiaShopTab === 'physiques') return it.type === 'physique';
+          return true;
+        });
+
+        const handleBuyItem = (item: BaiGiaShopItem) => {
+          if ((gameState.baiGiaPoints || 0) < item.cost) {
+            showAlert(`Chưa đủ Điểm Bại Gia! Cần ${formatLargeNumber(item.cost)} ĐBG để đổi [${item.name}] (Hiện có: ${formatLargeNumber(gameState.baiGiaPoints || 0)} ĐBG).`);
+            return;
+          }
+          if (curSysLvl < item.reqLevel) {
+            showAlert(`Hệ Thống chưa đạt cấp yêu cầu! Cần Hệ Thống Cấp ${item.reqLevel} để mở khóa vật phẩm này (Hiện tại: Cấp ${curSysLvl}).`);
+            return;
+          }
+
+          showConfirm(`Xác nhận tiêu hao ${formatLargeNumber(item.cost)} Điểm Bại Gia để mua [${item.name}]?`, () => {
+            setGameState(prev => {
+              const newPoints = (prev.baiGiaPoints || 0) - item.cost;
+              let updatedInv = [...(prev.inventory || [])];
+              let updatedTraits = [...(prev.traits || [])];
+              let updatedKnownLocations = [...(prev.knownLocations || [])];
+              let extraHp = 0, extraMp = 0, extraAtk = 0, extraDef = 0, extraSpd = 0, extraSp = 0, extraEnlight = 0, extraTalent = 0;
+
+              if (item.type === 'equipment') {
+                updatedInv.push({
+                  name: item.name,
+                  category: 'Trang Bị',
+                  rarity: item.rarity,
+                  desc: item.desc,
+                  quantity: 1,
+                  perks: item.perks || [],
+                  ...(item.stats || {})
+                });
+              } else if (item.type === 'pill') {
+                if (item.stats?.healHp) {
+                  extraHp = Number(item.stats.maxHealthBonus) || 0;
+                }
+                if (item.stats?.enlightenment) {
+                  extraEnlight = Number(item.stats.enlightenment) || 0;
+                  extraTalent = Number(item.stats.talent) || 0;
+                }
+                if (item.stats?.maxLifespanBonus) {
+                  extraHp += 200;
+                }
+                updatedInv.push({
+                  name: item.name,
+                  category: 'Đan Dược',
+                  rarity: item.rarity,
+                  desc: item.desc,
+                  quantity: 1
+                });
+              } else if (item.type === 'map') {
+                if (item.actionEffect === 'unlock_ancient_realm' && !updatedKnownLocations.includes('Bí Cảnh Thượng Cổ')) {
+                  updatedKnownLocations.push('Bí Cảnh Thượng Cổ');
+                } else if (item.actionEffect === 'unlock_immortal_cave' && !updatedKnownLocations.includes('Động Phủ Chân Tiên')) {
+                  updatedKnownLocations.push('Động Phủ Chân Tiên');
+                } else if (item.actionEffect === 'unlock_void_stars' && !updatedKnownLocations.includes('Vực Ngoại Hư Không')) {
+                  updatedKnownLocations.push('Vực Ngoại Hư Không');
+                }
+                extraSp += 200;
+              } else if (item.type === 'intel') {
+                extraEnlight += 30;
+                extraSp += 100;
+              } else if (item.type === 'physique') {
+                let traitId = 7020;
+                if (item.actionEffect === 'trait_7021') traitId = 7021;
+                if (item.actionEffect === 'trait_7022') traitId = 7022;
+
+                if (updatedTraits.some(t => t.id === traitId || t.name === item.name)) {
+                  showAlert(`Đạo hữu đã thức tỉnh thể chất [${item.name}] rồi, không thể nhận trùng!`);
+                  return prev;
+                }
+
+                updatedTraits.push({
+                  id: traitId,
+                  name: item.name,
+                  rarity: 'Đỏ',
+                  cost: 0,
+                  desc: item.desc,
+                  isDynamic: true
+                });
+
+                if (traitId === 7020) {
+                  extraHp += Math.floor((prev.maxHealth || 100) * 0.3);
+                  extraAtk += Math.floor((prev.attack || 10) * 0.3);
+                  extraDef += Math.floor((prev.defense || 10) * 0.3);
+                } else if (traitId === 7021) {
+                  extraAtk += 2000;
+                  extraDef += 2500;
+                  extraHp += 20000;
+                } else if (traitId === 7022) {
+                  extraAtk += 5000;
+                  extraDef += 5000;
+                  extraSp += 5000;
+                  extraHp += 50000;
+                }
+              }
+
+              return {
+                ...prev,
+                baiGiaPoints: newPoints,
+                inventory: updatedInv,
+                traits: updatedTraits,
+                knownLocations: updatedKnownLocations,
+                maxHealth: (prev.maxHealth || 100) + extraHp,
+                health: (prev.health || 100) + extraHp,
+                attack: (prev.attack || 10) + extraAtk,
+                defense: (prev.defense || 10) + extraDef,
+                speed: (prev.speed || 10) + extraSpd,
+                spiritPower: (prev.spiritPower || 10) + extraSp,
+                enlightenment: (prev.enlightenment || 10) + extraEnlight,
+                talent: (prev.talent || 10) + extraTalent,
+                logs: [...(prev.logs || []), {
+                  type: 'system',
+                  text: `💰 [Cửa Hàng Bại Gia] Giao dịch thành công! Tiêu hao ${formatLargeNumber(item.cost)} ĐBG đổi được [${item.name}]!`,
+                  chapter: prev.chapter || 1
+                }]
+              };
+            });
+            showAlert(`Mua thành công [${item.name}]! Tiêu hao ${formatLargeNumber(item.cost)} Điểm Bại Gia.`);
+          });
+        };
+
+        return (
+          <div className="fixed inset-0 z-[120] flex flex-col bg-[var(--bg-body)] animate-in fade-in duration-200">
+            {/* Header */}
+            <div className="p-3 md:p-4 border-b border-amber-900/50 bg-gradient-to-b from-amber-950/60 to-transparent flex justify-between items-center shrink-0 shadow-lg z-10">
+              <div className="flex items-center gap-3">
+                <div className="bg-amber-900/40 p-2.5 rounded-lg border border-amber-700/50 shadow-inner">
+                  <Coins className="text-amber-400" size={26} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg md:text-xl font-bold text-amber-300 uppercase tracking-widest">
+                      Cửa Hàng Bại Gia • Thần Hào Các
+                    </h3>
+                    <span className="text-xs bg-amber-900/70 text-amber-300 border border-amber-500/50 px-2 py-0.5 rounded font-bold">
+                      Hệ Thống Cấp {curSysLvl}
+                    </span>
+                  </div>
+                  <p className="text-[11px] md:text-xs text-amber-300/70 mt-0.5">
+                    Tiêu xài hoang phí • Tán tài chứng đạo • Vòng 2 do Etsuo đề xuất
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right hidden sm:block">
+                  <div className="text-[11px] text-[var(--text-muted)]">Số dư hiện có</div>
+                  <div className="text-sm font-bold text-amber-400">{formatLargeNumber(gameState.baiGiaPoints || 0)} ĐBG</div>
+                </div>
+                <button
+                  onClick={() => setIsBaiGiaShopOpen(false)}
+                  className="p-1.5 md:p-2 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex border-b border-amber-900/40 bg-[var(--bg-panel)] px-2 md:px-4 shrink-0 overflow-x-auto gap-1 py-1">
+              {[
+                { id: 'equipment', label: 'Trang Bị', icon: Swords },
+                { id: 'pills', label: 'Đan Dược', icon: FlaskRound },
+                { id: 'maps', label: 'Bản Đồ & Bí Cảnh', icon: Map },
+                { id: 'intel', label: 'Tình Báo & Tin Đồn', icon: BookOpen },
+                { id: 'physiques', label: 'Thể Chất Cực Phẩm', icon: Crown },
+              ].map(tab => {
+                const Icon = tab.icon;
+                const isActive = baiGiaShopTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setBaiGiaShopTab(tab.id as any)}
+                    className={`flex items-center gap-1.5 px-3 py-2 text-xs md:text-sm font-bold rounded-lg transition-colors whitespace-nowrap ${
+                      isActive
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm'
+                        : 'text-[var(--text-muted)] hover:text-amber-200 hover:bg-amber-900/20'
+                    }`}
+                  >
+                    <Icon size={16} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Content Area */}
+            <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                {filteredItems.map(item => {
+                  const isLocked = curSysLvl < item.reqLevel;
+                  const canAfford = (gameState.baiGiaPoints || 0) >= item.cost;
+                  const rarityColors: Record<string, string> = {
+                    'Trắng': 'border-gray-500/30 text-gray-300 bg-gray-900/20',
+                    'Xanh': 'border-emerald-500/30 text-emerald-300 bg-emerald-950/20',
+                    'Lam': 'border-cyan-500/30 text-cyan-300 bg-cyan-950/20',
+                    'Tím': 'border-purple-500/30 text-purple-300 bg-purple-950/20',
+                    'Vàng': 'border-yellow-500/30 text-yellow-300 bg-yellow-950/20',
+                    'Cam': 'border-orange-500/30 text-orange-300 bg-orange-950/20',
+                    'Đỏ': 'border-red-500/40 text-red-300 bg-red-950/30 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
+                  };
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
+                        isLocked
+                          ? 'opacity-50 border-gray-800 bg-gray-950/40'
+                          : `${rarityColors[item.rarity] || 'border-amber-900/40 bg-amber-950/20'}`
+                      }`}
+                    >
+                      <div>
+                        <div className="flex justify-between items-start gap-2 mb-1.5">
+                          <h4 className="font-bold text-sm md:text-base leading-tight">
+                            {item.name}
+                          </h4>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider shrink-0">
+                            {item.rarity}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                          {item.desc}
+                        </p>
+                        {item.stats && (
+                          <div className="flex flex-wrap gap-1.5 mb-3">
+                            {Object.entries(item.stats).map(([k, v]) => (
+                              <span key={k} className="text-[11px] font-mono bg-black/40 px-2 py-0.5 rounded text-amber-200 border border-white/5">
+                                {k}: +{typeof v === 'number' ? formatLargeNumber(v) : v}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {item.perks && item.perks.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {item.perks.map(p => (
+                              <span key={p} className="text-[10px] font-bold bg-purple-900/40 text-purple-300 px-1.5 py-0.5 rounded border border-purple-500/30">
+                                ★ {p}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-3 border-t border-white/5 flex items-center justify-between gap-2 mt-auto">
+                        <div>
+                          <div className="text-[10px] text-[var(--text-muted)]">Giá Điểm Bại Gia</div>
+                          <div className="text-xs md:text-sm font-bold text-amber-400">
+                            {formatLargeNumber(item.cost)} ĐBG
+                          </div>
+                          {isLocked && (
+                            <div className="text-[10px] text-red-400 mt-0.5 font-bold">
+                              Yêu cầu Hệ Thống Cấp {item.reqLevel}
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => handleBuyItem(item)}
+                          disabled={isLocked || !canAfford}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-sm ${
+                            isLocked
+                              ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
+                              : canAfford
+                              ? 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-black shadow-md'
+                              : 'bg-amber-950/60 text-amber-500/50 cursor-not-allowed border border-amber-900/50'
+                          }`}
+                        >
+                          <Coins size={13} />
+                          {isLocked ? 'Khóa Cấp' : canAfford ? 'Đổi Lấy' : 'Thiếu ĐBG'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+{/* V2.81: Gỡ bỏ Big Modal Tiểu Thế Giới theo đặc quyền Chủ toạ Dark */}
+{/* ADMIN DIAGNOSTICS MODAL (V6.45 UPDATE: FULLSCREEN + PLAYERS LIST) */}

@@ -1,0 +1,192 @@
+  const getCloneSystemConfig = (level) => {
+      const lv = Number(level) || 1;
+      if (lv === 1) return { createCost: 50, maxClones: 5, upCost: 1000, baseLevel: 'Luyện Khí Kỳ' };
+      if (lv === 2) return { createCost: 5000, maxClones: 15, upCost: 5000, baseLevel: 'Trúc Cơ Kỳ' };
+      if (lv === 3) return { createCost: 20000, maxClones: 30, upCost: 20000, baseLevel: 'Kim Đan Kỳ' };
+      if (lv === 4) return { createCost: 100000, maxClones: 65, upCost: 100000, baseLevel: 'Nguyên Anh Kỳ' };
+      if (lv === 5) return { createCost: 500000, maxClones: 100, upCost: 500000, baseLevel: 'Hóa Thần Kỳ' };
+      if (lv === 6) return { createCost: 2000000, maxClones: 200, upCost: 2000000, baseLevel: 'Luyện Hư Kỳ' };
+      if (lv === 7) return { createCost: 10000000, maxClones: 400, upCost: 10000000, baseLevel: 'Hợp Thể Kỳ' };
+      if (lv === 8) return { createCost: 50000000, maxClones: 800, upCost: 50000000, baseLevel: 'Đại Thừa Kỳ' };
+      if (lv === 9) return { createCost: 200000000, maxClones: 1000, upCost: 200000000, baseLevel: 'Độ Kiếp Kỳ' };
+      return { createCost: 1000000000, maxClones: 10000, upCost: 0, baseLevel: 'Chân Tiên' };
+  };
+
+  const handleUpgradeCloneSystem = (e) => {
+      e.stopPropagation();
+      const currentLevel = gameState.cloneSystemLevel || 1;
+      const config = getCloneSystemConfig(currentLevel);
+      if (config.upCost === 0) return showAlert("Hệ thống phân thân đã đạt cấp tối đa!");
+      
+      showConfirm(`Bạn muốn tiêu tốn ${formatLargeNumber(config.upCost)} Điểm Hệ Thống để nâng cấp Hệ Thống Phân Thân lên Cấp ${currentLevel + 1}?\n\nPhân thân tạo ra ở cấp tiếp theo sẽ có gốc Cảnh giới [${getCloneSystemConfig(currentLevel + 1).baseLevel}] và giới hạn số lượng sẽ tăng.`, () => {
+          if ((gameState.systemPoints || 0) < config.upCost) return showAlert("Bạn không có đủ Điểm Hệ Thống!");
+          setGameState(prev => {
+              return {
+                  ...prev,
+                  systemPoints: (prev.systemPoints || 0) - config.upCost,
+                  cloneSystemLevel: currentLevel + 1
+              };
+          });
+          setStoryLog(logs => {
+              const newLog = [...logs, 
+                  { type: 'action', text: `Hành động: Ta mở Giao diện, tiêu tốn ${formatLargeNumber(config.upCost)} Điểm Hệ Thống để Nâng cấp Hệ Thống Phân Thân lên Cấp ${currentLevel + 1}. Máy chủ tái khởi động và mở rộng quyền năng!`, chapter: gameState.chapterCount },
+                  { type: 'system', text: `[HỆ THỐNG] Tiến trình cập nhật hoàn tất! Hệ Thống Phân Thân đã thăng lên Cấp ${currentLevel + 1}. Tính năng mở rộng!`, chapter: gameState.chapterCount }
+              ];
+              return newLog.length > 50 ? newLog.slice(-50) : newLog;
+          });
+      });
+  };
+
+  const handleCreateClone = (e) => {
+      e.stopPropagation();
+      const currentLevel = gameState.cloneSystemLevel || 1;
+      const config = getCloneSystemConfig(currentLevel);
+      
+      const currentClonesCount = (gameState.companions || []).filter(c => c.isSystemClone).length;
+      if (currentClonesCount >= config.maxClones) return showAlert(`Đã đạt giới hạn Phân thân của Hệ Thống Cấp ${currentLevel} (${config.maxClones} phân thân)! Hãy nâng cấp hệ thống hoặc xóa bớt phân thân cũ.`);
+      
+      showPrompt(`Hãy đặt Tôn Danh cho Phân Thân mới:\n\nSẽ tiêu tốn ${formatLargeNumber(config.createCost)} Điểm Hệ Thống. Phân thân này mang cảnh giới [${config.baseLevel}].`, (cloneName) => {
+          if (!cloneName || !cloneName.trim()) return;
+          if ((gameState.systemPoints || 0) < config.createCost) return showAlert("Bạn không có đủ Điểm Hệ Thống để vận hành lõi năng lượng chế tạo phân thân! Hãy nạp thêm điểm.");
+          
+          setDialog({ type: 'loading', message: `Đang trích xuất dữ liệu, cấu trúc thân thể cho [${cloneName.trim()}]...` });
+          
+          setTimeout(() => {
+              const baseStats = generateNPCStats(config.baseLevel, { race: 'Khôi Lỗi Sinh Học', role: 'Phân Thân', alignment: 'Trung thành tuyệt đối', isNightmare: (gameState.activeDLCs?.includes('dlc_nightmare') || gameState.activeDLCs?.includes('dlc_nightmare_abyss')) });
+              const newClone = {
+                  id: `clone_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                  name: cloneName.trim(),
+                  type: 'Phân Thân Hệ Thống',
+                  level: config.baseLevel,
+                  status: 'Hoạt động bình thường',
+                  isSystemClone: true,
+                  desc: 'Một phân thân sinh học do Hệ Thống chế tạo, có thể tải ý thức Bản thể vào.',
+                  lastUpdated: Date.now(),
+                  stamina: 100, maxStamina: 100,
+                  food: 100, maxFood: 100,
+                  talent: Math.floor(Math.random() * 30) + 20,
+                  enlightenment: Math.floor(Math.random() * 30) + 20,
+                  foundationScore: 50,
+                  spiritualRoot: getSpiritualRoot([], 'bg_0'),
+                  equipped: { weapon: null, armor: null, head: null, boots: null, artifact: null, accessory: null },
+                  ...baseStats
+              };
+              
+              setGameState(prev => {
+                  return {
+                      ...prev,
+                      systemPoints: (prev.systemPoints || 0) - config.createCost,
+                      companions: [...(prev.companions || []), newClone]
+                  };
+              });
+              
+              setStoryLog(logs => {
+                  const newLog = [...logs, 
+                      { type: 'action', text: `Hành động: Ta dứt khoát mở Bảng Hệ thống trên giao diện, tiêu tốn ${formatLargeNumber(config.createCost)} Điểm Hệ Thống để chế tạo một Phân Thân Hệ Thống cấp [${config.baseLevel}] mới mang danh xưng [${cloneName.trim()}]. Chờ đợi quyền năng hệ thống đúc nặn và bàn giao!`, chapter: gameState.chapterCount },
+                      { type: 'system', text: `[HỆ THỐNG PHÂN THÂN] Quá trình sinh trưởng hoàn tất! Phân thân [${cloneName.trim()}] đã sẵn sàng nhận lệnh.`, chapter: gameState.chapterCount }
+                  ];
+                  return newLog.length > 50 ? newLog.slice(-50) : newLog;
+              });
+              closeDialog();
+          }, 1000);
+      }, "Ví dụ: Ám Ảnh Số 1", false);
+  };
+
+  const handleReviveClone = (e, clone) => {
+      e.stopPropagation();
+      const stConfig = getStageConfig(clone.level || 'Phàm Nhân');
+      const reviveCost = 50 * Math.pow(5, Math.max(0, stConfig.id - 2)); // Phàm/Lk 50, Trực cơ 250, Kim Đan 1250...
+      
+      showConfirm(`Khôi phục dữ liệu và đắp nặn nhục thể cho phân thân [${clone.name}]?\n\nCảnh giới: ${clone.level}\nSẽ tiêu tốn ${formatLargeNumber(reviveCost)} Điểm Hệ Thống để hồi sinh. Cảnh giới sẽ được giữ nguyên!`, () => {
+          if ((gameState.systemPoints || 0) < reviveCost) return showAlert(`Không đủ Điểm Hệ Thống để tiến hành khôi phục! (Cần ${formatLargeNumber(reviveCost)} Điểm)`);
+          
+          setGameState(prev => {
+              const newComps = prev.companions.map(c => {
+                  if (c.id === clone.id) {
+                      return { ...c, hp: c.maxHp, status: 'Hoạt động bình thường' };
+                  }
+                  return c;
+              });
+              return {
+                  ...prev,
+                  systemPoints: (prev.systemPoints || 0) - reviveCost,
+                  companions: newComps
+              };
+          });
+          setStoryLog(logs => {
+              const newLog = [...logs, { type: 'system', text: `[HỆ THỐNG] Lõi dữ liệu đã được phục hồi! Phân thân [${clone.name}] khôi phục 100% hình thể và sinh lực tại cảnh giới ${clone.level}! (Tiêu hao ${formatLargeNumber(reviveCost)} Điểm HT)`, chapter: gameState.chapterCount }];
+              return newLog.length > 50 ? newLog.slice(-50) : newLog;
+          });
+      });
+  };
+
+  // ================= V12.18: HÀM ĐỒNG BỘ DIỄN BIẾN THEO CẢNH GIỚI =================
+  const handleSyncStoryToRealm = () => {
+      if (checkSpam() || isGenerating) return;
+      showConfirm("Bạn có chắc chắn muốn tốn Token yêu cầu Thiên Đạo chủ động nắn lại Diễn biến sao cho phù hợp với Bảng Cảnh Giới hiện tại không?\n\nTính năng này SẼ BỎ QUA MỌI LUẬT BẢO VỆ (chống ảo tưởng, cấm nhảy cóc) để ép AI viết đúng uy lực của bạn. Khuyến cáo: Chỉ dùng khi AI viết tu vi thấp/cao hơn bảng hiển thị.", () => {
+          handleAction(`[LỆNH TỐI CAO ĐỒNG BỘ DIỄN BIẾN THEO CẢNH GIỚI UI]: \nHiện tại Cảnh giới Thực Tế trên hệ thống của ta đang là [${displayCultivationLevel}] với Tiến độ tu vi đạt ${Math.floor(gameState.cultivationProgress || 0)}%. Tuy nhiên, miêu tả về tu vi của ta trong cốt truyện thời gian qua ĐANG BỊ SAI LỆCH!\nBẰNG LỆNH NÀY, BẠN BẮT BUỘC phải dệt một đoạn diễn biến, nhận ra sự nhầm lẫn đó (có thể miêu tả do ảo giác, hoặc tu vi thật bị ẩn giấu nay bộc lộ). Ngươi BẮT BUỘC phải KHẲNG ĐỊNH LẠI MỘT LẦN NỮA rằng tu vi thực sự của NVC lúc này CHÍNH XÁC LÀ [${displayCultivationLevel}], tỏa ra uy áp đúng với [${displayCultivationLevel}].\nLƯỢT NÀY BẠN BỊ CẤM THAY ĐỔI CẢNH GIỚI VÀ CHỈ SỐ CỦA TA! Bắt buộc trả về "cultivationLevel": "Giữ nguyên" và "cultivationProgressChange": 0! MỌI THAY ĐỔI CHỈ DÀNH CHO "story"! LỆNH NÀY CÓ QUYỀN LỰC TỐI CAO BỎ QUA MỌI LUẬT BẢO VỆ!`);
+      });
+  };
+
+  // ================= V12.18: HÀM NGHỊCH CHUYỂN THỜI KHÔNG VĨNH CỬU =================
+  const handleTimeReversal = () => {
+      if (checkSpam() || isGenerating) return;
+      
+      // Đọc từ Ổ cứng thay vì RAM
+      let snapshot = null;
+      try {
+          const savedSnap = localStorage.getItem(`tuTienSnapshot_${currentProfileId}`);
+          if (savedSnap) snapshot = JSON.parse(savedSnap);
+      } catch(e) {}
+
+      // Ưu tiên đọc từ RAM nếu có (Giảm thiểu lỗi Quota Ổ cứng không lưu được do file quá lớn)
+      snapshot = timeMachineBuffer[currentProfileId] || snapshot;
+
+      if (!snapshot) return showAlert("Không tìm thấy điểm neo thời gian nào trong ký ức!");
+
+      // Khóa Chống Nghịch Lý Đa Thiết Bị (Anti-Desync Lock)
+      if (gameState.chapterCount - snapshot.chapterCount !== 1) {
+          // Xóa luôn snapshot rác này
+          localStorage.removeItem(`tuTienSnapshot_${currentProfileId}`);
+          setTimeMachineBuffer(prev => { const next = {...prev}; delete next[currentProfileId]; return next; });
+          return showAlert(`[CẢNH BÁO NGHỊCH LÝ THỜI KHÔNG]\n\nĐiểm neo trong máy của bạn là Chương ${snapshot.chapterCount}, nhưng hiện tại bạn đang ở Chương ${gameState.chapterCount}.\n\nĐiều này thường xảy ra khi bạn chơi trên thiết bị khác rồi đồng bộ Đám mây về lại máy này. Để bảo vệ an toàn dữ liệu, hệ thống đã hủy bỏ điểm neo cũ!`);
+      }
+
+      showConfirm("Bạn có chắc chắn muốn thi triển Nghịch Chuyển Thời Không?\n\nHành động này sẽ đưa bạn lùi lại đúng 1 chương trước đó. Mọi nhân quả, vật phẩm và sinh tử trong chương vừa rồi sẽ bị xóa bỏ hoàn toàn!", () => {
+          try {
+              // V12.18 FIX LỖI NHÂN QUẢ: Ngắt lập tức Sáng Thế Ngầm của tương lai để chúng không ghi đè dữ liệu lên thái độ NPC ở quá khứ!
+              if (abortExpansionRef.current) abortExpansionRef.current.abort();
+              if (expansionState.controller) expansionState.controller.abort();
+              setExpansionState({ isExpanding: false, timeLeft: 0, totalTime: 0, controller: null, npcsProcessed: 0, processed: { journal: 0, sect: 0, comp: 0 }, totals: { journal: 0, sect: 0, comp: 0 } });
+
+              const restoredState = JSON.parse(LZString.decompressFromBase64(snapshot.gameStateStr));
+              const restoredLogs = JSON.parse(LZString.decompressFromBase64(snapshot.storyLogStr));
+              
+              setIsMoreMenuOpen(false);
+              
+              const rollbackLog = { type: 'system', text: `[Nghịch Chuyển Thời Không] Đoạn tuyệt tương lai! Nhục thân và linh hồn đã lùi về quá khứ thành công! Đã khởi tạo dòng thời gian mới bám sát nhân quả năm xưa.`, chapter: restoredState.chapterCount };
+              
+              const profileToLoad = {
+                  id: currentProfileId,
+                  gameStateStr: snapshot.gameStateStr,
+                  name: restoredState.name,
+                  gameMode: restoredState.gameMode || 'chan_thuc',
+                  cultivationLevel: restoredState.cultivationLevel,
+                  currentOptions: snapshot.currentOptions,
+                  storyLog: restoredLogs
+              };
+              
+              // GỌI HÀM LOAD PROFILE ĐỂ CHẠY LƯỚI LỌC DỌN DẸP NHÂN BẢN NPC VÀ XÓA RÁC HOÀN TOÀN
+              executeLoadProfile(profileToLoad, rollbackLog);
+              
+              if (snapshot.currentOptions) {
+                  setCurrentOptions(snapshot.currentOptions);
+              }
+              
+          } catch (e) {
+              showAlert("Lỗi nghịch chuyển: " + e.message);
+          }
+      });
+  };
+
+    // ================= V10.85 & V10.89: LÕI TƯ DUY NGUYÊN THẦN (AUTO-PLAYER AGENT) =================

@@ -1,0 +1,539 @@
+      {isLoreAnchorModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[var(--bg-overlay)] p-2 md:p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--bg-panel)] w-full max-w-2xl max-h-[90vh] rounded-2xl flex flex-col border border-rose-500/50 shadow-2xl relative overflow-hidden">
+            <div className="p-4 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-body)] shrink-0">
+               <div className="flex items-center gap-3">
+                   <div className="bg-rose-950/40 p-2 rounded-lg border border-rose-500/50 text-rose-400"><BookMarked size={22} /></div>
+                   <div>
+                       <h3 className="text-base md:text-lg font-bold text-rose-400 uppercase tracking-widest">Mỏ Neo Nguyên Tác & Sự Kiện (v2.41)</h3>
+                       <p className="text-[10px] md:text-xs text-[var(--text-muted)] mt-0.5">Khóa cứng cốt truyện NPC chống AI biến tấu & Quản lý sự kiện hẹn giờ</p>
+                   </div>
+               </div>
+               <button onClick={() => setIsLoreAnchorModalOpen(false)} className="p-2 hover:bg-[var(--bg-hover)] rounded-lg text-[var(--text-muted)] hover:text-white transition-colors"><X size={20}/></button>
+            </div>
+
+            <div className="flex bg-[var(--bg-body)] border-b border-[var(--border-main)] shrink-0 p-2 gap-2">
+                <button 
+                    onClick={() => setAnchorTab('npc')} 
+                    className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-colors uppercase tracking-wider flex items-center justify-center gap-2 ${anchorTab === 'npc' ? 'bg-rose-900/40 text-rose-300 border border-rose-500/50 shadow-sm' : 'text-[var(--text-muted)] hover:text-rose-300'}`}
+                >
+                    <Users size={14}/> Mỏ Neo Cốt Truyện NPC
+                </button>
+                <button 
+                    onClick={() => setAnchorTab('event')} 
+                    className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-colors uppercase tracking-wider flex items-center justify-center gap-2 ${anchorTab === 'event' ? 'bg-amber-900/40 text-amber-300 border border-amber-500/50 shadow-sm' : 'text-[var(--text-muted)] hover:text-amber-300'}`}
+                >
+                    <Clock size={14}/> Mỏ Neo Sự Kiện Hẹn Giờ
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 md:p-5 custom-scrollbar bg-[var(--bg-body)] space-y-4">
+                {anchorTab === 'npc' ? (
+                    <div className="space-y-4">
+                        <div className="bg-rose-950/20 border border-rose-500/30 rounded-xl p-3 text-[11px] text-rose-300 leading-relaxed">
+                            💡 <strong>Cố định nguyên tác:</strong> Nhập bối cảnh nguyên tác từ tiểu thuyết vào đây để khóa cứng vào Thiên Đạo. AI tuyệt đối không thể tự ý sửa đổi bối cảnh, tuổi tác hay tính cách của nhân vật! Giới hạn tối đa 1500 ký tự per NPC.
+                        </div>
+
+                        <div>
+                            <h4 className="text-xs font-bold text-rose-400 uppercase tracking-wider mb-2">NPC Đã Khóa Mỏ Neo ({((gameState.journal?.npcs || []).filter((n: any) => n && (n.isLocked || n.originalStory))).length})</h4>
+                            <div className="space-y-2 max-h-36 overflow-y-auto custom-scrollbar">
+                                {((gameState.journal?.npcs || []).filter((n: any) => n && (n.isLocked || n.originalStory))).length === 0 ? (
+                                    <p className="text-xs text-[var(--text-muted)] italic">Chưa có NPC nào được khóa mỏ neo.</p>
+                                ) : (
+                                    ((gameState.journal?.npcs || []).filter((n: any) => n && (n.isLocked || n.originalStory))).map((n: any, idx: number) => (
+                                        <div key={idx} className="bg-[var(--bg-surface)] p-2.5 rounded-lg border border-rose-500/30 flex justify-between items-start">
+                                            <div>
+                                                <div className="font-bold text-xs text-rose-300 flex items-center gap-1.5">
+                                                    <span>{n.name}</span>
+                                                    <span className="text-[10px] bg-rose-900/50 text-rose-200 px-1.5 py-0.2 rounded font-normal">{n.level || 'Chưa rõ'}</span>
+                                                    <span className="text-[10px] text-gray-400">({n.role || n.relationType || 'Người quen'})</span>
+                                                </div>
+                                                <p className="text-[11px] text-[var(--text-muted)] mt-1 line-clamp-2 italic">"{n.originalStory}"</p>
+                                            </div>
+                                            <button 
+                                                onClick={() => {
+                                                    setGameState((prev: any) => ({
+                                                        ...prev,
+                                                        journal: {
+                                                            ...prev.journal,
+                                                            npcs: (prev.journal?.npcs || []).map((x: any) => x.name === n.name ? { ...x, isLocked: false, isPinned: false, originalStory: undefined } : x)
+                                                        }
+                                                    }));
+                                                    showAlert(`Đã mở khóa mỏ neo cho ${n.name}.`);
+                                                }}
+                                                className="text-[10px] text-gray-400 hover:text-red-400 p-1 shrink-0 ml-2" 
+                                                title="Mở khóa mỏ neo"
+                                            >
+                                                <Trash2 size={13} />
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] space-y-3">
+                            <h4 className="text-xs font-bold text-teal-400 uppercase tracking-wider flex items-center gap-1.5"><Sparkles size={14}/> Thiết Lập Mỏ Neo Cho NPC</h4>
+                            {/* V2.71 DARK GÓP Ý: Khóa hoàn toàn tạo NPC mới ngoài luồng, chỉ cho phép chọn NPC cùng phe có thiện cảm từ Hồng Trần Lục */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-[11px] text-[var(--text-muted)] block mb-1">Chọn NPC Từ Hồng Trần Lục (Chỉ NPC Cùng Phe / Có Thiện Cảm):</label>
+                                    <select 
+                                        value={newAnchorNpcName}
+                                        onChange={(e) => {
+                                            const sel = (gameState.journal?.npcs || []).find((x: any) => x.name === e.target.value);
+                                            if (sel) {
+                                                setNewAnchorNpcName(sel.name);
+                                                setNewAnchorNpcRole(sel.role || sel.relationType || '');
+                                                setNewAnchorNpcGender(sel.gender || 'Nữ');
+                                                setNewAnchorNpcLevel(sel.level || 'Luyện Khí Tầng 1');
+                                                if (sel.originalStory) setAnchorStoryText(sel.originalStory);
+                                                else setAnchorStoryText('');
+                                                if (sel.appearance) setNewAnchorNpcAppearance(sel.appearance);
+                                                else setNewAnchorNpcAppearance('');
+                                                if (sel.addressing) setNewAnchorNpcAddressing(sel.addressing);
+                                                else setNewAnchorNpcAddressing('');
+                                            } else {
+                                                setNewAnchorNpcName('');
+                                                setNewAnchorNpcRole('');
+                                                setAnchorStoryText('');
+                                                setNewAnchorNpcAppearance('');
+                                                setNewAnchorNpcAddressing('');
+                                            }
+                                        }}
+                                        className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg px-3 py-2 text-xs text-[var(--text-main)] focus:border-rose-500 focus:outline-none"
+                                    >
+                                        <option value="">-- Chọn NPC để gắn/sửa Mỏ Neo --</option>
+                                        {(gameState.journal?.npcs || [])
+                                            .filter((n: any) => {
+                                                // Chỉ hiện NPC cùng phe có thiện cảm (không phải tử địch/kẻ thù/đối địch)
+                                                const isEnemy = /(tử địch|kẻ thù|đối địch|truy sát|ác ý)/i.test(n.role || n.relationType || '') || (Number(n.hostility) >= 50);
+                                                return !isEnemy;
+                                            })
+                                            .map((n: any, idx: number) => (
+                                                <option key={idx} value={n.name}>{n.name} ({n.gender || 'Nữ'} - {n.level || 'Phàm'} - {n.role || 'Người quen'})</option>
+                                            ))
+                                        }
+                                    </select>
+                                    <p className="text-[10px] text-amber-400/80 mt-1 italic">🔒 Quy tắc cân bằng: Cấm tự tạo NPC mới ngoài luồng. NPC đối địch / tử địch không thể gắn mỏ neo tẩy não.</p>
+                                </div>
+                                <div>
+                                    <label className="text-[11px] text-[var(--text-muted)] block mb-1">Quan Hệ / Danh Xưng Gốc:</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Vd: Sư Tôn, Đạo Lữ, Muội muội..." 
+                                        value={newAnchorNpcRole} 
+                                        onChange={(e) => setNewAnchorNpcRole(e.target.value)} 
+                                        className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-main)] focus:border-rose-500 focus:outline-none"
+                                    />
+                                    <div className="grid grid-cols-2 gap-2 mt-2">
+                                        <div>
+                                            <label className="text-[10px] text-[var(--text-muted)] block mb-0.5">Giới Tính:</label>
+                                            <select 
+                                                value={newAnchorNpcGender} 
+                                                onChange={(e) => setNewAnchorNpcGender(e.target.value)}
+                                                className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)]"
+                                            >
+                                                <option value="Nam">Nam</option>
+                                                <option value="Nữ">Nữ</option>
+                                                <option value="Không rõ">Không rõ</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] text-[var(--text-muted)] block mb-0.5">Cảnh Giới:</label>
+                                            <input 
+                                                type="text" 
+                                                value={newAnchorNpcLevel} 
+                                                onChange={(e) => setNewAnchorNpcLevel(e.target.value)} 
+                                                placeholder="Luyện Khí..."
+                                                className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)]"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* V2.71 DARK GÓP Ý: Thêm trường Đại Từ Xưng Hô Bắt Buộc */}
+                            <div>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="text-[11px] text-teal-400 font-bold">Cách Xưng Hô Bắt Buộc (Khóa Cứng AI Không Bị Xưng Hô Lộn Xộn):</label>
+                                    <span className="text-[10px] text-gray-400">Vd: Gọi NVC là "Sư đệ", tự xưng "Sư tỷ"</span>
+                                </div>
+                                <input 
+                                    type="text" 
+                                    placeholder="Vd: Gọi NVC là 'Sư đệ', tự xưng 'Sư tỷ' / Gọi NVC là 'Phu quân', tự xưng 'Thiếp thân'..." 
+                                    value={newAnchorNpcAddressing} 
+                                    onChange={(e) => setNewAnchorNpcAddressing(e.target.value.slice(0, 150))} 
+                                    className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-main)] focus:border-teal-500 focus:outline-none mb-1"
+                                />
+                            </div>
+
+                            <div>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="text-[11px] text-[var(--text-muted)] font-bold">Ngoại Hình NPC (Tối đa 300 ký tự - Nữ tả dáng người/khí chất/y phục, Nam ngắn gọn):</label>
+                                    <span className={`text-[10px] ${newAnchorNpcAppearance.length > 300 ? 'text-red-400 font-bold' : 'text-gray-400'}`}>{newAnchorNpcAppearance.length}/300</span>
+                                </div>
+                                <input 
+                                    type="text" 
+                                    placeholder="Nữ: Dáng người mảnh mai, khí chất băng thanh ngọc khiết, khoác bạch y lụa mỏng... Nam: Cao ráo, áo xám giản dị..." 
+                                    value={newAnchorNpcAppearance} 
+                                    onChange={(e) => setNewAnchorNpcAppearance(e.target.value.slice(0, 300))} 
+                                    className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-main)] focus:border-rose-500 focus:outline-none mb-3"
+                                />
+                            </div>
+
+                            <div>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="text-[11px] text-[var(--text-muted)] font-bold">Cốt Truyện Nguyên Tác / Mỏ Neo Bất Biến (Tối đa 1500 ký tự):</label>
+                                    <span className={`text-[10px] ${anchorStoryText.length > 1500 ? 'text-red-400 font-bold' : 'text-gray-400'}`}>{anchorStoryText.length}/1500</span>
+                                </div>
+                                <textarea 
+                                    rows={4}
+                                    placeholder="Mô tả bối cảnh xuất thân, tính cách, lai lịch, biến cố từ tiểu thuyết nguyên tác... Thiên Đạo sẽ khóa cứng đoạn mô tả này, cấm AI tự ý suy diễn hoặc thay đổi tuổi tác/cốt truyện của NPC!"
+                                    value={anchorStoryText}
+                                    onChange={(e) => setAnchorStoryText(e.target.value.slice(0, 1500))}
+                                    className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg p-2.5 text-xs text-[var(--text-main)] focus:border-rose-500 focus:outline-none"
+                                />
+                            </div>
+
+                            <button 
+                                onClick={() => {
+                                    const cleanName = newAnchorNpcName.trim();
+                                    const cleanStory = anchorStoryText.trim();
+                                    if (!cleanName) return showAlert("Vui lòng chọn một NPC từ danh sách Hồng Trần Lục!");
+                                    if (!cleanStory) return showAlert("Vui lòng nhập nội dung cốt truyện nguyên tác cần khóa!");
+                                    if (cleanStory.length > 1500) return showAlert("Nội dung vượt quá trần 1500 ký tự!");
+
+                                    // V2.71 DARK GÓP Ý: Khóa cứng chống tạo NPC mới ngoài luồng & chống can thiệp kẻ thù/tử địch
+                                    const curNpcs = [...(gameState.journal?.npcs || [])];
+                                    const existingIdx = curNpcs.findIndex((n: any) => n.name === cleanName);
+                                    if (existingIdx < 0) {
+                                        return showAlert("⚠️ [KỶ LUẬT KHÓA CHEAT] Chỉ được gắn Mỏ Neo cho NPC đã hiện diện trong Hồng Trần Lục! Tuyệt đối cấm tự tạo NPC mới ngoài luồng.");
+                                    }
+
+                                    const targetNpc = curNpcs[existingIdx];
+                                    const isEnemy = /(tử địch|kẻ thù|đối địch|truy sát|ác ý)/i.test(targetNpc.role || targetNpc.relationType || '') || (Number(targetNpc.hostility) >= 50);
+                                    if (isEnemy) {
+                                        return showAlert("⚠️ [KỶ LUẬT KHÓA CHEAT] Nhân vật này là kẻ thù / đối địch / tử địch! Cấm can thiệp Mỏ Neo để tẩy não thành đồng minh hoặc đạo lữ.");
+                                    }
+
+                                    setGameState((prev: any) => {
+                                        const updatedNpcs = [...(prev.journal?.npcs || [])];
+                                        const idx = updatedNpcs.findIndex((n: any) => n.name === cleanName);
+                                        if (idx >= 0) {
+                                            updatedNpcs[idx] = {
+                                                ...updatedNpcs[idx],
+                                                isLocked: true,
+                                                originalStory: cleanStory,
+                                                appearance: newAnchorNpcAppearance.trim() || updatedNpcs[idx].appearance,
+                                                addressing: newAnchorNpcAddressing.trim() || updatedNpcs[idx].addressing, // V2.71
+                                                role: newAnchorNpcRole.trim() || updatedNpcs[idx].role || 'Người quen',
+                                                gender: newAnchorNpcGender || updatedNpcs[idx].gender,
+                                                level: newAnchorNpcLevel.trim() || updatedNpcs[idx].level,
+                                                knowledgePct: 100,
+                                                isPinned: true
+                                            };
+                                        }
+                                        return {
+                                            ...prev,
+                                            journal: {
+                                                ...prev.journal,
+                                                npcs: updatedNpcs
+                                            }
+                                        };
+                                    });
+
+                                    setStoryLog((prev: any) => {
+                                        const newLog = [...prev, {
+                                            type: 'system',
+                                            text: `[Mỏ Neo Nguyên Tác v2.71] Đã khóa cứng cốt truyện và đại từ xưng hô cho nhân vật [${cleanName}]! Thiên Đạo sẽ tuân thủ tuyệt đối quy ước này.`,
+                                            chapter: gameState.chapterCount
+                                        }];
+                                        return newLog.length > 50 ? newLog.slice(-50) : newLog;
+                                    });
+
+                                    showAlert(`Đã khóa thành công Mỏ Neo Nguyên Tác & Xưng Hô cho ${cleanName}!`);
+                                    setNewAnchorNpcName('');
+                                    setNewAnchorNpcRole('');
+                                    setAnchorStoryText('');
+                                    setNewAnchorNpcAppearance('');
+                                    setNewAnchorNpcAddressing('');
+                                }}
+                                className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg transition-colors shadow-md flex items-center justify-center gap-2"
+                            >
+                                <Lock size={14}/> Khóa Cứng Mỏ Neo NPC
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="bg-amber-950/20 border border-amber-500/30 rounded-xl p-3 text-[11px] text-amber-300 leading-relaxed">
+                            💡 <strong>Sự kiện hẹn giờ:</strong> Ghi nhận các biến cố có kỳ hạn khi chơi game (như hẹn đấu giá sau 3 ngày, bí cảnh mở sau 5 chương...). Hệ thống sẽ nhắc AI dẫn truyện đúng thời gian. Nếu quá thời hạn mà ngươi không đến hoặc sự kiện trôi qua, hệ thống sẽ tự động dọn sạch để không làm nặng file save!
+                        </div>
+
+                        <div>
+                            <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">Sự Kiện Đang Hiệu Lực ({(gameState.timedEvents || []).length})</h4>
+                            <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                                {(gameState.timedEvents || []).length === 0 ? (
+                                    <p className="text-xs text-[var(--text-muted)] italic">Chưa có sự kiện hẹn giờ nào đang diễn ra.</p>
+                                ) : (
+                                    (gameState.timedEvents || []).map((ev: any, idx: number) => {
+                                        const currentChap = gameState.chapterCount || 0;
+                                        const remaining = Math.max(0, (ev.expireChapter || currentChap) - currentChap);
+                                        return (
+                                            <div key={idx} className="bg-[var(--bg-surface)] p-2.5 rounded-lg border border-amber-500/30 flex justify-between items-start">
+                                                <div>
+                                                    <div className="font-bold text-xs text-amber-300 flex items-center gap-2">
+                                                        <span>{ev.title}</span>
+                                                        <span className="text-[10px] bg-amber-900/50 text-amber-200 px-1.5 py-0.2 rounded font-normal">Tại: {ev.location}</span>
+                                                        <span className={`text-[10px] font-bold ${remaining <= 1 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                                            (Còn {remaining} chương)
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-[var(--text-muted)] mt-1">{ev.desc}</p>
+                                                </div>
+                                                <button 
+                                                    onClick={() => {
+                                                        setGameState((prev: any) => ({
+                                                            ...prev,
+                                                            timedEvents: (prev.timedEvents || []).filter((_: any, i: number) => i !== idx)
+                                                        }));
+                                                        showAlert(`Đã hủy sự kiện ${ev.title}.`);
+                                                    }}
+                                                    className="text-[10px] text-gray-400 hover:text-red-400 p-1 shrink-0 ml-2" 
+                                                    title="Hủy sự kiện"
+                                                >
+                                                    <Trash2 size={13} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] space-y-3">
+                            <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5"><Clock size={14}/> Tạo Sự Kiện Hẹn Giờ Mới</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-[11px] text-[var(--text-muted)] block mb-1">Tiêu Đề Sự Kiện:</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Vd: Đấu Giá Hội Đan Bảo Các..." 
+                                        value={eventTitle} 
+                                        onChange={(e) => setEventTitle(e.target.value)} 
+                                        className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-main)] focus:border-amber-500 focus:outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[11px] text-[var(--text-muted)] block mb-1">Địa Điểm Diễn Ra:</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Vd: Thiên Đan Thành, Vạn Bảo Lâu..." 
+                                        value={eventLocation} 
+                                        onChange={(e) => setEventLocation(e.target.value)} 
+                                        className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-main)] focus:border-amber-500 focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div className="md:col-span-2">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="text-[11px] text-[var(--text-muted)]">Chi Tiết Sự Kiện (Tối đa 800 ký tự):</label>
+                                        <span className="text-[10px] text-gray-400">{eventDesc.length}/800</span>
+                                    </div>
+                                    <textarea 
+                                        rows={3}
+                                        placeholder="Nội dung sự kiện, bảo vật được đấu giá, hoặc lời hẹn từ NPC..." 
+                                        value={eventDesc} 
+                                        onChange={(e) => setEventDesc(e.target.value.slice(0, 800))} 
+                                        className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg p-2 text-xs text-[var(--text-main)] focus:border-amber-500 focus:outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[11px] text-[var(--text-muted)] block mb-1">Thời Hạn Hết Hạn:</label>
+                                    <select 
+                                        value={eventDuration} 
+                                        onChange={(e) => setEventDuration(Number(e.target.value))}
+                                        className="w-full bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg p-2 text-xs text-[var(--text-main)]"
+                                    >
+                                        <option value={2}>Sau 2 chương</option>
+                                        <option value={3}>Sau 3 chương (Mặc định)</option>
+                                        <option value={5}>Sau 5 chương</option>
+                                        <option value={7}>Sau 7 chương</option>
+                                        <option value={10}>Sau 10 chương</option>
+                                    </select>
+                                    <p className="text-[10px] text-[var(--text-muted)] mt-1.5 leading-relaxed">
+                                        Quá số chương này, sự kiện tự động tiêu biến khỏi lịch sử.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={() => {
+                                    const cleanTitle = eventTitle.trim();
+                                    const cleanLoc = eventLocation.trim() || 'Thế giới hiện tại';
+                                    const cleanDesc = eventDesc.trim();
+                                    if (!cleanTitle) return showAlert("Vui lòng nhập tiêu đề sự kiện!");
+                                    if (!cleanDesc) return showAlert("Vui lòng nhập nội dung chi tiết sự kiện!");
+
+                                    const currentChap = gameState.chapterCount || 0;
+                                    const newEvent = {
+                                        id: 'ev_' + Date.now(),
+                                        title: cleanTitle,
+                                        location: cleanLoc,
+                                        desc: cleanDesc,
+                                        startChapter: currentChap,
+                                        expireChapter: currentChap + Number(eventDuration || 3)
+                                    };
+
+                                    setGameState((prev: any) => ({
+                                        ...prev,
+                                        timedEvents: [...(prev.timedEvents || []), newEvent]
+                                    }));
+
+                                    setStoryLog((prev: any) => {
+                                        const newLog = [...prev, {
+                                            type: 'system',
+                                            text: `[Mỏ Neo Sự Kiện] Đã thiết lập sự kiện [${cleanTitle}] tại [${cleanLoc}] (Thời hạn ${eventDuration} chương).`,
+                                            chapter: currentChap
+                                        }];
+                                        return newLog.length > 50 ? newLog.slice(-50) : newLog;
+                                    });
+
+                                    showAlert(`Đã tạo thành công sự kiện "${cleanTitle}"!`);
+                                    setEventTitle('');
+                                    setEventLocation('');
+                                    setEventDesc('');
+                                }}
+                                className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-lg transition-colors shadow-md flex items-center justify-center gap-2"
+                            >
+                                <Sparkles size={14}/> Thiết Lập Sự Kiện Hẹn Giờ
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* ERROR LOG MODAL */}
+      {isErrorLogModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[var(--bg-overlay)] p-2 md:p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--bg-panel)] w-full max-w-5xl h-[95vh] rounded-2xl flex flex-col border border-red-500/50 shadow-2xl relative overflow-hidden">
+            <div className="p-4 border-b border-red-900/50 flex justify-between items-center bg-[var(--bg-surface)] shrink-0">
+               <div className="flex items-center gap-3">
+                   <div className="bg-red-900/30 p-2 rounded-lg border border-red-900/50"><Bug className="text-red-500" size={24} /></div>
+                   <div>
+                       <h3 className="text-lg md:text-xl font-bold text-red-500 uppercase tracking-widest">Báo Cáo Lỗi Hệ Thống</h3>
+                       <p className="text-[10px] md:text-xs text-red-400/60 mt-0.5">Ghi chép chi tiết nguyên nhân sập, xung đột biến hệ thống, lỗi code</p>
+                   </div>
+               </div>
+               <div className="flex items-center gap-2">
+                   <button onClick={() => { showConfirm('Chắc chắn xóa toàn bộ báo cáo lỗi?', () => setErrorLogs([])); }} className="text-xs bg-red-900/20 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/30 px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1">
+                       <Trash2 size={14}/> Xóa Cả
+                   </button>
+                   <button onClick={() => setIsErrorLogModalOpen(false)} className="p-2 hover:bg-red-900/30 hover:text-red-500 border border-transparent hover:border-red-900/50 rounded-lg text-[var(--text-muted)] transition-colors"><X size={20}/></button>
+               </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-[var(--bg-body)] space-y-4">
+                {errorLogs.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-emerald-500/50 py-10">
+                        <Check size={60} className="mb-4 opacity-50"/>
+                        <p className="text-lg italic font-bold text-emerald-500">Hệ thống đang hoạt động trơn tru. Chưa ghi nhận lỗi nào!</p>
+                    </div>
+                ) : (
+                    errorLogs.map((log, i) => (
+                        <div key={i} className="bg-[var(--bg-body)] rounded-xl border border-red-900/30 hover:border-red-500/50 transition-colors p-4 shadow-sm flex flex-col gap-2">
+                            <div className="flex justify-between items-start border-b border-red-900/30 pb-2 mb-1">
+                                <div className="font-bold text-red-400 text-sm flex items-center gap-2">
+                                    <AlertTriangle size={16} className="shrink-0"/> <span className="break-all">{log.message}</span>
+                                </div>
+                                <span className="text-[10px] font-mono text-gray-500 shrink-0 ml-4">{log.time}</span>
+                            </div>
+                            {log.source && (
+                                <div className="text-[11px] text-gray-400 font-mono flex gap-2">
+                                    <span className="text-blue-400">Tệp:</span> <span className="break-all">{log.source}</span>
+                                    {(log.lineno || log.colno) && <span className="text-yellow-500 shrink-0">[{log.lineno}:{log.colno}]</span>}
+                                </div>
+                            )}
+                            {log.errorObj && (
+                                <div className="bg-[var(--bg-body)] p-3 rounded-lg border border-red-900/50 text-[10px] md:text-[11px] text-gray-400 font-mono whitespace-pre-wrap overflow-x-auto max-h-60 custom-scrollbar">
+                                    {log.errorObj}
+                                </div>
+                            )}
+                        </div>
+                    ))
+                )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* V9.39: SUB STATS TOGGLE MODAL (CỜ LÊ BÁCH NGHỆ) */}
+      {isSubStatsModalOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[var(--bg-overlay)] p-4 animate-in fade-in duration-200">
+            <div className="bg-[var(--bg-panel)] w-full max-w-sm rounded-2xl flex flex-col border border-[var(--border-main)] shadow-2xl relative overflow-hidden">
+              <div className="p-4 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-surface)] shrink-0">
+                 <div className="flex items-center gap-3">
+                     <div className="bg-teal-900/30 p-2 rounded-lg border border-teal-500/50"><Wrench className="text-teal-500" size={20} /></div>
+                     <h3 className="text-lg font-bold text-[var(--text-bold)] uppercase tracking-widest">Ghim Bách Nghệ</h3>
+                 </div>
+                 <button onClick={() => setIsSubStatsModalOpen(false)} className="p-2 hover:bg-[var(--bg-hover)] border border-transparent hover:border-[var(--border-main)] rounded-lg text-[var(--text-muted)] transition-colors"><X size={20}/></button>
+              </div>
+              <div className="p-5 bg-[var(--bg-body)] space-y-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                  <p className="text-[11px] text-[var(--text-muted)] leading-relaxed italic mb-3 bg-[var(--bg-surface)] p-3 rounded-lg border border-[var(--border-main)] shadow-inner">💡 Đạo hữu có thể tùy chọn ghim các chỉ số nghề nghiệp/đời sống ra ngoài màn hình chính để dễ bề theo dõi. Thiên Đạo sẽ luôn nội suy các thông số ẩn này để làm cơ sở logic.</p>
+                  <div className="flex gap-2 mb-3">
+                      <button onClick={() => {
+                          const allIds = ['dan', 'khi', 'tran', 'phu', 'thu', 'thuc', 'thuong', 'mi'];
+                          setVisibleSubStats(allIds);
+                          localStorage.setItem('tuTienSubStats', JSON.stringify(allIds));
+                      }} className="flex-1 text-xs py-1.5 bg-teal-900/40 hover:bg-teal-700 text-teal-300 hover:text-white border border-teal-500/40 rounded-lg font-bold transition-colors shadow-sm">
+                          Ghim Tất Cả
+                      </button>
+                      <button onClick={() => {
+                          setVisibleSubStats([]);
+                          localStorage.setItem('tuTienSubStats', JSON.stringify([]));
+                      }} className="flex-1 text-xs py-1.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-red-400 border border-[var(--border-main)] rounded-lg font-bold transition-colors shadow-sm">
+                          Bỏ Ghim Hết
+                      </button>
+                  </div>
+                  {[
+                      { id: 'dan', label: 'Luyện Đan', icon: FlaskRound, color: 'text-emerald-400' },
+                      { id: 'khi', label: 'Luyện Khí', icon: Axe, color: 'text-orange-400' },
+                      { id: 'tran', label: 'Trận Pháp', icon: Hexagon, color: 'text-blue-400' },
+                      { id: 'phu', label: 'Luyện Phù', icon: PenTool, color: 'text-yellow-400' },
+                      { id: 'thu', label: 'Ngự Thú', icon: PawPrint, color: 'text-rose-400' },
+                      { id: 'thuc', label: 'Thực Thần', icon: Utensils, color: 'text-amber-500' },
+                      { id: 'thuong', label: 'Thương Đạo', icon: ShoppingCart, color: 'text-cyan-400' },
+                      { id: 'mi', label: 'Mị Lực', icon: Smile, color: 'text-pink-400' }
+                  ].map(cfg => {
+                      const isChecked = visibleSubStats.includes(cfg.id);
+                      return (
+                          <div key={cfg.id} onClick={() => {
+                              let next;
+                              if (isChecked) next = visibleSubStats.filter(id => id !== cfg.id);
+                              else next = [...visibleSubStats, cfg.id];
+                              setVisibleSubStats(next);
+                              localStorage.setItem('tuTienSubStats', JSON.stringify(next));
+                          }} className={`flex justify-between items-center bg-[var(--bg-surface)] p-3 rounded-xl border transition-colors cursor-pointer shadow-sm ${isChecked ? 'border-teal-500/50 hover:border-teal-500' : 'border-[var(--border-main)] hover:border-gray-500'}`}>
+                              <div className="flex items-center gap-3">
+                                  <cfg.icon size={18} className={cfg.color}/>
+                                  <span className="font-bold text-sm text-[var(--text-main)] uppercase tracking-widest">{cfg.label}</span>
+                              </div>
+                              <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isChecked ? 'bg-teal-500 border-teal-500' : 'bg-[var(--bg-body)] border-[var(--border-main)]'}`}>
+                                  {isChecked && <Check size={14} className="text-white"/>}
+                              </div>
+                          </div>
+                      );
+                  })}
+              </div>
+            </div>
+          </div>
+      )}
+
+      {/* V10.85: MODAL CẤU HÌNH & TERMINAL NGUYÊN THẦN KÝ THÁC (AUTO-PLAY) */}

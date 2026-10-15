@@ -1,0 +1,13 @@
+YÊU CẦU TÁI CẤU TRÚC MÃ NGUỒN THÀNH MODULE CHỨC NĂNG
+
+Dựa trên file module được cung cấp và chỉ mục nguồn:
+1. Xác định chính xác vai trò của đoạn code và giữ nguyên quy tắc nghiệp vụ, dữ liệu, tên trường, ID, điều kiện, thứ tự xử lý và hành vi gốc. Không tự ý rút gọn hoặc xóa nhánh cũ.
+2. Trước khi sửa, liệt kê hàm/biến/hằng số được khai báo, các phụ thuộc từ module khác, state React được sử dụng và các side effect.
+3. Chỉ biến thành module thực thi được khi đã khai báo đầy đủ dependency, export/import và type. Không giả định các biến trong App() sẽ tự tồn tại ngoài App().
+4. Khi chuyển handler dùng React state sang file riêng, hãy tạo custom hook nhận dependency rõ ràng hoặc dùng Context/Reducer có kiểu. Không sao chép một state vào nhiều nơi.
+5. Với JSX, chuyển thành component riêng; xác định props cần thiết và giữ nguyên điều kiện render, callback, className và hành vi tương tác.
+6. Với `callGeminiAPI`, không cắt theo số dòng. Trước tiên lập sơ đồ các giai đoạn theo đầu vào/đầu ra; sau đó tách từng helper một, giữ nguyên thứ tự cập nhật `gameState` và xử lý lỗi.
+7. Làm từng module một. Sau mỗi module trả ra: file hoàn chỉnh, danh sách exports, danh sách imports/phụ thuộc, thay đổi so với nguồn, và test cần chạy. Không nói module đã build được nếu chưa có kết quả kiểm tra.
+8. Nếu thiếu phần phụ thuộc, hãy nêu cụ thể tên biến/hàm và lấy từ `FUNCTION_INDEX.csv`/module liên quan; không tự bịa cách thực thi.
+
+Mục tiêu cuối: chuyển mã một file lớn thành dự án React/TypeScript có module riêng, nhưng giữ nguyên chức năng và không làm gãy những hệ thống liên kết như cảnh giới, thể chất, NPC, bản đồ, vật phẩm, dung hợp, chiến đấu, tửu quán, co-op, profile và AI sinh diễn biến.

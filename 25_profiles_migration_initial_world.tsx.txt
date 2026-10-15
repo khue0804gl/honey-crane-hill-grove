@@ -1,0 +1,1506 @@
+  const executeLoadProfile = async (profile, bonusLog = null) => {
+    // V1.96 ETSUO FIX: Tự động khôi phục toàn bộ Cài Đặt Hệ Thống khi nạp profile
+    if (profile.systemSettings) {
+        applySystemSettings(profile.systemSettings);
+    } else if (profile.gameState && profile.gameState.systemSettings) {
+        applySystemSettings(profile.gameState.systemSettings);
+    }
+
+    let rawGameState = profile.gameState;
+    // V1.76 FIX: Nếu caller truyền sẵn profile.gameState đã được sửa/cấu trúc lại thì ưu tiên dùng profile.gameState; chỉ giải nén gameStateStr khi gameState chưa có
+    if (!rawGameState && profile.gameStateStr) {
+        rawGameState = safeDecompress(profile.gameStateStr);
+    }
+    if (typeof rawGameState === 'string') try { rawGameState = JSON.parse(rawGameState); } catch(e){}
+
+    if (!rawGameState) return showAlert("Dữ liệu nhân vật bị hỏng hoặc lỗi định dạng!");
+
+    // --- V11.08 FIX: ĐÃ GỠ BỎ HOÀN TOÀN HỆ THỐNG ANTI-CHEAT & KHÍ VẬN KẺ PHẢN ĐẠO ---
+    let cheatPunishmentLog = null; 
+    // --- KẾT THÚC ANTI-CHEAT ---
+
+    const loadedContainers = rawGameState.containers || [{ id: 'default', name: 'Túi vải thô', capacity: 30 }];
+    
+    // V6.48: Bộ lọc Hồi Tố Hoàn Hảo - Khôi phục định dạng và Chỉ số cho đồ cũ
+    const parsedInventory = (rawGameState.inventory || []).map(item => {
+        if (typeof item === 'string') return { name: String(item), quantity: 1, containerId: loadedContainers[0].id };
+        let itemType = item?.type || 'misc';
+        const safeName = String(item?.name || 'Vật phẩm').toLowerCase();
+        
+        // V10.01 FIX: Hồi Tố - Tự động sửa lỗi Nhẫn "Đã giải ấn" nhưng hệ thống cũ vẫn gán nhầm là Bị Phong Ấn
+        if (itemType === 'sealed_spatial' && /(đã giải ấn|đã phá ấn|đã mở)/.test(safeName)) {
+            itemType = 'spatial';
+        }
+        
+        // V6.48 & V1.24: Hồi tố phân loại - Bảo vệ triệt để đan dược & vật liệu
+        const isDanDuoc = /(đan|hoàn|tán|cao|dược|thuốc|linh dịch|thảo|linh quả|quả|thịt|cơm|bánh|tửu|rượu|ma dược|potion)/i.test(safeName) && !/(lò đan|đan lò|đan đỉnh|thảo hài|yêu đan|thú đan|nội đan)/i.test(safeName);
+        const isRealSpatialName = /(túi\s+trữ\s+vật|nhẫn\s+trữ\s+vật|túi\s+càn\s+khôn|nhẫn\s+càn\s+khôn|tu\s+di\s+giới|nhẫn\s+không\s+gian|túi\s+không\s+gian|bảo\s+hạp\s+trữ\s+vật|hồ\s+lô\s+trữ\s+vật|vòng\s+trữ\s+vật|giới\s+chỉ\s+trữ\s+vật|trữ\s+vật\s+đại|trữ\s+vật\s+giới)/i.test(safeName);
+        const isEquipName = /(kiếm|đao|thương|kích|côn|búa|rìu|cung|trượng|xích|roi|chùy|mâu|thuẫn|khiên|tiễn|phiến|cầm|địch|tiêu|bút|luân|phiên|châm|xoa|áo|giáp|bào|pháp\s*y|y\s*phục|(?:^|\s)y(?:\s|$)|khải|sam|cừu|đai|thắt lưng|mũ|nón|khăn|quán|quan|trâm|thoa|miện|giày|ủng|hài|ngoa|nhẫn|giới chỉ|bội|liên|vòng tay|xuyến|chuông|chung|ấn|tháp|kính)/i.test(safeName);
+        const isNguyenLieu = /(quặng|khoáng|thiết|đồng|thép|tinh thạch|ngọc thạch|da thú|xương|nanh|vuốt|vảy|yêu đan|thú đan|nội đan|ma hạch|phù lục|trận kỳ|ngọc giản|bí kíp|mảnh|nguyên liệu)/i.test(safeName);
+
+        if (isDanDuoc && !isRealSpatialName) {
+            itemType = 'food';
+        } else if (isRealSpatialName) {
+            itemType = 'spatial';
+        } else if (isEquipName) {
+            itemType = 'equip';
+        } else if (isNguyenLieu) {
+            itemType = 'misc';
+        }
+        
+        let processedItem = { 
+            name: String(item?.name || 'Vật phẩm'), quantity: Number(item?.quantity || 1), type: itemType, 
+            tier: item?.tier || 'Phàm Khí', rarity: item?.rarity || 'Trắng', perks: item?.perks || [], subLevel: item?.subLevel,
+            durability: item?.durability, maxDurability: item?.maxDurability, freshness: item?.freshness, 
+            maxFreshness: item?.maxFreshness, desc: item?.desc, containerId: item?.containerId || loadedContainers[0].id 
+        };
+
+        // V6.48: Ép cấp chỉ số cho đồ cũ nếu nó là trang bị mà bị mất/rỗng chỉ số
+        if (itemType === 'equip' && processedItem.attackBonus === undefined && processedItem.defenseBonus === undefined) {
+            processedItem = enrichEquipStats(processedItem);
+        }
+
+        return processedItem;
+    });
+    const { inventory: cleanInv, spiritStones: fixedStones } = sanitizeInventoryAndStones(parsedInventory, rawGameState.spiritStones);
+
+    // V3.69 & V3.86: Xử lý tương thích ngược cho người chơi ở phiên bản cũ chưa có hệ thống túi
+    let legacyBonusLog = null;
+    if (!rawGameState.containers) {
+        const defaultContainer = loadedContainers.find(c => c.id === 'default');
+        if (defaultContainer) {
+            const currentTotalWeight = cleanInv.reduce((sum, i) => sum + getItemTotalWeight(i), 0);
+            if (currentTotalWeight > 30) {
+                const safeAgeHere = Number(rawGameState.age) || 18;
+                defaultContainer.name = "Túi Càn Khôn (Cũ)";
+                defaultContainer.capacity = Math.ceil(currentTotalWeight + 50); // V4.88 FIX: Chỉ cấp thêm 50kg dự phòng để cân bằng
+                defaultContainer.rarity = 'Tím';
+                defaultContainer.isLegacyBag = true;
+                defaultContainer.expireAge = safeAgeHere + 1; // 1 năm
+                defaultContainer.desc = `Túi đồ tạm thời chứa đồ từ kiếp trước. Sẽ sụp đổ sau 1 năm (Vào năm ${Math.floor(safeAgeHere + 1 - 18) + 1} tu đạo).`;
+                legacyBonusLog = { type: 'system', text: `[Hệ Thống - V4.88] Thích ứng định luật không gian. Vì lượng đồ cũ quá tải, tặng [Túi Càn Khôn (Cũ)] (Sức chứa: ${defaultContainer.capacity}kg). CẢNH BÁO: Không gian này không ổn định, sẽ sụp đổ sau 1 NĂM. Hãy lập tức kiếm túi mới!`, chapter: Number(rawGameState.chapterCount) || 0 };
+            }
+        }
+    }
+
+    const safeAge = Number(rawGameState.age) || 18;
+    const safeStartAge = rawGameState.startAge !== undefined ? Number(rawGameState.startAge) : safeAge;
+    const safeCurrentLocation = String(rawGameState.currentLocation || 'Thế giới hiện tại');
+    
+    let loadedRealms = rawGameState.knownRealms;
+    if (loadedRealms) {
+        Object.keys(loadedRealms).forEach(key => {
+            if (loadedRealms[key].accumulated === undefined || loadedRealms[key].accumulated === null || isNaN(loadedRealms[key].accumulated) || loadedRealms[key].accumulated < 0) {
+                loadedRealms[key].accumulated = Math.max(0, safeAge - safeStartAge);
+            }
+        });
+    } else {
+        loadedRealms = { [safeCurrentLocation]: { ratio: 1, accumulated: Math.max(0, safeAge - safeStartAge) } };
+    }
+
+    // V7.49 & V8.49 FIX: Tẩy rửa Cảnh Giới bị AI viết bậy hoặc dính lỗi "undefined" phá file
+    let cleanCultivationLevel = String(rawGameState.cultivationLevel || 'Phàm Nhân');
+    
+    // Nếu nhân vật bị dính lỗi mất cảnh giới của bản V8.47, lôi lịch sử ra cứu
+    if (cleanCultivationLevel === 'undefined' || cleanCultivationLevel === 'null' || cleanCultivationLevel.trim() === '') {
+        const lastValidHistory = (rawGameState.levelHistory || []).find(h => h.change && !h.change.includes('undefined'));
+        if (lastValidHistory) {
+             const match = lastValidHistory.change.match(/➔\s*(.*)/);
+             if (match && match[1]) cleanCultivationLevel = match[1].trim();
+             else cleanCultivationLevel = 'Phàm Nhân';
+        } else {
+             cleanCultivationLevel = 'Phàm Nhân';
+        }
+    }
+
+    if (cleanCultivationLevel !== 'Phàm Nhân') {
+        cleanCultivationLevel = cleanCultivationLevel.replace(/\s*\[.*?\]\s*/g, '').replace(/\s+Tầng\s+\d+/ig, '').replace(/\s+(Sơ|Trung|Hậu)\s+Kỳ/ig, '').replace(/\s+Viên\s+Mãn/ig, '').trim();
+        if (/^luyện khí$/i.test(cleanCultivationLevel)) cleanCultivationLevel = 'Luyện Khí Kỳ';
+    }
+
+    // V1.66 FIX: Tự động cứu các save cũ Yêu Tu bị gán nhầm cảnh giới Luyện Khí Kỳ của Nhân Tộc về Tiểu Yêu
+    // V3.6 ĐẶC QUYỀN CHỦ TOẠ THÀNH KHÔN: HỒI TỐ & TỰ ĐỘNG NẮN CHUẨN XUẤT THÂN HỌC ĐỒ THÁP MA PHÁP
+    // Khóa cứng khởi đầu tại Tháp Pháp Sư Violet Citadel - Thiên Không Thành Dalaran, kích hoạt DLC Quang Ám và nạp Ma Pháp Khởi Nguyên
+    if (rawGameState.backgroundId === 'ma_phap' || cleanCultivationLevel.includes('Ma Pháp') || cleanCultivationLevel.includes('Pháp Sư')) {
+        if (!rawGameState.activeDLCs) rawGameState.activeDLCs = [];
+        if (!rawGameState.activeDLCs.includes('dlc_dark_fantasy')) {
+            rawGameState.activeDLCs.push('dlc_dark_fantasy');
+        }
+        if (Number(rawGameState.chapterCount) <= 1 || !rawGameState.currentLocationNodeId || !rawGameState.currentLocationNodeId.startsWith('dlc_')) {
+            rawGameState.currentLocationNodeId = 'dlc_violet_citadel_dalaran';
+            rawGameState.currentLocation = 'Tháp Pháp Sư Violet Citadel - Thiên Không Thành Dalaran';
+            rawGameState.coordinates = { x: -18, y: 18, z: 2 };
+        }
+        if (!(rawGameState.traits || []).some((t: any) => (t?.name || t) === 'Ma Pháp Khởi Nguyên')) {
+            const mpTrait = TRAITS_POOL.find(t => t.id === 9982);
+            if (mpTrait) rawGameState.traits = [...(rawGameState.traits || []), { ...mpTrait, cost: 0 }];
+        }
+    }
+
+    // V3.6 AUTO HEAL TOÀN DIỆN CÁC XUẤT THÂN ĐA VŨ TRỤ KHI LOAD PROFILE (LỆNH THÉP THÀNH KHÔN)
+    const bgToOriginMap: Record<string, { nodeId: string; locName: string; coords: {x:number, y:number, z:number}; traits: string[]; dlc: string }> = {
+        'bg_high_elf': { nodeId: 'dlc_alfheim_lothlorien', locName: 'Alfheim - Lothlórien', coords: { x: -16, y: 16, z: 1 }, traits: ['Ngộ Tính Siêu Phàm', 'Mị Cốt Thiên Sương', 'Ma Pháp Khởi Nguyên'], dlc: 'dlc_dark_fantasy' },
+        'bg_dark_elf': { nodeId: 'dlc_commorragh_naggaroth', locName: 'Commorragh - Naggaroth', coords: { x: -22, y: 12, z: -2 }, traits: ['Vạn Ác Tội Thể', 'Mị Cốt Thiên Sương', 'Ma Pháp Khởi Nguyên'], dlc: 'dlc_dark_fantasy' },
+        'bg_elf': { nodeId: (rawGameState.v1082_ElfRace || '').includes('Dark') ? 'dlc_commorragh_naggaroth' : 'dlc_alfheim_lothlorien', locName: (rawGameState.v1082_ElfRace || '').includes('Dark') ? 'Commorragh - Naggaroth' : 'Alfheim - Lothlórien', coords: (rawGameState.v1082_ElfRace || '').includes('Dark') ? { x: -22, y: 12, z: -2 } : { x: -16, y: 16, z: 1 }, traits: ['Ngộ Tính Siêu Phàm', 'Mị Cốt Thiên Sương', 'Ma Pháp Khởi Nguyên'], dlc: 'dlc_dark_fantasy' },
+        'bg_angel': { nodeId: 'dlc_thien_duc_gioi_holy_palace', locName: 'Thiên Dực Giới - Holy Palace', coords: { x: -15, y: 22, z: 5 }, traits: ['Phật Cốt Xá Lợi', 'Mị Cốt Thiên Sương'], dlc: 'dlc_dark_fantasy' },
+        'bg_blood_angel': { nodeId: 'dlc_warp_khorne_huyet_vuc', locName: 'Địa Ngục Giới - Warp Huyết Vực Khorne', coords: { x: -25, y: -25, z: -5 }, traits: ['Thiên Ma Thể', 'Hạn Bạt Viêm Thể', 'Huyết Thần Sủng Nhi'], dlc: 'dlc_dark_fantasy' },
+        'bg_succubus': { nodeId: 'dlc_warp_slaanesh_mi_vuc', locName: 'Địa Ngục Giới - Warp Mị Vực Slaanesh', coords: { x: -24, y: -26, z: -5 }, traits: ['Hợp Hoan Mị Cốt', 'Dục Thần Sủng Nhi'], dlc: 'dlc_dark_fantasy' },
+        'bg_nightmare': { nodeId: 'dlc_warp_tzeentch_huyen_vuc', locName: 'Địa Ngục Giới - Warp Huyễn Vực Tzeentch', coords: { x: -26, y: -24, z: -5 }, traits: ['Huyễn Mộng Chân Thể', 'Vô Ngã Vô Tướng Thể', 'Ảo Thần Sủng Nhi'], dlc: 'dlc_dark_fantasy' },
+        'bg_undead': { nodeId: 'dlc_warp_orcus_tu_vuc', locName: 'Địa Ngục Giới - Warp Tử Vực Orcus', coords: { x: -27, y: -25, z: -6 }, traits: ['Thi Âm Luyện Sư', 'Tử Thần Sủng Nhi'], dlc: 'dlc_dark_fantasy' },
+        'bg_behemoth': { nodeId: 'dlc_warp_nurgle_benh_vuc', locName: 'Địa Ngục Giới - Warp Bệnh Vực Nurgle', coords: { x: -25, y: -27, z: -6 }, traits: ['Bàn Cổ Huyết Mạch', 'Ngự Trù Bạo Chúa', 'Ách Nan Độc Thể', 'Bệnh Thần Sủng Nhi'], dlc: 'dlc_dark_fantasy' },
+        'bg_titan': { nodeId: 'dlc_valhalla_new_asgard', locName: 'New Asgard - Chiến Tử Điện Valhalla', coords: { x: -20, y: 20, z: 3 }, traits: ['Bàn Cổ Huyết Mạch', 'Cự Nhân Thể', 'Vạn Pháp Bất Xâm'], dlc: 'dlc_dark_fantasy' },
+        'bg_do_thi_tu_tien': { nodeId: 'dlc_khoa_ky_cong_quoc', locName: 'Khoa Kỹ Công Quốc', coords: { x: 18, y: -18, z: 0 }, traits: [], dlc: 'dlc_cyberpunk' }
+    };
+
+    if (rawGameState.backgroundId && bgToOriginMap[rawGameState.backgroundId]) {
+        const conf = bgToOriginMap[rawGameState.backgroundId];
+        if (Number(rawGameState.chapterCount) <= 1 || !rawGameState.currentLocationNodeId || !rawGameState.currentLocationNodeId.startsWith('dlc_')) {
+            rawGameState.currentLocationNodeId = conf.nodeId;
+            rawGameState.currentLocation = conf.locName;
+            rawGameState.coordinates = conf.coords;
+        }
+        if (!rawGameState.activeDLCs) rawGameState.activeDLCs = [];
+        const targetDlc = conf.dlc || 'dlc_dark_fantasy';
+        if (!rawGameState.activeDLCs.includes(targetDlc)) rawGameState.activeDLCs.push(targetDlc);
+        conf.traits.forEach(tName => {
+            if (!(rawGameState.traits || []).some((t: any) => (t?.name || t) === tName)) {
+                const tObj = TRAITS_POOL.find(x => x.name === tName);
+                if (tObj) rawGameState.traits = [...(rawGameState.traits || []), { ...tObj, cost: 0 }];
+            }
+        });
+    }
+
+    // V3.25 AUTO HEAL CHỐNG LỖI KẸT NODE DLC CHO BASE GAME (LỆNH THÉP SỬA LỖI SAVE LUCIFINIL47):
+    if ((!rawGameState.backgroundId || !bgToOriginMap[rawGameState.backgroundId]) && (!rawGameState.activeDLCs || rawGameState.activeDLCs.length === 0)) {
+        if (rawGameState.currentLocationNodeId && rawGameState.currentLocationNodeId.startsWith('dlc_')) {
+            const tl = getActiveTimeline(rawGameState.timelineId);
+            const activeGraph = getActiveWorldGraph(rawGameState.timelineId);
+            const validFallbackId = Object.keys(activeGraph).find(k => activeGraph[k].name === rawGameState.currentLocation) || tl.defaultStartNodeId || 'dong_thang_thien_nam_phuong_thi';
+            rawGameState.currentLocationNodeId = validFallbackId;
+            if (activeGraph[validFallbackId]) {
+                rawGameState.coordinates = { ...activeGraph[validFallbackId].coordinates, z: activeGraph[validFallbackId].planeZ || 0 };
+            }
+        }
+        // Lọc sạch các địa danh DLC rác khỏi Bách Khoa Toàn Thư (encyclopedia) nếu không mở DLC
+        if (Array.isArray(rawGameState.encyclopedia)) {
+            rawGameState.encyclopedia = rawGameState.encyclopedia.filter((e: any) => !e.id?.startsWith('dlc_') && !e.regionName?.includes('Alfheim') && !e.regionName?.includes('Valhalla') && !e.regionName?.includes('Warp'));
+        }
+    }
+
+    // V3.33 (ORI & THÀNH KHÔN): TÍNH ĐÚNG MAX STAMINA DỰA TRÊN BONUS, CHỐNG TỤT VỀ 100
+    const realLoadedMaxStamina = Math.max(100, Math.floor(100 + (Number(rawGameState.bonusMaxStamina) || 0)));
+    rawGameState.maxStamina = realLoadedMaxStamina;
+    if (Number(rawGameState.stamina) <= 0) {
+        rawGameState.stamina = realLoadedMaxStamina;
+    }
+    // V3.27 AUTO HEAL TOÀN DIỆN THỌ NGUYÊN, DEBUFF ÂM & TỬ VONG OAN (BÁO LỖI DARK)
+    const stageCfgForHeal = typeof getStageConfig === 'function' ? getStageConfig(cleanCultivationLevel) : { id: 1 };
+    const isImmortalForHeal = stageCfgForHeal.id >= 9 || /(đạo tổ|vạn ma chi chủ|bàn cổ|tiên đế|tiên vương|tiên hoàng|tiên tôn|đại la|thái ất|chí tôn)/i.test(String(cleanCultivationLevel || ''));
+    if (isImmortalForHeal) {
+        if (Number(rawGameState.bonusMaxAge) < 0 || Number(rawGameState.maxAge) < 1000) {
+            rawGameState.bonusMaxAge = 0;
+            rawGameState.maxAge = calculateMaxAge(cleanCultivationLevel, rawGameState.traits, rawGameState.backgroundId, 0, rawGameState.race || 'Nhân tộc', Number(rawGameState.age) || 0);
+        }
+    }
+    // Tẩy sạch debuff trừ âm hàng triệu/hàng tỷ
+    if (Array.isArray(rawGameState.activeEffects)) {
+        rawGameState.activeEffects = rawGameState.activeEffects.filter((e: any) => {
+            if (!e || !e.statMods) return true;
+            const hasCorruptedNegative = Object.values(e.statMods).some((v: any) => Number(v) < -10000000 || Number(v) > 10000000);
+            return !hasCorruptedNegative;
+        });
+    }
+    // Tẩy sạch tử vong oan cho NPC đang sống
+    if (rawGameState.journal && Array.isArray(rawGameState.journal.npcs)) {
+        rawGameState.journal.npcs.forEach((n: any) => {
+            if (n && !n.isDead) {
+                n.deathReason = null;
+                n.deathAge = null;
+                n.deathTimeStr = null;
+                n.deathLocation = null;
+            }
+        });
+    }
+    // V3.33 (ORI & THÀNH KHÔN): Tự cân bằng stamina nếu bị tràn số, dùng realLoadedMaxStamina
+    if (Number(rawGameState.stamina) > realLoadedMaxStamina * 10) {
+        rawGameState.stamina = realLoadedMaxStamina;
+    }
+
+    let loadedPathForFix = (rawGameState.cultivationPath && ['tu_tien', 'the_tu', 'ma_tu', 'yeu_tu', 'nho_tu', 'phat_tu', 'quy_tu'].includes(rawGameState.cultivationPath)) ? rawGameState.cultivationPath : getCultivationPath(rawGameState.backgroundId, rawGameState.traits || []);
+    if ((isPureYeuTocBg(rawGameState.backgroundId) || ['bg_10', 'bg_25', 'bg_taotie', 'bg_long_toc', 'bg_con_bang', 'bg_ho_toc', 'bg_vien_co_cu_long'].includes(rawGameState.backgroundId)) && !(rawGameState.traits || []).some((t: any) => String(t?.name || '').includes('Đại Đạo Trùng Tu'))) {
+        if (loadedPathForFix === 'the_tu') loadedPathForFix = 'yeu_tu';
+    }
+    if (loadedPathForFix === 'yeu_tu' && (cleanCultivationLevel === 'Luyện Khí Kỳ' || cleanCultivationLevel === 'Luyện Khí')) {
+        cleanCultivationLevel = 'Tiểu Yêu';
+    }
+
+    // V12.01 FIX: LƯỚI LỌC HỒI TỐ (RETROSPECTIVE RADAR)
+    // Âm thầm quét lịch sử file save cũ để báo cáo lên Đám mây cho Admin xét duyệt
+    if (!isAdminLoggedIn) { 
+        let pastCheatEvidence = null;
+        let cheatChapter = '?';
+        const historiesToScan = [
+            rawGameState.levelHistory, rawGameState.hpHistory, rawGameState.mpHistory, 
+            rawGameState.stonesHistory, rawGameState.sectWealthHistory, 
+            rawGameState.corruptionHistory, rawGameState.karmaHistory
+        ];
+        
+        for (const historyArr of historiesToScan) {
+            if (!historyArr || !Array.isArray(historyArr)) continue;
+            for (const item of historyArr) {
+                if (item.userAction) {
+                    const normalizedAction = String(item.userAction).toLowerCase().replace(/\s+/g, ' ').trim();
+                    const isSyncForward = normalizedAction === "thiên đạo admin ban phước : diễn biến cảnh giới đang thấp. cho ngang bằng bảng cảnh giới." || normalizedAction === "thiên đạo admin ban phước: diễn biến cảnh giới đang thấp. cho ngang bằng bảng cảnh giới.";
+                    const isSyncBackward = normalizedAction === "thiên đạo admin ban phước : diễn biến cảnh giới đang cao. cho ngang bằng bảng cảnh giới." || normalizedAction === "thiên đạo admin ban phước: diễn biến cảnh giới đang cao. cho ngang bằng bảng cảnh giới.";
+                    
+                    if (!isSyncForward && !isSyncBackward && /(thiên đạo admin|ban phước|đặc quyền admin)/.test(normalizedAction)) {
+                        pastCheatEvidence = item.userAction;
+                        cheatChapter = item.chapter || '?';
+                        break; // Đã tìm thấy bằng chứng thì ngắt vòng lặp nhỏ
+                    }
+                }
+            }
+            if (pastCheatEvidence) break; // Ngắt vòng lặp lớn
+        }
+
+        if (pastCheatEvidence) {
+            // Chỉ gửi báo cáo lên Đám mây để Admin xét duyệt, TUYỆT ĐỐI KHÔNG can thiệp vào tiến trình chơi
+            sendAdminLog('cheat_attempt', `[Hồi Tố - Chương ${cheatChapter}] Load File Save cũ có bằng chứng gian lận: "${pastCheatEvidence}"`, rawGameState.name, user?.uid, cleanCultivationLevel);
+        }
+    }
+
+    const stateToLoad = { 
+      daoComprehension: Array.isArray(rawGameState.daoComprehension) ? rawGameState.daoComprehension : [],
+      ...rawGameState, 
+      timelineId: rawGameState.timelineId || 'timeline_thanh_van',
+      worldName: rawGameState.worldName || (rawGameState.timelineId ? TIMELINES_CONFIG[rawGameState.timelineId]?.worldName : 'Cửu Châu Tiên Giới') || 'Cửu Châu Tiên Giới',
+      timelineTitle: rawGameState.timelineTitle || (rawGameState.timelineId ? TIMELINES_CONFIG[rawGameState.timelineId]?.timelineTitle : 'Thanh Vân Khí Vận Kỷ') || 'Thanh Vân Khí Vận Kỷ',
+      universe: rawGameState.universe || 'tutien', // V12.17: Khôi phục ADN Vũ Trụ
+      customAppearance: rawGameState.customAppearance || '', // V11.76 Khôi phục ngoại hình
+      customPersonality: rawGameState.customPersonality || '', // V2.0: Khôi phục tính cách tự do
+      cultivationLevel: cleanCultivationLevel, 
+      // V9.47 FIX: Hủy bỏ việc dùng lại cultivationPath cũ lưu trong file rác.
+      // BẮT BUỘC gọi lại hàm getCultivationPath để nắn dòng những nhân vật bị kẹt sai Hệ Phái do lỗi trước đây!
+      // V12.15 FIX: Cho phép giữ lại Hướng Tu đang có nếu hợp lệ để tôn trọng sự chuyển phái của Phàm nhân!
+      // V2.6 FIX (Báo lỗi HOENGGG): Tự động nắn chỉnh nếu Yêu Tộc thuần chủng bị kẹt 'the_tu' do Thôn Kim Phệ Cốt Thể
+      cultivationPath: (() => {
+          let p = (rawGameState.cultivationPath && ['tu_tien', 'the_tu', 'ma_tu', 'yeu_tu', 'nho_tu', 'phat_tu', 'quy_tu'].includes(rawGameState.cultivationPath)) ? rawGameState.cultivationPath : getCultivationPath(rawGameState.backgroundId, rawGameState.traits || []);
+          if ((isPureYeuTocBg(rawGameState.backgroundId) || ['bg_10', 'bg_25', 'bg_taotie', 'bg_long_toc', 'bg_con_bang', 'bg_ho_toc', 'bg_vien_co_cu_long'].includes(rawGameState.backgroundId)) && !(rawGameState.traits || []).some((t: any) => String(t?.name || '').includes('Đại Đạo Trùng Tu'))) {
+              if (p === 'the_tu') p = 'yeu_tu';
+          }
+          return p;
+      })(),
+      gameMode: profile.gameMode === 'coop' ? 'coop' : (rawGameState.gameMode === 'coop' ? 'chan_thuc' : (rawGameState.gameMode || 'chan_thuc')), // V9.16 FIX: Bỏ chặn kẹt phòng nếu đăng nhập đúng từ Sảnh Liên Giới
+      currentIntent: rawGameState.currentIntent || null, // V1.22.2: Tải dự định từ save
+      mongAoWorldMode: rawGameState.mongAoWorldMode || 'sang_tao', // V1.26: Mộng Ảo - 'co_dinh' (thế giới gốc) hay 'sang_tao' (tự do)
+      narrativeStyle: rawGameState.narrativeStyle || 'default', // V5.75: Khôi phục văn phong đang dùng
+      startOriginMode: rawGameState.startOriginMode || 'doat_xa',
+      lastCoopRoomId: profile.coopRoomId || rawGameState.lastCoopRoomId || rawGameState.coopRoomHost, // V5.33: Nhớ mã phòng
+      containers: loadedContainers,
+      inventory: cleanInv, 
+      spiritStones: fixedStones,
+      realWorldAge: Number(rawGameState.realWorldAge) || safeAge,
+      currentLocation: safeCurrentLocation,
+      mcKnowledge: rawGameState.mcKnowledge || '',
+      knownRealms: loadedRealms,
+      journal: rawGameState.journal || { skills: [], items: [], npcs: [] }, 
+      foodHistory: rawGameState.foodHistory || [], 
+      hpHistory: rawGameState.hpHistory || [], 
+      mpHistory: rawGameState.mpHistory || [], 
+      staminaHistory: rawGameState.staminaHistory || [], 
+      stonesHistory: rawGameState.stonesHistory || [], 
+       mortalCoinsHistory: rawGameState.mortalCoinsHistory || [],
+       atkHistory: rawGameState.atkHistory || [],
+       defHistory: rawGameState.defHistory || [],
+       spdHistory: rawGameState.spdHistory || [],
+       sppHistory: rawGameState.sppHistory || [],
+       alcHistory: rawGameState.alcHistory || [],
+       smiHistory: rawGameState.smiHistory || [],
+       arrHistory: rawGameState.arrHistory || [],
+       talHistory: rawGameState.talHistory || [],
+       thuHistory: rawGameState.thuHistory || [],
+       thucHistory: rawGameState.thucHistory || [],
+       thuongHistory: rawGameState.thuongHistory || [],
+       miHistory: rawGameState.miHistory || [],
+       progressHistory: rawGameState.progressHistory || [],
+       pityHistory: rawGameState.pityHistory || [],
+       sectWealthHistory: rawGameState.sectWealthHistory || [], // V7.20: Lịch sử quỹ tông môn
+       levelHistory: rawGameState.levelHistory || [],
+      foundationHistory: rawGameState.foundationHistory || [], 
+      corruptionHistory: rawGameState.corruptionHistory || [], 
+      karmaHistory: rawGameState.karmaHistory || [], // V10.31: Lịch sử nhân quả
+      reputationHistory: rawGameState.reputationHistory || [],
+      food: Number(rawGameState.food) || 100, maxFood: Number(rawGameState.maxFood) || 100, 
+      stamina: Number(rawGameState.stamina) || realLoadedMaxStamina, maxStamina: realLoadedMaxStamina,
+      runeCount: Number(rawGameState.runeCount) || 0,
+      lastRuneAge: Number(rawGameState.lastRuneAge) || Number(rawGameState.startAge) || 18,
+      runeEarlyWarning: Number(rawGameState.runeEarlyWarning) || 0,
+      runesDetail: Array.isArray(rawGameState.runesDetail) ? rawGameState.runesDetail : [],
+      runeCheckAge: Number(rawGameState.runeCheckAge) || Number(rawGameState.startAge) || 18,
+      soulAge: Number(rawGameState.soulAge) || Number(rawGameState.age) || 18,
+      deathReason: rawGameState.deathReason || '', traits: (() => {
+          let trList = Array.isArray(rawGameState.traits) ? cleanEvolutionDuplicates(rawGameState.traits.filter(Boolean)) : [];
+          if (Array.isArray(rawGameState.activeEffects)) {
+              const hasThonKimEff = rawGameState.activeEffects.some((e: any) => e && (
+                  String(e.name || '').includes('Thôn Kim') || 
+                  String(e.desc || '').includes('Thôn Kim Phệ Cốt') ||
+                  String(e.name || '').includes('Cốt Cách Ngân Quang')
+              ));
+              const hasThonKimTr = trList.some((t: any) => t && (t.name === 'Thôn Kim Phệ Cốt Thể' || t.name === 'Thôn Kim Phệ Cốt' || t.id === 1309));
+              if (hasThonKimEff && !hasThonKimTr) {
+                  const tkTrait = (typeof TRAITS_POOL !== 'undefined' ? (TRAITS_POOL as any).find((t: any) => t.id === 1309) : null) || { id: 1309, name: 'Thôn Kim Phệ Cốt Thể', rarity: 'Đỏ', cost: 0, desc: 'Lỗ đen tài phú. Ăn pháp bảo/linh thạch tăng tu vi vĩnh viễn (không cần tu luyện).' };
+                  trList.push({ ...tkTrait, cost: 0 });
+              }
+          }
+          return trList;
+      })(), 
+      backgroundId: rawGameState.backgroundId || 'bg_0', bonusMaxHp: Number(rawGameState.bonusMaxHp) || 0, bonusMaxMp: Number(rawGameState.bonusMaxMp) || 0, bonusMaxStamina: Number(rawGameState.bonusMaxStamina) || 0, 
+      bonusMaxAge: Number(rawGameState.bonusMaxAge) || 0,
+      activeEffects: capActiveEffects(rawGameState.activeEffects, 12),
+      karma: Number(rawGameState.karma) || 0, alignment: String(rawGameState.alignment || 'Trung Dung'), reputation: Number(rawGameState.reputation) || 0, // V4.9
+      mentalState: String(rawGameState.mentalState || 'Bình Tĩnh'), recentBehavior: String(rawGameState.recentBehavior || 'Chưa có'), 
+      chapterCount: (() => { 
+          const cc = Number(rawGameState.chapterCount) || 0; 
+          const hasStory = (Array.isArray(rawGameState.storyLog) && rawGameState.storyLog.length > 0) || (Array.isArray(rawGameState.actionHistory) && rawGameState.actionHistory.length > 0) || (Array.isArray(rawGameState.summaries) && rawGameState.summaries.length > 0); 
+          let baseCc = (cc > 0 && !hasStory) ? 0 : cc;
+          // V2.82 FIX: Tự động đồng bộ số chương cao nhất từ storyLog nếu có nhật ký cao hơn gameState
+          if (Array.isArray(profile.storyLog) && profile.storyLog.length > 0) {
+              const logChaps = profile.storyLog.map((l: any) => Number(l.chapter) || 0).filter((c: number) => c > 0);
+              if (logChaps.length > 0) {
+                  const maxLogChap = Math.max(...logChaps);
+                  if (maxLogChap > baseCc) baseCc = maxLogChap;
+              }
+          }
+          return baseCc;
+      })(), summaries: Array.isArray(rawGameState.summaries) ? rawGameState.summaries : [], 
+      rebirthCount: Number(rawGameState.rebirthCount) || 0, deathHistory: Array.isArray(rawGameState.deathHistory) ? rawGameState.deathHistory : [],
+      systemPoints: Number(rawGameState.systemPoints) || 0,
+      baiGiaPoints: Number(rawGameState.baiGiaPoints) || 0, baiGiaSystemLevel: Math.max(1, Number(rawGameState.baiGiaSystemLevel) || 1), maDaoPoints: Number(rawGameState.maDaoPoints) || 0,
+      alchemyExp: Number(rawGameState.alchemyExp) || 0,
+      smithingExp: Number(rawGameState.smithingExp) || 0,
+      arrayExp: Number(rawGameState.arrayExp) || 0,
+      talismanExp: Number(rawGameState.talismanExp) || 0,
+      tamingExp: Number(rawGameState.tamingExp) || 0,
+      cookingExp: Number(rawGameState.cookingExp) || 0,
+      commerceExp: Number(rawGameState.commerceExp) || 0,
+      charmExp: Number(rawGameState.charmExp) || 0,
+      minorLevel: Math.min(Number(rawGameState.minorLevel) || 1, getMinorLevelMax(getStageConfigByPath(cleanCultivationLevel, rawGameState.cultivationPath).id, cleanCultivationLevel, rawGameState.traits)), cultivationProgress: Number(rawGameState.cultivationProgress) || 0,
+      mortalCoins: Number(rawGameState.mortalCoins) || 0,
+      corruption: Number(rawGameState.corruption) || 0, // V7.33
+      foundationScore: rawGameState.foundationScore !== undefined ? Number(rawGameState.foundationScore) : 50,
+      breakthroughPity: Number(rawGameState.breakthroughPity) || 0, // V8.40
+      hasRealmKnowledge: rawGameState.hasRealmKnowledge !== undefined ? rawGameState.hasRealmKnowledge : (['bg_4', 'bg_6', 'bg_8', 'bg_9', 'bg_19'].includes(rawGameState.backgroundId) || (rawGameState.levelHistory || []).length > 1),
+      encyclopedia: Array.isArray(rawGameState.encyclopedia) ? rawGameState.encyclopedia : [],
+      startAge: safeStartAge, attack: Number(rawGameState.attack) || 10, defense: Number(rawGameState.defense) || 10, speed: Number(rawGameState.speed) || 10, spiritPower: Number(rawGameState.spiritPower) || 10,
+      mount: rawGameState.mount || null, demonSpirit: rawGameState.demonSpirit || null, isTransformed: rawGameState.isTransformed || false, isHumanForm: Boolean(rawGameState.isHumanForm),
+      travelRecords: rawGameState.travelRecords || {},
+      statRecords: rawGameState.statRecords || {},
+      currentWorldEvent: rawGameState.currentWorldEvent || null,
+      sect: rawGameState.sect || null,
+      ageBreakdown: rawGameState.ageBreakdown || { [safeCurrentLocation]: Math.max(0, safeAge - safeStartAge) },
+      chaosTowerFloor: Number(rawGameState.chaosTowerFloor) || 1,
+      activeTower: rawGameState.activeTower || false,
+      lastDlcChapter: Number(rawGameState.lastDlcChapter) || 0, // V7.98: Khôi phục mốc chương DLC
+      soulMechanism: rawGameState.soulMechanism || getSoulMechanism(rawGameState.backgroundId, Array.isArray(rawGameState.traits) ? rawGameState.traits.filter(Boolean) : []),
+      worldItems: Array.isArray(rawGameState.worldItems) ? rawGameState.worldItems : [],
+      safeZones: Array.isArray(rawGameState.safeZones) ? rawGameState.safeZones : [],
+      rentedLocations: Array.isArray(rawGameState.rentedLocations) ? rawGameState.rentedLocations : [],
+      companions: Array.isArray(rawGameState.companions) ? rawGameState.companions.map(c => {
+          const atk = Number(c.attack) || 0;
+          const def = Number(c.defense) || 0;
+          const fallbackStat = Math.max(10, Math.floor((atk + def) / 2));
+          
+          // V6.70 FIX: Khôi phục Máu/MP chuẩn cho Tùy tùng từ file v6.54 trở xuống bị lỗi HP 0/1
+          const cStage = getStageConfig(c.level || 'Phàm Nhân');
+          const expectedMaxHp = Math.floor(100 * cStage.statMult * Math.pow(1.15, cStage.id - 1));
+          const expectedMaxMp = Math.floor(50 * cStage.statMult * Math.pow(1.15, cStage.id - 1));
+          
+          let fixedMaxHp = (!c.maxHp || c.maxHp <= 1) ? expectedMaxHp : c.maxHp;
+          let fixedHp = (c.hp === undefined || c.hp === 0) ? fixedMaxHp : Math.max(1, c.hp); // Cứu sống đệ tử bị lỗi
+          let fixedMaxMp = (!c.maxMp || c.maxMp <= 1) ? expectedMaxMp : c.maxMp;
+          let fixedMp = c.mp === undefined ? fixedMaxMp : c.mp;
+
+          return {
+              ...c,
+              maxHp: fixedMaxHp, hp: fixedHp, maxMp: fixedMaxMp, mp: fixedMp,
+              speed: (c.speed !== undefined && c.speed !== 0) ? Number(c.speed) : fallbackStat,
+              spiritPower: (c.spiritPower !== undefined && c.spiritPower !== 0) ? Number(c.spiritPower) : fallbackStat
+          };
+      }) : [], // V4.23, V4.65 & V6.70
+      pillResistance: rawGameState.pillResistance || {}, // V4.24
+      tribulation: rawGameState.tribulation || null, // V4.26
+      currentWeather: rawGameState.currentWeather || { type: 'Normal', name: '☀️ Trời Quang Mây Tạnh' }, // V4.42
+      spiritualRoot: rawGameState.spiritualRoot || getSpiritualRoot(Array.isArray(rawGameState.traits) ? rawGameState.traits : [], rawGameState.backgroundId || 'bg_0'), // V12.15: Tương thích ngược cho char cũ
+      absorbedSouls: Number(rawGameState.absorbedSouls) || 1, // V5.56: Khôi phục Tải trọng linh hồn
+      equipped: rawGameState.equipped || { weapon: null, armor: null, head: null, boots: null, artifact: null, accessory: null }, // V6.26 FIX: Khôi phục mảng Trang bị cho nhân vật cũ
+      activeDLCs: Array.isArray(rawGameState.activeDLCs) ? rawGameState.activeDLCs : [], // V7.52: Khôi phục danh sách Vi Diện (DLC)
+      activeDiseases: Array.isArray(rawGameState.activeDiseases) ? rawGameState.activeDiseases : [], // V12.18
+      cloneInventory: rawGameState.cloneInventory || [], // V12.42
+              v1215_mirrorSacrificed: rawGameState.v1215_mirrorSacrificed || false,
+               coordinates: rawGameState.coordinates || getLocationCoords(safeCurrentLocation, rawGameState.timelineId || 'timeline_thanh_van'), // V12.20 Phục hồi tọa độ
+               canonTimeline: Array.isArray(rawGameState.canonTimeline) ? rawGameState.canonTimeline : (rawGameState.timelineId && TIMELINES_CONFIG[rawGameState.timelineId] ? TIMELINES_CONFIG[rawGameState.timelineId].canonEvents : DEFAULT_CANON_TIMELINE),
+               worldHistoryLedger: Array.isArray(rawGameState.worldHistoryLedger) ? rawGameState.worldHistoryLedger : [],
+               worldTension: Number(rawGameState.worldTension) || 0,
+               economyIndex: (rawGameState.economyIndex === undefined || rawGameState.economyIndex === null) ? 100 : Number(rawGameState.economyIndex),
+               fateDebt: Number(rawGameState.fateDebt) || 0,
+               customRealms: Array.isArray(rawGameState.customRealms) ? rawGameState.customRealms : [],
+               defeatedBosses: rawGameState.defeatedBosses || {},
+               khaThanLucDefeated: !!(rawGameState.khaThanLucDefeated || (rawGameState.defeatedBosses && rawGameState.defeatedBosses.kha_than_luc))
+            };
+
+    // V2.12 GÓP Ý DARK: Tự động đánh thức nguyên tố Lôi cho nhân vật sở hữu Thiên Lôi Thể
+    if (stateToLoad.spiritualRoot && Array.isArray(stateToLoad.traits)) {
+        const hasThienLoi = stateToLoad.traits.some((t: any) => (typeof t === 'string' ? t : t?.name) === 'Thiên Lôi Thể');
+        if (hasThienLoi) {
+            if (!Array.isArray(stateToLoad.spiritualRoot.elements)) stateToLoad.spiritualRoot.elements = [];
+            if (!stateToLoad.spiritualRoot.elements.includes('Lôi')) {
+                stateToLoad.spiritualRoot.elements.push('Lôi');
+                if (stateToLoad.spiritualRoot.name === 'Vô Linh Căn' || !stateToLoad.spiritualRoot.name) {
+                    stateToLoad.spiritualRoot.name = 'Cực Lôi Linh Căn';
+                    stateToLoad.spiritualRoot.purity = 'Tuyệt Đối';
+                    stateToLoad.spiritualRoot.color = 'text-purple-400 font-black drop-shadow-[0_0_5px_rgba(192,132,252,0.8)]';
+                } else if (!stateToLoad.spiritualRoot.name.includes('Lôi')) {
+                    stateToLoad.spiritualRoot.name += ' (Thức Tỉnh Lôi Thể)';
+                }
+            }
+        }
+    }
+
+    // V6.71: MÀNG LỌC DỊCH CHUYỂN BẢN SAVE CŨ (Đẩy Đệ tử từ Hồng Trần sang Tông Môn)
+    if (stateToLoad.sect && stateToLoad.journal && stateToLoad.journal.npcs) {
+        if (!stateToLoad.sect.npcs) stateToLoad.sect.npcs = [];
+        const newJournal = [];
+        const newSect = [...stateToLoad.sect.npcs];
+        stateToLoad.journal.npcs.forEach(n => {
+             if (/(tạp dịch|ngoại môn|nội môn|trưởng lão|chấp sự|khách khanh|đệ tử|thái thượng|thái thú|tướng|lính|tể tướng|quan|thần dân|bá tánh|cấm vệ|quốc sư|tế tự|tuần phủ|thượng thư|môn đồ)/i.test(String(n.role))) {
+                 if (!newSect.some(sn => sn.name === n.name)) newSect.push(n);
+             } else {
+                 newJournal.push(n);
+             }
+        });
+        stateToLoad.journal.npcs = newJournal;
+        stateToLoad.sect.npcs = newSect;
+    }
+
+    // =========================================================================
+    // V5.96: THANH TRỪNG & ĐỒNG BỘ MẬT TỊCH TỪ BẢN SAVE CŨ (Migration Script)
+    if (stateToLoad.hiddenChronicles && stateToLoad.hiddenChronicles.length > 0) {
+        const cleanedChronicles = [];
+        stateToLoad.hiddenChronicles.forEach(item => {
+            if (!item) return;
+            
+            // 1. Nếu đã là Object chuẩn của v5.96 -> Giữ nguyên
+            if (item.isObj) {
+                cleanedChronicles.push(item);
+                return;
+            }
+            
+            // 2. Chuyển thành chuỗi để rà soát
+            const strItem = String(item);
+            
+            // 3. Diệt trừ triệt để lỗi lú lẫn của v5.94/v5.95
+            if (strItem === '[object Object]') return; 
+            
+            // 4. Bóc tách dữ liệu cũ (Dạng chuỗi) ép thành Object (Bảng) mới
+            const splitIndex = strItem.indexOf(']:');
+            if (splitIndex !== -1) {
+                const timeTag = strItem.substring(0, splitIndex + 1); // Cắt lấy "[Năm 18 - Lớp 1]"
+                const content = strItem.substring(splitIndex + 2).trim(); // Cắt lấy nội dung
+                cleanedChronicles.push({
+                    time: timeTag,
+                    summary: content.substring(0, 80) + (content.length > 80 ? '...' : ''), // Lấy 80 chữ đầu làm tóm tắt
+                    details: content,
+                    isObj: true
+                });
+            } else {
+                cleanedChronicles.push({ time: `[Quá khứ]`, summary: strItem.substring(0, 80), details: strItem, isObj: true });
+            }
+        });
+        stateToLoad.hiddenChronicles = cleanedChronicles;
+    }
+    // =========================================================================
+
+    // V6.22 FIX: Giải thoát người chơi bị kẹt ở Bí Cảnh Hỗn Độn Tháp cũ do lỗi phiên bản
+    if (stateToLoad.activeDungeon && stateToLoad.activeDungeon.name.includes('Hỗn Độn Tháp')) {
+        stateToLoad.activeDungeon = null;
+    }
+
+    if (stateToLoad.encyclopedia.length === 0) {
+        const enc = [];
+        (stateToLoad.inventory || []).forEach(i => enc.push({ type: 'item', name: i.name, desc: i.desc || 'Vật phẩm.', rarity: i.rarity, tier: i.tier, perks: i.perks || [] }));
+        (stateToLoad.journal?.skills || []).forEach(s => enc.push({ type: 'skill', name: s.name, desc: s.desc || 'Công pháp.', level: s.level }));
+        (stateToLoad.journal?.npcs || []).forEach(n => enc.push({ type: 'npc', name: n.name, desc: n.state || 'Không rõ.' }));
+        Object.keys(stateToLoad.knownRealms || {}).forEach(loc => enc.push({ type: 'location', name: loc, desc: 'Nơi từng đặt chân đến.' }));
+        stateToLoad.encyclopedia = enc;
+    }
+
+    // V1.23 FIX MIGRATION: DỌN DẸP "ĐỊA DANH BẤT TỬ" TỪ SAVE CŨ
+    // Xóa entry location trong encyclopedia mà không còn tồn tại trong knownRealms
+    // (tức đã bị đổi tên nhưng encyclopedia chưa đồng bộ)
+    if (stateToLoad.encyclopedia.length > 0 && stateToLoad.knownRealms) {
+        const knownLocNames = new Set(Object.keys(stateToLoad.knownRealms));
+        // Thêm currentLocation vào danh sách hợp lệ (phòng trường hợp chưa có trong knownRealms)
+        if (stateToLoad.currentLocation) knownLocNames.add(stateToLoad.currentLocation);
+        
+        stateToLoad.encyclopedia = stateToLoad.encyclopedia.filter(entry => {
+            if (entry.type !== 'location') return true; // Giữ nguyên item/skill/npc
+            // Giữ nếu tên còn trong knownRealms HOẶC có id (địa danh cố định từ worldSeed)
+            if (knownLocNames.has(entry.name)) return true;
+            if (entry.id) return true; // Địa danh cố định có id: dong_thang_xxx, nam_thiem_xxx...
+            // Entry location không có id VÀ không còn trong knownRealms → địa danh bất tử, xóa
+            return false;
+        });
+    }
+
+    // V4.54: Tự động di dời công pháp của Tùy Tùng bị lẫn trong Sổ Tay NVC từ các phiên bản cũ
+    if (stateToLoad.journal && Array.isArray(stateToLoad.journal.skills) && stateToLoad.companions && stateToLoad.companions.length > 0) {
+        const mainCharName = String(stateToLoad.name || 'Vô danh');
+        const filteredMainSkills = [];
+        
+        stateToLoad.journal.skills.forEach(skill => {
+            if (!skill) return;
+            let assignedToCompanion = false;
+            const skillOwner = String(skill.owner || '').trim();
+
+            for (let i = 0; i < stateToLoad.companions.length; i++) {
+                const comp = stateToLoad.companions[i];
+                // Đk 1: Có field owner rõ ràng của bản cũ. Đk 2: Tên tùy tùng bị dính trong tên chiêu hoặc desc
+                if (skillOwner === comp.name || (skillOwner !== mainCharName && (String(skill.name).includes(comp.name) || (skill.desc && String(skill.desc).includes(comp.name))))) {
+                    if (!comp.skills) comp.skills = [];
+                    // Tránh duplicate nếu lỡ load nhiều lần
+                    if (!comp.skills.some(s => s.name === skill.name)) {
+                        const cleanedSkill = { ...skill };
+                        delete cleanedSkill.owner; 
+                        comp.skills.push(cleanedSkill);
+                    }
+                    assignedToCompanion = true;
+                    break;
+                }
+            }
+
+            if (!assignedToCompanion) {
+                filteredMainSkills.push(skill);
+            }
+        });
+
+        stateToLoad.journal.skills = filteredMainSkills;
+    }
+
+    // V5.24 & V2.61: Dọn rác kỹ năng trùng lặp, bảo lưu tên gốc 100% & chuẩn hóa [Công Pháp] - [Tier] (Báo lỗi Ethan195)
+    if (stateToLoad.journal && Array.isArray(stateToLoad.journal.skills)) {
+        const cleanSkills: any[] = [];
+        stateToLoad.journal.skills.forEach((skill: any) => {
+            if (!skill || !skill.name) return;
+            
+            let rawSkillName = String(skill.name).trim();
+            // Tự động phục hồi nếu tên bị cắt xén chỉ còn duy nhất 1 chữ trong 10 tier (như lỗi của Ethan195)
+            if (/^(Ngụy|Nguỵ|Phỏng|Phàm|Ngân|Hoàng|Địa|Thiên|Tiên|Thần|Đạo)$/i.test(rawSkillName)) {
+                const encSkill = (stateToLoad.encyclopedia || []).find((e: any) => e.type === 'skill' && e.name && e.name !== rawSkillName && String(e.name).includes(rawSkillName));
+                if (encSkill && encSkill.name) {
+                    const parsedEnc = parseSkillNameAndTier(encSkill.name);
+                    rawSkillName = parsedEnc.baseName || encSkill.name;
+                } else if (skill.desc && (skill.desc.includes('Hư Không Linh Căn') || skill.desc.includes('Hư Không Nhất Niệm'))) {
+                    rawSkillName = 'Hư Không Nhất Niệm';
+                } else if (skill.rootSkill) {
+                    rawSkillName = skill.rootSkill;
+                }
+            }
+            
+            const { baseName, tier } = parseSkillNameAndTier(rawSkillName, skill.tier);
+            const safeBaseName = baseName || rawSkillName;
+            const validTier = normalizeSkillTier(tier || skill.tier);
+            
+            skill.name = `${safeBaseName} - ${validTier}`;
+            skill.tier = validTier;
+            skill.baseName = safeBaseName;
+            if (skill.level) skill.level = String(skill.level).replace(/\s*\(.*?\)\s*/g, '').replace(/[:\-]/g, '').trim();
+            
+            const existIdx = cleanSkills.findIndex(s => {
+                const sBase = parseSkillNameAndTier(s.name, s.tier).baseName;
+                return sBase.toLowerCase() === safeBaseName.toLowerCase();
+            });
+            
+            if (existIdx >= 0) {
+                const curRank = getSkillTierRank(validTier);
+                const existRank = getSkillTierRank(cleanSkills[existIdx].tier);
+                if (curRank > existRank || (curRank === existRank && (skill.proficiency || 0) > (cleanSkills[existIdx].proficiency || 0))) {
+                    cleanSkills[existIdx] = {
+                        ...cleanSkills[existIdx],
+                        ...skill,
+                        name: `${safeBaseName} - ${validTier}`,
+                        tier: validTier,
+                        proficiency: Math.max(skill.proficiency || 0, cleanSkills[existIdx].proficiency || 0)
+                    };
+                }
+            } else {
+                cleanSkills.push(skill);
+            }
+        });
+        stateToLoad.journal.skills = cleanSkills;
+    }
+
+  // v1.23.1: TỰ ĐỘNG ĐỒNG BỘ NGHĨA TRANG & THANH LỌC CAUSAL TRACKS TỪ SAVE CŨ
+  if (!stateToLoad.journal) stateToLoad.journal = {};
+  if (!Array.isArray(stateToLoad.journal.graveyard)) stateToLoad.journal.graveyard = [];
+  // V2.60 FIX: Chuẩn hóa toàn bộ graveyard về mảng chuỗi tên (string[]) thuần túy, bóc tách nếu chứa object từ save cũ
+  stateToLoad.journal.graveyard = stateToLoad.journal.graveyard.map((g: any) => {
+      if (typeof g === 'object' && g !== null) return String(g.name || '').trim();
+      return String(g || '').trim();
+  }).filter((name: string) => name.length >= 2);
+  if (!Array.isArray(stateToLoad.journal.forgottenNpcNames)) stateToLoad.journal.forgottenNpcNames = [];
+
+  // Thu thập mọi tên NPC đã chết từ journal.npcs
+  (stateToLoad.journal.npcs || []).forEach((n: any) => {
+      if (n && n.isDead && n.name) {
+          const cName = String(n.name).replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim().toLowerCase();
+          if (cName.length >= 2 && !stateToLoad.journal.graveyard.includes(cName)) {
+              stateToLoad.journal.graveyard.push(cName);
+          }
+      }
+  });
+
+  // Quét storyLog tìm những NPC đã vẫn lạc mà bị xóa khỏi journal
+  const allLogsToScan = Array.isArray(profile?.storyLog) ? profile.storyLog : (Array.isArray(stateToLoad.storyLog) ? stateToLoad.storyLog : []);
+  if (Array.isArray(allLogsToScan)) {
+      allLogsToScan.forEach((log: any) => {
+          if (log && typeof log.text === 'string' && log.text.includes('Sinh mệnh lưu chuyển! [')) {
+              const match = log.text.match(/Sinh mệnh lưu chuyển!\s*\[(.*?)\]\s*đã vẫn lạc/);
+              if (match && match[1]) {
+                  const deadName = match[1].replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim().toLowerCase();
+                  if (deadName.length >= 2 && !stateToLoad.journal.graveyard.includes(deadName)) {
+                      stateToLoad.journal.graveyard.push(deadName);
+                  }
+              }
+          }
+      });
+  }
+
+  // Tự động giải trừ mọi manh mối causalTracks nhắm vào kẻ đã chết trong graveyard
+  if (Array.isArray(stateToLoad.causalTracks) && stateToLoad.journal.graveyard.length > 0) {
+      stateToLoad.causalTracks = stateToLoad.causalTracks.filter((track: any) => {
+          const tTarget = String(track.target || '').toLowerCase();
+          return !stateToLoad.journal.graveyard.some((gName: any) => {
+              const name = ((typeof gName === 'object' && gName !== null) ? String(gName.name || '') : String(gName || '')).toLowerCase();
+              return name && tTarget.includes(name);
+          });
+      });
+  }
+
+  // V1.29.5 & V2.60 FIX BUG 3 & BUG 4: ĐỒNG BỘ NGHĨA TRANG & THANH LỌC BỐI CẢNH/KÝ ỨC CỦA KẺ ĐÃ CHẾT
+  if (stateToLoad.journal && Array.isArray(stateToLoad.journal.npcs) && stateToLoad.journal.graveyard.length > 0) {
+      stateToLoad.journal.npcs.forEach((npc: any) => {
+          if (!npc || !npc.name) return;
+          const cName = String(npc.name).replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim().toLowerCase();
+          if (stateToLoad.journal.graveyard.some((gName: any) => {
+              const name = ((typeof gName === 'object' && gName !== null) ? String(gName.name || '') : String(gName || '')).toLowerCase();
+              return name && (cName === name || cName.includes(name) || name.includes(cName));
+          })) {
+              npc.isDead = true;
+              npc.state = npc.state === "Hư Vô / Hồn Phi Phách Tán" ? "Hư Vô / Hồn Phi Phách Tán" : "Hoàng Tuyền / Đã Chết";
+              npc.relationType = "Âm Dương Cách Biệt";
+              if (!npc.deathReason) npc.deathReason = "Đã vẫn lạc trong quá khứ.";
+          }
+      });
+  }
+  if (stateToLoad.sect && Array.isArray(stateToLoad.sect.npcs) && stateToLoad.journal.graveyard.length > 0) {
+      stateToLoad.sect.npcs.forEach((npc: any) => {
+          if (!npc || !npc.name) return;
+          const cName = String(npc.name).replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim().toLowerCase();
+          if (stateToLoad.journal.graveyard.some((gName: any) => {
+              const name = ((typeof gName === 'object' && gName !== null) ? String(gName.name || '') : String(gName || '')).toLowerCase();
+              return name && (cName === name || cName.includes(name) || name.includes(cName));
+          })) {
+              npc.isDead = true;
+              npc.state = "Hoàng Tuyền / Đã Chết";
+              npc.relationType = "Âm Dương Cách Biệt";
+              if (!npc.deathReason) npc.deathReason = "Đã vẫn lạc trong quá khứ.";
+          }
+      });
+  }
+  // Thanh lọc hiddenChronicles khỏi các sự kiện ảo giác kẻ đã chết "thoát chết/lẩn trốn/hoạt động"
+  if (Array.isArray(stateToLoad.hiddenChronicles) && stateToLoad.journal.graveyard.length > 0) {
+      stateToLoad.hiddenChronicles = stateToLoad.hiddenChronicles.filter((item: any) => {
+          const text = (typeof item === 'object' && item !== null) ? `${item.summary || ''} ${item.details || ''}` : String(item);
+          const tLower = text.toLowerCase();
+          const mentionsDeadEscaped = stateToLoad.journal.graveyard.some((gName: any) => {
+              const name = ((typeof gName === 'object' && gName !== null) ? String(gName.name || '') : String(gName || '')).toLowerCase();
+              return name && tLower.includes(name) && /(thoát chết|lẩn trốn|vây ráp|sống sót|tỉnh dậy|đang lần theo|ra lệnh|tìm kiếm)/i.test(tLower);
+          });
+          return !mentionsDeadEscaped;
+      });
+  }
+
+  // v12.55: Dọn dẹp lỗi nhân bản Hồng Trần Lục Đa Năng bằng Chân Danh (Xóa tận gốc các cái bóng trùng lặp như Hắc Trảm, Kritch)
+  if (stateToLoad.journal && Array.isArray(stateToLoad.journal.npcs)) {
+    const uniqueNPCs = [];
+    const isSameNPC = (nameA, nameB) => {
+        const strA = String(nameA).toLowerCase();
+        const strB = String(nameB).toLowerCase();
+        if (strA === strB) return true;
+
+        const outA = strA.replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
+        const outB = strB.replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
+        if (outA && outB && outA === outB) return true;
+
+        const inAMatch = strA.match(/[\(\[](.*?)[\)\]]/);
+        const inA = inAMatch ? inAMatch[1].trim() : '';
+        const inBMatch = strB.match(/[\(\[](.*?)[\)\]]/);
+        const inB = inBMatch ? inBMatch[1].trim() : '';
+
+        // Tách biệt thực thể tuyệt đối: Linh Cơ Tiên Tử (Sư tôn) KHÔNG PHẢI Thanh Vân (Linh Cơ Thể)
+        const isLinhCoTienTuA = strA.includes('linh cơ tiên tử') || strA.includes('linh co tien tu');
+        const isLinhCoTienTuB = strB.includes('linh cơ tiên tử') || strB.includes('linh co tien tu');
+        const isThanhVanOrBodyA = strA.includes('thanh vân') || strA.includes('linh cơ thể');
+        const isThanhVanOrBodyB = strB.includes('thanh vân') || strB.includes('linh cơ thể');
+        if ((isLinhCoTienTuA && isThanhVanOrBodyB) || (isLinhCoTienTuB && isThanhVanOrBodyA)) return false;
+        if ((isLinhCoTienTuA && !isLinhCoTienTuB && (strB.includes('linh cơ') || strB.includes('linh co'))) || (isLinhCoTienTuB && !isLinhCoTienTuA && (strA.includes('linh cơ') || strA.includes('linh co')))) return false;
+
+        const relRegex = /(của|vợ|chồng|đạo lữ|thê tử|phu quân|sư phụ|sư tôn|đệ tử|con|kẻ thù|bạn|bằng hữu|nha hoàn|tùy tùng|thuộc hạ|nô lệ|chủ nhân|tỷ muội|huynh đệ|tộc|môn|đã|chết|thể|thể chất|linh căn|căn|cốt)/i;
+        
+        if (outA.length >= 3 && inB.length >= 3 && !relRegex.test(inB) && (outA.includes(inB) || inB.includes(outA))) return true;
+        if (outB.length >= 3 && inA.length >= 3 && !relRegex.test(inA) && (outB.includes(inA) || inA.includes(outB))) return true;
+
+        const getCore = (s) => {
+            const fillers = ['lão','già','tiểu','đại','thiếu','tên','kẻ','yêu','ma','quỷ','thần','nữ','nam','bà','ông','thúc','bá','tẩu','gia','đạo','hữu','tộc','trưởng','đội','nhân','tướng','quân','vương','hoàng','đế','chúa','tổ','tỷ','muội','huynh','đệ','chấp','sự','môn','chủ','thành','thái','thượng','giả','tiền','bối','vô','danh','thánh','sát','thủ','quái','vật'];
+            return s.split(' ').filter(x => x.length>0 && !fillers.includes(x)).join('');
+        };
+        
+        const cA = getCore(outA);
+        const cB = getCore(outB);
+        if (cA.length >= 4 && cB.length >= 4 && (cA === cB || cA.includes(cB) || cB.includes(cA))) return true;
+
+        return false;
+    };
+
+    stateToLoad.journal.npcs.sort((a,b) => (a.lastUpdated || 0) - (b.lastUpdated || 0)).forEach(npc => {
+        if (!npc || !npc.name) return;
+        const isLyHuyenDao = npc.name.includes("Lý Huyền Đạo") || npc.name.includes("Thanh Vân Đạo");
+        const isVoDien = npc.name.includes("Vô Diện Sát Thần") || npc.name.includes("Vô Diện Tiên Đế");
+        
+        if (isLyHuyenDao) npc.name = "Lý Huyền Đạo (Đại Trưởng Lão Thanh Vân Tông)";
+        if (isVoDien) npc.name = "Vô Diện Tiên Đế (Sát Thần)";
+
+        const existing = uniqueNPCs.find(n => {
+            if (isLyHuyenDao) return n.name.includes("Lý Huyền Đạo");
+            if (isVoDien) return n.name.includes("Vô Diện Tiên Đế");
+            return isSameNPC(n.name, npc.name);
+        });
+
+        if (!existing) {
+            uniqueNPCs.push(npc);
+        } else {
+            // Đã tồn tại -> dung hợp trạng thái động vào bản gốc để xóa sổ bóng ma
+            if (npc.isDead && !existing.isDead) existing.isDead = true; // Kế thừa cái chết
+            existing.lastUpdated = Math.max(existing.lastUpdated || 0, npc.lastUpdated || 0);
+            if ((npc.lastUpdated || 0) >= (existing.lastUpdated || 0)) {
+                if (npc.state !== undefined) existing.state = npc.state;
+                if (npc.level !== undefined) existing.level = npc.level;
+                if (npc.realLevel !== undefined) existing.realLevel = npc.realLevel;
+                if (npc.historySummary !== undefined) existing.historySummary = npc.historySummary;
+                if (npc.role !== undefined) existing.role = npc.role;
+                if (npc.relationType !== undefined) existing.relationType = npc.relationType;
+                if (npc.knowledgePct !== undefined) existing.knowledgePct = Math.max(Number(existing.knowledgePct) || 0, Number(npc.knowledgePct));
+                if (npc.deathReason !== undefined) existing.deathReason = npc.deathReason;
+                if (npc.loyalty !== undefined) existing.loyalty = npc.loyalty;
+                if (npc.affinity !== undefined) existing.affinity = npc.affinity;
+                if (npc.hostility !== undefined) existing.hostility = npc.hostility;
+                if (npc.gender !== undefined) existing.gender = npc.gender;
+                if (npc.equippedStr !== undefined) existing.equippedStr = npc.equippedStr;
+                if (npc.lootStr !== undefined) existing.lootStr = npc.lootStr;
+                
+                if (npc.maxHp !== undefined) existing.maxHp = Math.max(Number(existing.maxHp) || 0, Number(npc.maxHp) || 0);
+                if (npc.maxMp !== undefined) existing.maxMp = Math.max(Number(existing.maxMp) || 0, Number(npc.maxMp) || 0);
+                if (npc.attack !== undefined) existing.attack = Math.max(Number(existing.attack) || 0, Number(npc.attack) || 0);
+                if (npc.defense !== undefined) existing.defense = Math.max(Number(existing.defense) || 0, Number(npc.defense) || 0);
+                if (npc.speed !== undefined) existing.speed = Math.max(Number(existing.speed) || 0, Number(npc.speed) || 0);
+                if (npc.spiritPower !== undefined) existing.spiritPower = Math.max(Number(existing.spiritPower) || 0, Number(npc.spiritPower) || 0);
+                if (npc.hp !== undefined) existing.hp = npc.hp;
+                if (npc.mp !== undefined) existing.mp = npc.mp;
+                if (npc.equipped) existing.equipped = npc.equipped;
+                if (npc.activeEffects) existing.activeEffects = npc.activeEffects;
+                if (npc.skills && Array.isArray(npc.skills) && npc.skills.length > 0) existing.skills = npc.skills;
+                if (npc.inventory && Array.isArray(npc.inventory) && npc.inventory.length > 0) existing.inventory = npc.inventory;
+                if (npc.traits && Array.isArray(npc.traits)) {
+                    const existingTraits = existing.traits || [];
+                    const newTraits = npc.traits.filter(t => !existingTraits.includes(t));
+                    existing.traits = [...existingTraits, ...newTraits];
+                }
+            }
+        }
+    });
+    // Trả lại thứ tự cũ và tự động hiệu chỉnh phục hồi hồ sơ nếu Linh Cơ Tiên Tử bị nhầm lẫn với nô lệ Thanh Vân
+    stateToLoad.journal.npcs = uniqueNPCs.map(npc => {
+        const nNameLower = String(npc.name || '').toLowerCase();
+        if (nNameLower.includes('linh cơ tiên tử') || nNameLower.includes('linh co tien tu')) {
+            const isCorrupted = String(npc.relationType || '').includes('Nô Lệ') || 
+                                String(npc.relationType || '').includes('nô lệ') || 
+                                String(npc.state || '').includes('chợ đen') || 
+                                String(npc.state || '').includes('tẩy tủy phạt cốt');
+            if (isCorrupted) {
+                return {
+                    ...npc,
+                    role: "Sư tôn",
+                    relationType: "Sư Đồ / Minh Linh Ấn",
+                    state: "Đang ngủ say trong Thức hải để phục hồi thần hồn sau khi nhận Ngưng Hồn Đan.",
+                    historySummary: (npc.historySummary || "Sư tôn của người chơi, trú ngụ trong Thức hải.")
+                        .replace(/Đã được Trần Đạt cứu thoát khỏi chợ đen và tẩy tủy phạt cốt\.?/gi, '')
+                        .replace(/cứu thoát khỏi chợ đen/gi, '')
+                        .trim()
+                };
+            }
+        }
+        return npc;
+    }).sort((a,b) => (b.lastUpdated||0) - (a.lastUpdated||0));
+  }
+
+  // v12.55: Dọn dẹp lỗi nhân bản Tùy tùng bằng Chân Danh
+  if (Array.isArray(stateToLoad.companions)) {
+    const uniqueFollowers = [];
+    const isSameFollower = (nameA, nameB) => {
+        const strA = String(nameA).toLowerCase();
+        const strB = String(nameB).toLowerCase();
+        if (strA === strB) return true;
+
+        const outA = strA.replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
+        const outB = strB.replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
+        if (outA && outB && outA === outB) return true;
+
+        const inAMatch = strA.match(/[\(\[](.*?)[\)\]]/);
+        const inA = inAMatch ? inAMatch[1].trim() : '';
+        const inBMatch = strB.match(/[\(\[](.*?)[\)\]]/);
+        const inB = inBMatch ? inBMatch[1].trim() : '';
+
+        const relRegex = /(của|vợ|chồng|đạo lữ|thê tử|phu quân|sư phụ|đệ tử|con|kẻ thù|bạn|bằng hữu|nha hoàn|tùy tùng|chủ nhân|tỷ muội|huynh đệ|tộc|môn|đã|chết)/i;
+        
+        if (outA.length >= 3 && inB.length >= 3 && !relRegex.test(inB) && (outA.includes(inB) || inB.includes(outA))) return true;
+        if (outB.length >= 3 && inA.length >= 3 && !relRegex.test(inA) && (outB.includes(inA) || inA.includes(outB))) return true;
+
+        const getCore = (s) => {
+            const fillers = ['lão','già','tiểu','đại','thiếu','tên','kẻ','yêu','ma','quỷ','thần','tiên','tử','nữ','nam','bà','ông','thúc','bá','tẩu','gia','đạo','hữu','tộc','trưởng','đội','nhân','sư','phụ','tướng','quân','vương','hoàng','đế','tôn','chúa','tổ','tỷ','muội','huynh','đệ','chấp','sự','môn','chủ','thành','thái','thượng','giả','tiền','bối','vô','danh','thánh','sát','thủ','quái','vật'];
+            return s.split(' ').filter(x => x.length>0 && !fillers.includes(x)).join('');
+        };
+        
+        const cA = getCore(outA);
+        const cB = getCore(outB);
+        if (cA.length >= 4 && cB.length >= 4 && (cA === cB || cA.includes(cB) || cB.includes(cA))) return true;
+
+        return false;
+    };
+
+    stateToLoad.companions.sort((a,b) => (a.lastUpdated||0) - (b.lastUpdated||0)).forEach(follower => {
+        if (!follower || !follower.name) return;
+        const isLinhMieu = follower.name.toLowerCase().includes("linh miêu");
+        if (isLinhMieu) follower.name = "Tàn Hồn Linh Miêu (Thanh Vân Tông)";
+
+        const existing = uniqueFollowers.find(n => isLinhMieu ? n.name.toLowerCase().includes("linh miêu") : isSameFollower(n.name, follower.name));
+        
+        if (!existing) {
+            uniqueFollowers.push(follower);
+        } else {
+            if ((follower.hp || 0) <= 0 && existing.hp > 0) existing.hp = follower.hp;
+            existing.lastUpdated = Math.max(existing.lastUpdated || 0, follower.lastUpdated || 0);
+            if ((follower.lastUpdated || 0) >= (existing.lastUpdated || 0)) {
+                if (follower.status) existing.status = follower.status;
+                if (follower.level) existing.level = follower.level;
+            }
+        }
+    });
+    stateToLoad.companions = uniqueFollowers.sort((a,b) => (a.createdAt||a.lastUpdated||0) - (b.createdAt||b.lastUpdated||0));
+  }
+
+  let migrationLog = null;
+
+  // CHỨC NĂNG MỚI: TỰ ĐỘNG PHÂN TÍCH VÀ DI DỜI TÙY TÙNG CŨ SANG HỒNG TRẦN LỤC
+  if (Array.isArray(stateToLoad.companions)) {
+      const nonSystemClones = stateToLoad.companions.filter(c => !c.isSystemClone && !String(c.type || '').includes('Phân Thân Hệ Thống') && !String(c.name).toLowerCase().includes('phân thân'));
+      
+      if (nonSystemClones.length > 0) {
+          setDialog({ type: 'loading', message: "Hệ thống đang tích hợp AI để tự động phân tích toàn bộ lịch sử cốt truyện, di dời lực lượng tùy tùng cũ sang Hồng Trần Lục với độ chính xác 100%..." });
+          try {
+              const sysPrompt = `BẠN LÀ THIÊN ĐẠO TRÍ TUỆ, LÀM NHIỆM VỤ DỌN DẸP DỮ LIỆU CŨ LÊN BẢN CẬP NHẬT MỚI.
+Phiên bản mới của thế giới đã lược bỏ "Lực Lượng Tùy Tùng" truyền thống. Hành động này yêu cầu chuyển toàn bộ Tùy tùng (Khôi Lỗi, Sủng Vật hình người, Đệ tử, Hồn phách...) sang "Hồng Trần Lục".
+Dựa vào các bản tóm tắt cốt truyện (Ký ức) sau đây:
+${(stateToLoad.summaries || []).map(s => s.content).join('\n')}
+
+VÀ thông tin thô của các Tùy tùng cần phân tích:
+${JSON.stringify(nonSystemClones.map(c => ({ name: c.name, level: c.level, type: c.type, desc: c.desc })))}
+
+NHIỆM VỤ BẮT BUỘC: Hãy dùng "Suy Luận Sâu" phân tích cặn kẽ lai lịch, tính cách, thái độ, mức độ trung thành của TỪNG Tùy Tùng đối với Nhân Vật Chính dựa trên lịch sử hoạt động để tái cấu trúc hồ sơ chính xác 100%. 
+TUYỆT ĐỐI CHỈ TRẢ VỀ JSON MẢNG, KHÔNG THÊM BẤT KỲ VĂN BẢN NÀO KHÁC.
+
+JSON Format:
+[
+  {
+    "name": "Tên Tùy Tùng", "race": "Ví dụ: Khôi Lỗi / Nhân Tộc / Hồn Điện", "gender": "Nam/Nữ/Không", "level": "Cảnh Giới",
+    "role": "Ví dụ: Tùy Tùng / Khôi Lỗi / Đệ tử", "personality": "Tính cách gốc", "background": "Lai lịch chi tiết", "longTermGoal": "Bảo vệ chủ nhân...",
+    "relationType": "Thuộc hạ trung thành / Sinh tử chi giao / Công cụ", "affinity": 100, "hostility": 0, "loyalty": 100,
+    "state": "Trạng thái", "historySummary": "Tóm tắt tiểu sử...", "isDead": false
+  }
+]`;
+              const payload = { contents: [{ parts: [{ text: "Hãy phân tích và rà soát tùy tùng." }] }], systemInstruction: { parts: [{ text: sysPrompt }] }, generationConfig: { responseMimeType: "application/json" } };
+              const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+              const result = await response.json();
+              const textResult = result.candidates?.[0]?.content?.parts?.[0]?.text;
+              
+              if (textResult) {
+                  const migratedNpcs = JSON.parse(textResult.replace(/```json/gi, '').replace(/```/g, '').trim());
+                  
+                  if (Array.isArray(migratedNpcs) && migratedNpcs.length > 0) {
+                      if (!stateToLoad.journal) stateToLoad.journal = { npcs: [], skills: [], items: [] };
+                      if (!Array.isArray(stateToLoad.journal.npcs)) stateToLoad.journal.npcs = [];
+                      
+                      migratedNpcs.forEach(mNpc => {
+                          const oldComp = nonSystemClones.find(c => c.name === mNpc.name);
+                          if (oldComp) {
+                              mNpc.id = oldComp.id || 'npc_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+                              mNpc.hp = oldComp.hp; mNpc.maxHp = oldComp.maxHp;
+                              mNpc.mp = oldComp.mp; mNpc.maxMp = oldComp.maxMp;
+                              mNpc.attack = oldComp.attack; mNpc.defense = oldComp.defense;
+                              mNpc.speed = oldComp.speed; mNpc.spiritPower = oldComp.spiritPower;
+                              mNpc.skills = oldComp.skills || [];
+                              mNpc.equipped = oldComp.equipped;
+                              mNpc.inventory = oldComp.inventory;
+                              mNpc.lastUpdated = Date.now();
+                          }
+                          
+                          const existingIdx = stateToLoad.journal.npcs.findIndex(n => n.name === mNpc.name);
+                          if (existingIdx !== -1) {
+                              stateToLoad.journal.npcs[existingIdx] = { ...stateToLoad.journal.npcs[existingIdx], ...mNpc };
+                          } else {
+                              stateToLoad.journal.npcs.push(mNpc);
+                          }
+                      });
+                      
+                      stateToLoad.companions = stateToLoad.companions.filter(c => c.isSystemClone || String(c.type || '').includes('Phân Thân Hệ Thống') || String(c.name).toLowerCase().includes('phân thân'));
+                      migrationLog = { type: 'system', text: `[Cập Nhật Dữ Liệu] Hệ thống đã tự động phân tích lịch sử cốt truyện và di dời thành công ${migratedNpcs.length} Tùy tùng cũ sang Hồng Trần Lục một cách chuẩn xác!` };
+                  }
+              }
+          } catch (e) {
+              console.error("Lỗi di dời tùy tùng:", e);
+          }
+          closeDialog();
+      }
+  }
+
+  // V10.41 & V1.24.1: Dọn dẹp lỗi lặp chức vụ / thái độ và hồi tố sửa lỗi Hài Cốt chiếm đoạt danh phận Đạo Lữ (Fix bug Althea & Vô Danh Cổ Tu)
+  if (!stateToLoad.customHeight) {
+      stateToLoad.customHeight = stateToLoad.gender === 'Nữ' ? '1m65' : '1m78';
+  }
+  if (stateToLoad.journal && Array.isArray(stateToLoad.journal.npcs)) {
+      sanitizeNpcRelationships(stateToLoad.journal.npcs, stateToLoad.gender);
+      // V2.24 FIX: TỰ ĐỘNG THĂNG HOA CHỈ SỐ NPC CŨ THEO ĐÚNG CẢNH GIỚI (BÁO LỖI DARK)
+      stateToLoad.journal.npcs.forEach((npc: any) => {
+          if (!npc.isDead && npc.level) {
+              const freshStats = generateNPCStats(npc.level, { baseStats: npc, race: npc.race, role: npc.role, alignment: npc.alignment, traits: npc.traits });
+              if (freshStats.attack > (Number(npc.attack) || 0)) npc.attack = freshStats.attack;
+              if (freshStats.defense > (Number(npc.defense) || 0)) npc.defense = freshStats.defense;
+              if (freshStats.speed > (Number(npc.speed) || 0)) npc.speed = freshStats.speed;
+              if (freshStats.spiritPower > (Number(npc.spiritPower) || 0)) npc.spiritPower = freshStats.spiritPower;
+              if (freshStats.maxHp > (Number(npc.maxHp) || 0)) {
+                  npc.maxHp = freshStats.maxHp;
+                  npc.hp = Math.max(Number(npc.hp) || 0, freshStats.maxHp);
+              }
+          }
+      });
+
+      // V2.36 FIX: HỒI TỐ TỰ ĐỘNG PHỤC HỒI LINH CĂN ĐÃ ĐƯỢC ĐÚC CHO NPC TRONG SAVE CŨ (BÁO LỖI KHA)
+      const allLogsText = Array.isArray(stateToLoad.storyLog) 
+          ? stateToLoad.storyLog.map((l: any) => typeof l === 'string' ? l : (l.text || '')).join(' ') 
+          : '';
+      // V2.60 FIX DARK: Quét toàn diện NPC trong Hồng Trần Lục, nếu NPC từ Cấp 10+ (Độ Kiếp Kỳ / Địa Tiên trở lên) dính Vô Linh Căn thì thăng hoa ngay
+      stateToLoad.journal.npcs.forEach((npc: any) => {
+          if (!npc || npc.isDead) return;
+          const stCfg = typeof getStageConfig === 'function' ? getStageConfig(npc.level || npc.realLevel || 'Phàm Nhân') : { id: 1 };
+          const stageId = Number(npc.stageId) || (stCfg ? stCfg.id : 1);
+          if (stageId >= 10 || /(độ kiếp|đại thừa|địa tiên|thiên tiên|kim tiên|thái ất|đại la|tiên vương|tiên hoàng|tiên tôn|tiên đế|đạo tổ|chuẩn đế)/i.test(String(npc.level || ''))) {
+              const curRoot = String(npc.spiritualRoots || '');
+              if (!curRoot || /(phàm thể vô căn|vô linh căn|tạp căn|không có linh căn|vô căn)/i.test(curRoot)) {
+                  npc.spiritualRoots = getNpcSpiritualRoots({ ...npc, stageId });
+              }
+          }
+      });
+
+      stateToLoad.journal.npcs.forEach((npc: any) => {
+          if (!npc || npc.isDead) return;
+          const curRoot = String(npc.spiritualRoots || '');
+          if (!curRoot || /phàm|tạp|vô căn|không có/i.test(curRoot)) {
+              const npcHist = String(npc.historySummary || '') + ' ' + String(npc.state || '');
+              if (/(?:đúc|tạo|khai mở|ngưng tụ|tẩy tủy).*?(?:linh căn|căn cơ)/i.test(npcHist) || 
+                  (allLogsText && /(?:đúc|tạo|khai mở|ngưng tụ|tẩy tủy).*?(?:linh căn|căn cơ)/i.test(allLogsText) && allLogsText.includes(npc.name))) {
+                  const recovered = extractNpcSpiritualRootFromStory(npc.name, npcHist + ' ' + allLogsText, npc) || "Thiên Linh Căn (Hỏa)";
+                  npc.spiritualRoots = recovered;
+              }
+          }
+      });
+  }
+
+  // V1.28: Hồi tố quét sạch Bug Công Pháp đặt trùng tên Khí Vận để hack stack đột phá
+  if (stateToLoad.journal && Array.isArray(stateToLoad.journal.skills) && typeof TRAITS_POOL !== 'undefined') {
+      stateToLoad.journal.skills.forEach(s => {
+          if (s && s.name) {
+              const sNameClean = String(s.name).trim();
+              const isCollided = TRAITS_POOL.some(tp => tp.name && tp.name.toLowerCase() === sNameClean.toLowerCase());
+              if (isCollided && !sNameClean.includes('(Công Pháp)') && !/(quyết|kinh|pháp|công|thuật|chưởng|kiếm)$/i.test(sNameClean)) {
+                  s.name = `${sNameClean} (Công Pháp)`;
+              }
+          }
+      });
+  }
+
+  // V11.36 FIX: Chuyển đổi tên Căn Cơ cũ sang hệ thống 5 cấp mới khi tải File Save
+  if (stateToLoad.foundation === 'Vững Chắc') stateToLoad.foundation = 'Phàm Đạo';
+  if (stateToLoad.foundation === 'Cực Cảnh') stateToLoad.foundation = 'Cực Đạo';
+
+  // V13.1 FIX: Chữa lỗi AI ảo tưởng Chén Thánh (Nếu có chén thánh trong túi mà grailWishAge đã set thì chắc chắn là AI lú)
+  if (stateToLoad.grailWishAge !== undefined) {
+      const hasGrailCurrently = (stateToLoad.inventory || []).some(i => ['hắc hóa chén thánh', 'chén thánh hắc hóa', 'hắc ám chén thánh', 'chén thánh hắc ám'].some(n => String(i.name).toLowerCase().includes(n)));
+      if (hasGrailCurrently) {
+          delete stateToLoad.grailWishAge;
+      }
+  }
+
+  if (stateToLoad.sect && !stateToLoad.sect.commissions) {
+      stateToLoad.sect.commissions = [];
+  }
+
+  if (stateToLoad.playerAiLogs) {
+      setPlayerAiChatMessages(stateToLoad.playerAiLogs);
+  }
+
+  // V2.40 FIX (Hunggth8): HỒI TỐ TỰ ĐỘNG KHÔI PHỤC KHÍ VẬN ĐÃ THỨC TỈNH TRONG LỊCH SỬ / CHÉN THÁNH / ACTIVE EFFECTS
+  if (stateToLoad.traits && Array.isArray(stateToLoad.traits)) {
+      const existingTraitNames = stateToLoad.traits.map((t: any) => (typeof t === 'object' ? (t.name || '') : String(t)).toLowerCase().trim());
+      const hasHuVongEffect = (stateToLoad.activeEffects || []).some((e: any) => e && e.name && /hư vọng chân đế/i.test(e.name));
+      const hasHuVongSummary = (stateToLoad.summaries || []).some((s: any) => s && ((s.title && /hư vọng chân đế/i.test(s.title)) || (s.content && /hư vọng chân đế/i.test(s.content))));
+      const hasHuVongHistory = (stateToLoad.worldHistoryLedger || []).some((w: any) => w && ((w.title && /chân đế/i.test(w.title)) || (w.description && /chân đế/i.test(w.description))));
+      
+      if ((hasHuVongEffect || hasHuVongSummary || hasHuVongHistory) && !existingTraitNames.includes('hư vọng chân đế thể')) {
+          const huVongTrait = (typeof TRAITS_POOL !== 'undefined' ? TRAITS_POOL : []).find((tp: any) => tp.name === 'Hư Vọng Chân Đế Thể') || {
+              id: 9817,
+              name: 'Hư Vọng Chân Đế Thể',
+              rarity: 'Đỏ',
+              cost: 0,
+              desc: 'Giả tức là thật. Biến đòn chí tử vừa nhận thành ảo giác và xuất hiện sau lưng địch. Tạo 1 phân thân thừa hưởng trọn vẹn lực chiến.',
+              isDynamic: true
+          };
+          stateToLoad.traits.push(huVongTrait);
+      }
+  }
+
+  // V2.34 & V2.41 FIX: Tính đúng Max HP theo Cảnh Giới thực tế khi load để chống kẹt trần Phàm Nhân (Ethan195 & Dark & Hào Vip Pro)
+  if (stateToLoad.cultivationLevel) {
+      const currentStageCfg = getStageConfigByPath(stateToLoad.cultivationLevel, stateToLoad.cultivationPath);
+      const minorMultiplier = 1 + (Math.max(0, (Number(stateToLoad.minorLevel) || 1) - 1) * 0.15);
+      const baseHpCore = Math.floor(100 * currentStageCfg.statMult * minorMultiplier * Math.pow(1.15, currentStageCfg.id - 1));
+      const trueCalculatedMaxHp = baseHpCore + (Number(stateToLoad.bonusMaxHp) || 0);
+      stateToLoad.maxHealth = trueCalculatedMaxHp;
+      if (stateToLoad.health !== undefined && stateToLoad.health > trueCalculatedMaxHp) {
+          stateToLoad.health = trueCalculatedMaxHp;
+      }
+  }
+
+  // V2.29 & V2.41 HÀO VIP PRO & ETSUO: Đồng bộ danh sách Cảnh Giới Tùy Biến Siêu Thoát vào Registry
+  if (Array.isArray(stateToLoad.customRealms)) {
+      stateToLoad.customRealms.forEach((r: any) => {
+          if (r && r.name) registerCustomRealm(r);
+      });
+  }
+  if (stateToLoad.stageId >= 21 || String(stateToLoad.cultivationLevel).toLowerCase().includes('siêu thoát')) {
+      const sId = Number(stateToLoad.stageId) >= 21 ? Number(stateToLoad.stageId) : 21;
+      registerCustomRealm({
+          id: sId,
+          name: stateToLoad.cultivationLevel || `Siêu Thoát Cảnh (Cấp ${sId})`,
+          authority: 'Siêu thoát quy luật vũ trụ, chấp chưởng tạo hóa đa chiều'
+      });
+  }
+
+  // V2.83 FIX: CHỐT CHẶN TỰ PHỤC HỒI ĐỒNG BỘ CHƯƠNG & LÔI KIẾP KẸT TỒN ĐỌNG (BÁO LỖI DARK)
+  if (Array.isArray(profile.storyLog) && profile.storyLog.length > 0) {
+      const maxLogChapter = Math.max(0, ...profile.storyLog.map((l: any) => Number(l.chapter) || 0));
+      if (maxLogChapter > (Number(stateToLoad.chapterCount) || 0)) {
+          console.warn(`[Auto-Repair] Đồng bộ lại chapterCount từ ${stateToLoad.chapterCount} lên ${maxLogChapter} theo storyLog!`);
+          stateToLoad.chapterCount = maxLogChapter;
+      }
+  }
+  if (stateToLoad.tribulation && stateToLoad.tribulation.active && Array.isArray(profile.storyLog) && profile.storyLog.length > 0) {
+      const tribStart = Number(stateToLoad.tribulation.startedChapter) || 0;
+      if (stateToLoad.chapterCount > tribStart) {
+          stateToLoad.tribulation = null;
+      }
+  }
+
+  // V3.13: Tự động thanh lọc ký ức NPC, chỉ lưu tối đa 1 ký ức tích lũy mới nhất (Đặc quyền Chủ toạ Dark)
+  if (stateToLoad.journal && Array.isArray(stateToLoad.journal.npcs)) {
+      stateToLoad.journal.npcs.forEach((n: any) => {
+          if (n && n.historySummary) {
+              const parts = String(n.historySummary).split(" | ").map((s: string) => s.trim()).filter(Boolean);
+              n.historySummary = parts.slice(-1).join(" | ").slice(-500);
+          }
+      });
+  }
+
+  // V2.96: Tự động dọn dẹp lịch sử thuộc tính & khóa trần 12 buff khi load profile
+  pruneStatHistories(stateToLoad, 10);
+  stateToLoad.activeEffects = capActiveEffects(stateToLoad.activeEffects, 12);
+
+  setGameState(stateToLoad);
+  const loadedOptions = Array.isArray(profile.currentOptions) && profile.currentOptions.length > 0
+    ? profile.currentOptions 
+    : ((Number(stateToLoad.chapterCount) || 0) === 0 ? ["Bắt đầu chuyển sinh", "Quan sát động tĩnh xung quanh", "Khám phá địa phương", "Tĩnh tọa vận khí"] : ["Tiếp tục tu luyện", "Thám thính xung quanh", "Vận hành chu thiên", "Mưu định hành động kế tiếp"]);
+  setCurrentOptions(loadedOptions);
+      // V1.28.3 FIX: Khôi phục số lựa chọn từ Firebase khi load nhân vật
+      if (profile.settingOptionsCount && Number.isInteger(profile.settingOptionsCount) && profile.settingOptionsCount >= 2 && profile.settingOptionsCount <= 10) {
+          setSettingOptionsCount(profile.settingOptionsCount);
+          localStorage.setItem('tuTienOptionsCount', String(profile.settingOptionsCount));
+      }
+      setCurrentProfileId(profile.id);
+    setGameStarted(true);
+    setIsGameOverDismissed(false); // V2.38: Tự động reset modal tử vong khi nạp profile
+    setHistoryLogs([]); 
+    setLoadedChapterIds(new Set());
+
+    // V9.61 FIX: Tẩy trắng UI để chống rò rỉ khi người chơi chuyển thẳng nhân vật từ danh sách
+    setSelectedInvItem(null); 
+    setSelectedCompInvItem(null); 
+    setViewingEquipSlot(null);
+
+    let currentLogs = [];
+    if (user && stateToLoad.chapterCount > 0) {
+        try {
+            const logRef = doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', profile.id, 'logs', String(stateToLoad.chapterCount));
+            const logSnap = await getDoc(logRef);
+            if (logSnap.exists() && logSnap.data().dataStr) currentLogs = safeDecompressLogs(logSnap.data().dataStr);
+        } catch(e) { console.error("Lỗi tải Log hiện tại:", e); }
+    }
+    
+    if (currentLogs.length === 0 && Array.isArray(profile.storyLog)) {
+        currentLogs = profile.storyLog.filter(l => l.chapter === stateToLoad.chapterCount);
+    }
+    
+    if (bonusLog) currentLogs.push(bonusLog);
+    if (legacyBonusLog) currentLogs.push(legacyBonusLog);
+    if (cheatPunishmentLog) currentLogs.push(cheatPunishmentLog); // V9.65 FIX: Hiện log trừng phạt
+    if (migrationLog) currentLogs.push(migrationLog);
+    setStoryLog(currentLogs); 
+
+    // V11.92: Khôi phục trạng thái nút Nghịch Chuyển từ Ổ cứng khi tải nhân vật
+    try {
+        const savedSnap = localStorage.getItem(`tuTienSnapshot_${profile.id}`);
+        if (savedSnap) {
+            const parsedSnap = JSON.parse(savedSnap);
+            // Chỉ nạp vào RAM nếu điểm neo hợp lệ (cách đúng 1 chương)
+            if (stateToLoad.chapterCount - parsedSnap.chapterCount === 1) {
+                setTimeMachineBuffer(prev => ({ ...prev, [profile.id]: parsedSnap }));
+            } else {
+                localStorage.removeItem(`tuTienSnapshot_${profile.id}`);
+            }
+        }
+    } catch(e) {}
+  };
+
+  const loadProfile = (profile) => {
+    if (checkSpam()) return;
+    let rawGameState = profile.gameState;
+    if (profile.gameStateStr) rawGameState = safeDecompress(profile.gameStateStr) || rawGameState;
+    if (typeof rawGameState === 'string') try { rawGameState = JSON.parse(rawGameState); } catch(e){}
+    if (!rawGameState) return showAlert("Dữ liệu nhân vật bị lỗi, không thể giải mã!");
+
+    // V3.14 (CHỦ TOẠ THÀNH KHÔN): Tự động đồng bộ các địa danh trong Bách Khoa và Bản Đồ vào fogKnowledge
+    if (rawGameState.encyclopedia && Array.isArray(rawGameState.encyclopedia)) {
+        if (!rawGameState.fogKnowledge) rawGameState.fogKnowledge = {};
+        rawGameState.encyclopedia.forEach((e: any) => {
+            if (e && e.type === 'location' && e.name) {
+                const nodeKey = e.id || `story_loc_${e.name}`;
+                if (!rawGameState.fogKnowledge[nodeKey]) {
+                    rawGameState.fogKnowledge[nodeKey] = { level: 1, clue: e.desc || `Manh mối ghi nhận trong Bách Khoa Toàn Thư.` };
+                }
+            }
+        });
+    }
+
+    // V10.09 FIX: Bắt các File Save cũ chưa chọn Tính Cách Cốt Lõi MỘT CÁCH CHUẨN XÁC
+    // Kiểm tra xem daoHeart hiện tại có KHỚP với bất kỳ Tính Cách Cốt Lõi nào trong hệ thống không.
+    // Nếu không khớp (nghĩa là nó là đoạn văn AI phân tích rác từ bản cũ, hoặc chưa định hình), thì mới bắt chọn lại!
+    const currentPersonalityPool = PERSONALITIES_POOL;
+    const isLegacyDaoHeart = (!rawGameState.daoHeart || 
+                             rawGameState.daoHeart === 'Chưa định hình' || 
+                             rawGameState.daoHeart === 'Chưa định hình (Sẽ phát triển tự nhiên theo thời gian)' ||
+                             (!currentPersonalityPool.some(p => String(rawGameState.daoHeart).toLowerCase().includes(p.name.toLowerCase())) && !String(rawGameState.daoHeart).toLowerCase().includes('hướng thiện') && String(rawGameState.daoHeart).length > 60));
+
+    if (isLegacyDaoHeart) {
+        setSelectedLegacyPersonality('');
+        setLegacyPersonalityModal({ profile, rawGameState });
+        return; 
+    }
+
+    const savedTraits = rawGameState.traits || [];
+    let validTraits = [], missingTraits = [], costDifference = 0;
+    savedTraits.forEach(st => {
+       if (!st) return;
+       // Tẩy sạch tên nếu file save cũ bị dính hậu tố rác của AI
+       let cleanStName = String(st.name).replace(/\s*\((sơ khai|thăng hoa|tiến hóa)\)/gi, '').trim();
+       const currentTrait = TRAITS_POOL.find(t => t.id === st.id || t.name === cleanStName || cleanStName.includes(t.name));
+       if (currentTrait) { validTraits.push(currentTrait); costDifference += ((currentTrait.cost || 0) - (st.cost || 0)); } 
+       else { missingTraits.push(st); }
+    });
+
+    let newSpiritStones = Number(rawGameState.spiritStones) || 0;
+    let bonusLog = null;
+    if (costDifference !== 0) {
+       const stoneAdjust = -(costDifference * 50); 
+       newSpiritStones = Math.max(0, newSpiritStones + stoneAdjust);
+       // V8.70 FIX: Ẩn thông báo đổi khí vận bằng linh thạch để đỡ rác màn hình
+    }
+    if (missingTraits.length > 0) {
+       const refundedPoints = missingTraits.reduce((sum, t) => sum + (Number(t.cost) || 0), 0);
+       const refundStones = refundedPoints * 50;
+       const compensatedStones = newSpiritStones + refundStones;
+       setReconstructionData({ profile: { ...profile, gameState: { ...rawGameState, spiritStones: compensatedStones, traits: validTraits } }, missingTraits, refundedPoints, validTraits, bonusLog });
+       setIsReconstructionModalOpen(true); return; 
+    }
+    executeLoadProfile({ ...profile, gameState: { ...rawGameState, spiritStones: newSpiritStones, traits: validTraits } }, bonusLog);
+  };
+
+  const deleteProfile = async (e, id) => {
+    e.stopPropagation();
+    if (checkSpam()) return; 
+    showConfirm("Chắc chắn muốn xóa nhân vật này khỏi Cloud?", async () => {
+      try { 
+        await deleteDoc(doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', id));
+        if (currentProfileId === id) { setGameStarted(false); setCurrentProfileId(null); }
+        if(profiles.length <= 1) setMenuTab('create');
+        
+        // V11.92: Dọn dẹp rác trong ổ cứng khi xóa nhân vật
+        localStorage.removeItem(`tuTienSnapshot_${id}`);
+        setTimeMachineBuffer(prev => { const next = {...prev}; delete next[id]; return next; });
+      } catch (error) { showAlert("Lỗi xóa: " + error.message); }
+    });
+  };
+
+  // V7.15: KHAI MỞ CHỨC NĂNG VIẾT HỒI KÝ / BẢN KỶ CHO KẺ ĐÃ KHUẤT
+  const [biographyModal, setBiographyModal] = useState({ isOpen: false, title: '', content: '' });
+  
+  const generateBiography = async (e, profile) => {
+      e.stopPropagation();
+      if (checkSpam()) return;
+
+      // Nếu đã có truyện rồi thì mở ra đọc luôn
+      if (profile.biography) {
+          setBiographyModal({ isOpen: true, title: `Bản Kỷ: ${profile.name}`, content: profile.biography });
+          return;
+      }
+
+      showConfirm(`Thiên Đạo sẽ thu thập toàn bộ tóm tắt hành trình và cái chết của [${profile.name}] để viết thành một bộ Truyện Ngắn / Hồi Ký lưu danh muôn thuở.\n\nLưu ý: Mỗi nhân vật chỉ được đúc kết 1 lần duy nhất. Bạn có muốn bắt đầu?`, async () => {
+          setDialog({ type: 'loading', message: `Đang ngưng tụ thời không, soạn thảo Bản Kỷ cho [${profile.name}]...` });
+          try {
+              let state = profile.gameState;
+              if (profile.gameStateStr) state = safeDecompress(profile.gameStateStr) || state;
+              if (typeof state === 'string') try { state = JSON.parse(state); } catch(err){}
+
+              const summaries = (state.summaries || []).slice().reverse().map(s => `- ${s.timeLabel || s.title}: ${s.content}`).join('\n');
+              const deathInfo = (state.deathHistory || []).map((h, i) => `Lần chết ${i+1} (${h.time}): ${h.reason} -> ${h.surviveReason}`).join('\n');
+              const finalDeath = state.deathReason || 'Thân tử đạo tiêu.';
+
+              const sysPrompt = `BẠN LÀ SỬ GIA TỐI CAO CỦA TU CHÂN GIỚI.
+NHIỆM VỤ: Dựa vào Tóm tắt hành trình dưới đây, hãy viết một bài HỒI KÝ / BẢN KỶ (Truyện ngắn) tóm tắt lại cuộc đời oanh liệt hoặc bi thảm của nhân vật [${profile.name}] (Cảnh giới cuối cùng: ${profile.cultivationLevel}).
+
+TÓM TẮT HÀNH TRÌNH LÚC SINH THỜI:
+${summaries || 'Kẻ này sống một đời mờ nhạt, chưa kịp lưu lại dấu ấn gì đã vội vã qua đời.'}
+
+LỊCH SỬ TỬ VONG:
+${deathInfo}
+CÁI CHẾT CUỐI CÙNG (CHẤM DỨT CUỘC ĐỜI): ${finalDeath}
+
+YÊU CẦU VĂN PHONG:
+1. Viết dưới dạng một áng văn chương tiên hiệp bi tráng, dạt dào cảm xúc (Khoảng 2-3 đoạn văn dài).
+2. Tôn vinh những cột mốc quan trọng, sự kiên cường hoặc sự xui xẻo của họ.
+3. Đoạn cuối cùng phải miêu tả khoảnh khắc họ gục ngã (Cái chết cuối cùng), để lại niềm tiếc thương hoặc sự hả hê cho vạn giới.
+    (CẤM DÙNG TIẾNG ANH. CẤM XUẤT JSON. BẠN CHỈ TRẢ VỀ ĐÚNG ĐOẠN VĂN BẢN TIỂU THUYẾT).`;
+
+                  const payload = { contents: [{ parts: [{ text: "Hãy viết Bản Kỷ cuộc đời." }] }], systemInstruction: { parts: [{ text: sysPrompt }] } };
+                  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                  const result = await response.json();
+                  let bioText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+              
+              if (bioText) {
+                  bioText = bioText.replace(/```/g, '').trim();
+                  // Lưu vĩnh viễn vào Đám Mây
+                  const profileRef = doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', profile.id);
+                  await setDoc(profileRef, { biography: bioText }, { merge: true });
+                  
+                  // Cập nhật State để hiện Icon sách ngay lập tức
+                  setProfiles(prev => prev.map(p => p.id === profile.id ? { ...p, biography: bioText } : p));
+                  
+                  closeDialog();
+                  setBiographyModal({ isOpen: true, title: `Bản Kỷ: ${profile.name}`, content: bioText });
+              } else { throw new Error("AI trả về rỗng."); }
+          } catch(e) { closeDialog(); showAlert("Lỗi viết truyện: " + e.message); }
+      });
+  };
+
+  // =========================================================================
+  // PHẦN III (GDD): THIẾT LẬP ĐỒ THỊ ĐỊA LÝ CỐ ĐỊNH (FIXED TOPOLOGY INITIALIZER)
+  // =========================================================================
+  const generateInitialWorldMap = (bgId, traits, activeDLCs, startLocId, startAgeOffset, timelineId = 'timeline_thanh_van') => {
+      let locs = [];
+      let realms = {};
+
+      const currentActiveTimeline = getActiveTimeline(timelineId);
+      const activeGraph = currentActiveTimeline.worldGraph || FIXED_WORLD_GRAPH;
+
+      // 1. NẠP TOÀN BỘ CÁC ĐIỂM NÚT CỐ ĐỊNH CỦA DÒNG THỜI GIAN ĐƯỢC CHỌN VÀO BẢN ĐỒ (CHỈ BASE GAME CỬU CHÂU)
+      Object.values(activeGraph).forEach(node => {
+          if (node.id.startsWith('dlc_') || node.requiredDLC) return; // V3.24: Tuyệt đối chặn rò rỉ node DLC vào base game
+          locs.push({
+              type: 'location',
+              name: node.name,
+              id: node.id,
+              region: node.region,
+              regionName: node.regionName,
+              desc: node.description,
+              rulingFaction: node.rulingFaction,
+              facilities: node.facilities,
+              auraDensity: node.auraDensity,
+              coordinates: node.coordinates
+          });
+
+          realms[node.name] = {
+              nodeId: node.id,
+              ratio: node.tier === 'HaViDien' ? 1 : node.tier === 'TrungViDien' ? 2 : 5,
+              accumulated: startAgeOffset,
+              aura: node.auraDensity,
+              integrity: 5000,
+              pollution: 0
+          };
+      });
+
+      // 2. MỞ RỘNG VI DIỆN DLC ĐỘC LẬP (CHỈ NẠP KHI NGƯỜI CHƠI BẬT DLC)
+      if (activeDLCs && activeDLCs.includes('dlc_hong_hoang')) {
+          const hhNode = {
+              type: 'location',
+              name: 'Thái Cổ Hồng Hoang (Vi Diện Cổ)',
+              id: 'dlc_hong_hoang_realm',
+              region: 'TrungCuc',
+              regionName: 'Thái Cổ Vi Diện',
+              desc: 'Vi diện cổ đại nguyên thủy, Bàn Cổ thần điện tọa trấn, Vu Tộc và Yêu Tộc viễn cổ cát cứ.',
+              rulingFaction: 'Thập Nhị Vu Tộc & Yêu Hoàng Cung',
+              facilities: ['BanCoDien', 'ToVuTrang', 'YeuHoangCung'],
+              auraDensity: 9000,
+              coordinates: { x: 5000, y: 5000, z: 2000 }
+          };
+          locs.push(hhNode);
+          realms[hhNode.name] = { nodeId: hhNode.id, ratio: 5, accumulated: startAgeOffset, aura: 9000, integrity: 10000, pollution: 0 };
+
+          ['dlc_hong_hoang_ban_co_dien', 'dlc_hong_hoang_yeu_hoang_cung'].forEach(hhId => {
+              const hfNode = DLC_WORLD_GRAPH[hhId] || ALL_WORLD_GRAPH[hhId];
+              if (hfNode && !locs.some(l => l.name === hfNode.name)) {
+                  locs.push({ type: 'location', name: hfNode.name, id: hfNode.id, region: hfNode.region, regionName: hfNode.regionName || hfNode.name, desc: hfNode.description, rulingFaction: hfNode.rulingFaction, facilities: hfNode.facilities, auraDensity: hfNode.auraDensity, coordinates: hfNode.coordinates });
+                  realms[hfNode.name] = { nodeId: hfNode.id, ratio: 5, accumulated: startAgeOffset, aura: hfNode.auraDensity, integrity: 5000, pollution: 0 };
+              }
+          });
+      }
+
+      if (activeDLCs && (activeDLCs.includes('dlc_dark_fantasy') || ['ma_phap', 'bg_titan', 'bg_elf', 'bg_high_elf', 'bg_dark_elf', 'bg_angel', 'bg_blood_angel', 'bg_succubus', 'bg_nightmare', 'bg_undead', 'bg_behemoth', 'bg_vien_co_cu_long'].includes(bgId))) {
+          const dfNode = {
+              type: 'location',
+              name: 'Thánh Chiến Quang Ám (Vi Diện Tây Phương)',
+              id: 'dlc_dark_fantasy_realm',
+              region: 'TrungCuc',
+              regionName: 'Quang Ám Vi Diện',
+              desc: 'Vi diện phương Tây tàn khốc, chiến hào lưu huỳnh và pháo đài rỉ sét của cuộc Thánh Chiến ngàn năm giữa Thiên Đường và Địa Ngục.',
+              rulingFaction: 'Quang Minh Thần Điện & Thất Mang Tinh',
+              facilities: ['ThanhDuong', 'DiaNgucVuc', 'MaPhapThap'],
+              auraDensity: 6000,
+              coordinates: { x: -5000, y: -5000, z: 1000 }
+          };
+          locs.push(dfNode);
+          realms[dfNode.name] = { nodeId: dfNode.id, ratio: 5, accumulated: startAgeOffset, aura: 6000, integrity: 8000, pollution: 50 };
+
+          // V3.7: ĐẶC QUYỀN CHỦ TOẠ THÀNH KHÔN - NẠP ĐẦY ĐỦ CÁC VÙNG AN TOÀN DLC VÀO WORLD SEED & REALMS
+          const dfFixedNodeIds = [
+              'dlc_violet_citadel_dalaran', 'dlc_valhalla_new_asgard', 'dlc_alfheim_lothlorien',
+              'dlc_commorragh_naggaroth', 'dlc_thien_duc_gioi_holy_palace', 'dlc_warp_khorne_huyet_vuc',
+              'dlc_warp_slaanesh_mi_vuc', 'dlc_warp_tzeentch_huyen_vuc', 'dlc_warp_orcus_tu_vuc',
+              'dlc_warp_nurgle_benh_vuc', 'dlc_dark_fantasy_farum_azula', 'dlc_dark_fantasy_chien_hao',
+              'dlc_dark_fantasy_neu_jerusalem', 'dlc_dark_fantasy_hac_am_than_dien', 'dlc_dark_fantasy_lothlorien',
+              'dlc_dark_fantasy_huyet_toc_co_lau'
+          ];
+          dfFixedNodeIds.forEach(fnId => {
+              const fNode = DLC_WORLD_GRAPH[fnId] || ALL_WORLD_GRAPH[fnId];
+              if (fNode) {
+                  if (!locs.some(l => l.id === fNode.id)) {
+                      locs.push({
+                          type: 'location',
+                          name: fNode.name,
+                          id: fNode.id,
+                          region: fNode.region || 'QuangAm',
+                          regionName: fNode.regionName || 'Quang Ám Vi Diện',
+                          desc: fNode.description,
+                          rulingFaction: fNode.rulingFaction,
+                          facilities: fNode.facilities,
+                          auraDensity: fNode.auraDensity || 6000,
+                          coordinates: fNode.coordinates
+                      });
+                  }
+                  if (!realms[fNode.name]) {
+                      realms[fNode.name] = { nodeId: fNode.id, ratio: 1, accumulated: startAgeOffset, aura: fNode.auraDensity || 6000, integrity: 5000, pollution: 0 };
+                  }
+              }
+          });
+      }
+
+      if (activeDLCs && (activeDLCs.includes('dlc_cyberpunk') || bgId === 'bg_do_thi_tu_tien')) {
+          const cbNode = {
+              type: 'location',
+              name: 'Cơ Khí Giáng Lâm (Tàn Tích Phi Thuyền)',
+              id: 'dlc_cyberpunk_realm',
+              region: 'TrungCuc',
+              regionName: 'Tàn Tích Phi Thuyền',
+              desc: 'Tàn tích trạm không gian Phương Chu và các cỗ máy chiến tranh lượng tử của Khoa Kỹ Đế Quốc rơi rớt.',
+              rulingFaction: 'Hiệp Nghị Túc Chính',
+              facilities: ['LoNangLuong', 'XuongNano', 'TramKhongGian'],
+              auraDensity: 4000,
+              coordinates: { x: 8000, y: -8000, z: 3000 }
+          };
+          locs.push(cbNode);
+          realms[cbNode.name] = { nodeId: cbNode.id, ratio: 5, accumulated: startAgeOffset, aura: 4000, integrity: 6000, pollution: 100 };
+
+          const scifiNode = DLC_WORLD_GRAPH['dlc_khoa_ky_cong_quoc'] || ALL_WORLD_GRAPH['dlc_khoa_ky_cong_quoc'];
+          const phuongChuNode = DLC_WORLD_GRAPH['dlc_cyberpunk_phuong_chu'] || ALL_WORLD_GRAPH['dlc_cyberpunk_phuong_chu'];
+          if (phuongChuNode && !locs.some(l => l.name === phuongChuNode.name)) {
+              locs.push({ type: 'location', name: phuongChuNode.name, id: phuongChuNode.id, region: phuongChuNode.region, regionName: phuongChuNode.regionName || phuongChuNode.name, desc: phuongChuNode.description, rulingFaction: phuongChuNode.rulingFaction, facilities: phuongChuNode.facilities, auraDensity: phuongChuNode.auraDensity, coordinates: phuongChuNode.coordinates });
+              realms[phuongChuNode.name] = { nodeId: phuongChuNode.id, ratio: 1, accumulated: startAgeOffset, aura: phuongChuNode.auraDensity, integrity: 5000, pollution: 0 };
+          }
+          if (scifiNode) {
+              if (!locs.some(l => l.id === scifiNode.id)) {
+                  locs.push({
+                      type: 'location',
+                      name: scifiNode.name,
+                      id: scifiNode.id,
+                      region: scifiNode.region || 'KhoaKy',
+                      regionName: scifiNode.regionName || 'Khoa Kỹ Công Quốc',
+                      desc: scifiNode.description,
+                      rulingFaction: scifiNode.rulingFaction,
+                      facilities: scifiNode.facilities,
+                      auraDensity: scifiNode.auraDensity || 4000,
+                      coordinates: scifiNode.coordinates
+                  });
+              }
+              if (!realms[scifiNode.name]) {
+                  realms[scifiNode.name] = { nodeId: scifiNode.id, ratio: 1, accumulated: startAgeOffset, aura: scifiNode.auraDensity || 4000, integrity: 5000, pollution: 0 };
+              }
+          }
+      }
+
+      const worldFactions = currentActiveTimeline.worldFactions || [
+        "Thanh Vân Kiếm Tông",
+        "Hoàng Triều Đại Càn",
+        "Hạo Nhiên Nho Tông",
+        "Kim Thiền Phật Tông",
+        "U Minh Thi Âm Tông",
+        "Vạn Bảo Thương Hội"
+      ];
+
+      return { locs, realms, factions: worldFactions };
+  };
+

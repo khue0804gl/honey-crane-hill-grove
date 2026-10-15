@@ -1,0 +1,6 @@
+Nguồn: tutien.txt
+Số dòng: 55432
+Kích thước byte: 5192796
+SHA256 nguồn: 7c4f0114d6dbc7e4c05e3b0d8adb7ec373fa8f624e0c3ed07d5ac8d152916e4d
+Các module trong MODULE_INDEX.csv phủ hết dòng 1 đến dòng cuối, không chồng lấn và không bỏ dòng.
+Lưu ý: hash chứng minh khả năng khôi phục chính xác, không chứng minh từng module chạy độc lập.

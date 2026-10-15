@@ -1,0 +1,275 @@
+  const DLC_PACKS = [
+      { id: 'dlc_dark_fantasy', name: 'Quang Ám Xâm Lược', desc: 'Xé rách không gian, gọi Quân đoàn Ác Ma, Thiên Thần và Ma thuật Tây Phương tràn sang xâm lược vi diện hiện tại của bạn.', color: 'text-red-500', bg: 'bg-red-900/20', border: 'border-red-500/50' },
+      { id: 'dlc_hong_hoang', name: 'Hồng Hoang Xâm Lược', desc: 'Đánh thức Cự Thú Thái Cổ. Thái Thản, Bỉ Mông và Thao Thiết khổng lồ bò lên từ lòng đất tàn phá vi diện hiện tại.', color: 'text-orange-500', bg: 'bg-orange-900/20', border: 'border-orange-500/50' },
+      { id: 'dlc_nho_tu', name: 'Triều Đình Vây Ráp', desc: 'Quân đội phàm trần kết thành quân trận vây ráp, áp đặt luật pháp vương triều lên những kẻ tự do tu đạo.', color: 'text-blue-500', bg: 'bg-blue-900/20', border: 'border-blue-500/50' },
+      { id: 'dlc_cyberpunk', name: 'Cơ Khí Giáng Lâm', desc: 'Phương Chu mang tàn dư Khoa Kỹ Đế Quốc và Nền Văn Minh 11 Chiều chạy trốn Azathoth rơi xuống Tu Tiên Giới. Buộc phải chắp vá công nghệ bằng huyền thiết và linh thạch. Gồm: Terran, Protoss, Orokin, Necron, Downstreamers, Time Lords, Daleks...', color: 'text-teal-500', bg: 'bg-teal-900/20', border: 'border-teal-500/50' },
+      { id: 'dlc_linh_vong', name: 'Vạn Giới Linh Võng', desc: 'Mạng xã hội Tu Tiên! Mọi người dùng Ngọc Giản để Livestream, lên Diễn đàn bóc phốt, Lừa đảo tình cảm (Trap) và Hack tọa độ (Doxxing) chém nhau qua mạng.', color: 'text-pink-500', bg: 'bg-pink-900/20', border: 'border-pink-500/50' },
+      { id: 'dlc_nightmare', name: 'Chế Độ Ác Mộng (Thường)', desc: 'Trần chỉ số toàn bộ NPC được đẩy lên Tối Đa theo Cảnh giới, giảm 50% EXP tu vi, áp chế cảnh giới tuyệt đối. KHÔNG có cơ chế săn bắt Lô Đỉnh.', color: 'text-fuchsia-500', bg: 'bg-fuchsia-900/20', border: 'border-fuchsia-500/50' },
+      { id: 'dlc_nightmare_abyss', name: 'Chế Độ Ác Mộng (Vô Gian)', desc: 'Bao gồm toàn bộ Ác Mộng Thường CỘNG THÊM: NPC điên cuồng săn lùng bắt cóc làm Lô Đỉnh (khi có Hồng Nhan Đa Kiếp / Mị Cốt), cực hạn thống khổ & máu me!', color: 'text-rose-600', bg: 'bg-rose-950/30', border: 'border-rose-600/60' }
+  ];
+
+  useEffect(() => { localStorage.setItem('tuTienShowCrowd', settingShowCrowd); }, [settingShowCrowd]);
+  useEffect(() => { localStorage.setItem('tuTienNsfwMode', settingNsfwMode); }, [settingNsfwMode]); // V7.47
+  useEffect(() => { localStorage.setItem('tuTienHumorCrowd', settingHumorousCrowd); }, [settingHumorousCrowd]); // V7.59
+  useEffect(() => { localStorage.setItem('tuTienHideOptions', settingHideOptions); }, [settingHideOptions]); // V8.33
+  useEffect(() => { localStorage.setItem('tuTienHideOptionTags', settingHideOptionTags); }, [settingHideOptionTags]); // V8.33
+  useEffect(() => { localStorage.setItem('tuTienEpicCombat', settingEpicCombat); }, [settingEpicCombat]); // V11.63
+  useEffect(() => { localStorage.setItem('tuTienDeepReasoning', settingDeepReasoning); }, [settingDeepReasoning]); // V12.13
+  useEffect(() => { localStorage.setItem('tuTienNoPraise', settingNoPraise); }, [settingNoPraise]); // Tắt AI khen ngợi NVC
+  useEffect(() => { localStorage.setItem('tuTienNoMuttering', settingNoMuttering); }, [settingNoMuttering]); // Tắt nhân vật lẩm bẩm
+  useEffect(() => { localStorage.setItem('tuTienOptionsCount', settingOptionsCount); }, [settingOptionsCount]);
+  useEffect(() => { localStorage.setItem('tuTienInvMode', invSearchMode); }, [invSearchMode]);
+  
+  // V10.45: Lưu 4 biến Gen Z
+  useEffect(() => { localStorage.setItem('tuTienAlias', isAliasEnabled); }, [isAliasEnabled]);
+  useEffect(() => { localStorage.setItem('tuTienGenZAll', settingGenZAll); }, [settingGenZAll]); 
+  useEffect(() => { localStorage.setItem('tuTienGenZRomance', settingGenZRomance); }, [settingGenZRomance]); 
+  useEffect(() => { localStorage.setItem('tuTienGenZCombat', settingGenZCombat); }, [settingGenZCombat]); 
+  useEffect(() => { localStorage.setItem('tuTienGenZCultivate', settingGenZCultivate); }, [settingGenZCultivate]); 
+  
+  useEffect(() => { localStorage.setItem('tuTienLogAntiCheat', logFilterAntiCheat); }, [logFilterAntiCheat]);
+  useEffect(() => { localStorage.setItem('tuTienLogStats', logFilterStats); }, [logFilterStats]);
+  useEffect(() => { localStorage.setItem('tuTienLogItems', logFilterItems); }, [logFilterItems]);
+  useEffect(() => { localStorage.setItem('tuTienLogCultivation', logFilterCultivation); }, [logFilterCultivation]);
+  useEffect(() => { localStorage.setItem('tuTienLogSect', logFilterSect); }, [logFilterSect]);
+
+  // V1.96 ETSUO FIX: Helpers áp dụng & đóng gói Cài Đặt Hệ Thống đồng bộ toàn diện
+  const getCurrentSystemSettings = () => ({
+    settingShowCrowd,
+    settingNsfwMode,
+    settingHumorousCrowd,
+    settingHideOptions,
+    settingHideOptionTags,
+    settingEpicCombat,
+    settingDeepReasoning,
+    settingNoPraise,
+    settingNoMuttering,
+    settingOptionsCount,
+    invSearchMode,
+    isAliasEnabled,
+    aliasInput: typeof aliasInput !== 'undefined' ? aliasInput : '',
+    settingGenZAll,
+    settingGenZRomance,
+    settingGenZCombat,
+    settingGenZCultivate,
+    visibleSubStats,
+    logFilterAntiCheat,
+    logFilterStats,
+    logFilterItems,
+    logFilterCultivation,
+    logFilterSect,
+    theme,
+    viewMode,
+    chapterLengthLevel,
+    worldExpansionDepth,
+    isAutoWorldExpansion
+  });
+
+  const applySystemSettings = (s: any) => {
+    if (!s || typeof s !== 'object') return;
+    try {
+      const getVal = (k1: string, k2: string) => s[k1] !== undefined ? s[k1] : s[k2];
+
+      const showCrowd = getVal('settingShowCrowd', 'tuTienShowCrowd');
+      if (showCrowd !== undefined && showCrowd !== null) {
+        const val = String(showCrowd) !== 'false';
+        setSettingShowCrowd(val);
+        localStorage.setItem('tuTienShowCrowd', String(val));
+      }
+      const nsfw = getVal('settingNsfwMode', 'tuTienNsfwMode');
+      if (nsfw !== undefined && nsfw !== null) {
+        const val = String(nsfw) === 'true';
+        setSettingNsfwMode(val);
+        localStorage.setItem('tuTienNsfwMode', String(val));
+      }
+      const humor = getVal('settingHumorousCrowd', 'tuTienHumorCrowd');
+      if (humor !== undefined && humor !== null) {
+        const val = String(humor) === 'true';
+        setSettingHumorousCrowd(val);
+        localStorage.setItem('tuTienHumorCrowd', String(val));
+      }
+      const hideOpts = getVal('settingHideOptions', 'tuTienHideOptions');
+      if (hideOpts !== undefined && hideOpts !== null) {
+        const val = String(hideOpts) === 'true';
+        setSettingHideOptions(val);
+        localStorage.setItem('tuTienHideOptions', String(val));
+      }
+      const hideTags = getVal('settingHideOptionTags', 'tuTienHideOptionTags');
+      if (hideTags !== undefined && hideTags !== null) {
+        const val = String(hideTags) === 'true';
+        setSettingHideOptionTags(val);
+        localStorage.setItem('tuTienHideOptionTags', String(val));
+      }
+      const epic = getVal('settingEpicCombat', 'tuTienEpicCombat');
+      if (epic !== undefined && epic !== null) {
+        const val = String(epic) === 'true';
+        setSettingEpicCombat(val);
+        localStorage.setItem('tuTienEpicCombat', String(val));
+      }
+      const deep = getVal('settingDeepReasoning', 'tuTienDeepReasoning');
+      if (deep !== undefined && deep !== null) {
+        const val = String(deep) === 'true';
+        setSettingDeepReasoning(val);
+        localStorage.setItem('tuTienDeepReasoning', String(val));
+      }
+      const noPraise = getVal('settingNoPraise', 'tuTienNoPraise');
+      if (noPraise !== undefined && noPraise !== null) {
+        const val = String(noPraise) !== 'false';
+        setSettingNoPraise(val);
+        localStorage.setItem('tuTienNoPraise', String(val));
+      }
+      const noMutter = getVal('settingNoMuttering', 'tuTienNoMuttering');
+      if (noMutter !== undefined && noMutter !== null) {
+        const val = String(noMutter) === 'true';
+        setSettingNoMuttering(val);
+        localStorage.setItem('tuTienNoMuttering', String(val));
+      }
+      const optsCount = getVal('settingOptionsCount', 'tuTienOptionsCount');
+      if (optsCount !== undefined && optsCount !== null) {
+        const count = Math.max(4, Math.min(10, Number(optsCount) || 4));
+        setSettingOptionsCount(count);
+        localStorage.setItem('tuTienOptionsCount', String(count));
+      }
+      const invMode = getVal('invSearchMode', 'tuTienInvMode');
+      if (invMode !== undefined && invMode !== null) {
+        setInvSearchMode(String(invMode));
+        localStorage.setItem('tuTienInvMode', String(invMode));
+      }
+      const alias = getVal('isAliasEnabled', 'tuTienAlias');
+      if (alias !== undefined && alias !== null) {
+        const val = String(alias) !== 'false';
+        setIsAliasEnabled(val);
+        localStorage.setItem('tuTienAlias', String(val));
+      }
+      if (s.aliasInput !== undefined && s.aliasInput !== null && typeof setAliasInput === 'function') {
+        setAliasInput(String(s.aliasInput));
+      }
+      const genZAll = getVal('settingGenZAll', 'tuTienGenZAll');
+      if (genZAll !== undefined && genZAll !== null) {
+        const val = String(genZAll) === 'true';
+        setSettingGenZAll(val);
+        localStorage.setItem('tuTienGenZAll', String(val));
+      }
+      const genZRom = getVal('settingGenZRomance', 'tuTienGenZRomance');
+      if (genZRom !== undefined && genZRom !== null) {
+        const val = String(genZRom) === 'true';
+        setSettingGenZRomance(val);
+        localStorage.setItem('tuTienGenZRomance', String(val));
+      }
+      const genZCom = getVal('settingGenZCombat', 'tuTienGenZCombat');
+      if (genZCom !== undefined && genZCom !== null) {
+        const val = String(genZCom) === 'true';
+        setSettingGenZCombat(val);
+        localStorage.setItem('tuTienGenZCombat', String(val));
+      }
+      const genZCu = getVal('settingGenZCultivate', 'tuTienGenZCultivate');
+      if (genZCu !== undefined && genZCu !== null) {
+        const val = String(genZCu) === 'true';
+        setSettingGenZCultivate(val);
+        localStorage.setItem('tuTienGenZCultivate', String(val));
+      }
+      const subStats = getVal('visibleSubStats', 'tuTienSubStats');
+      if (subStats !== undefined && subStats !== null) {
+        try {
+          const arr = Array.isArray(subStats) ? subStats : JSON.parse(subStats);
+          if (Array.isArray(arr)) {
+            setVisibleSubStats(arr);
+            localStorage.setItem('tuTienSubStats', JSON.stringify(arr));
+          }
+        } catch(e) {}
+      }
+      const logAnti = getVal('logFilterAntiCheat', 'tuTienLogAntiCheat');
+      if (logAnti !== undefined && logAnti !== null) {
+        const val = String(logAnti) !== 'false';
+        setLogFilterAntiCheat(val);
+        localStorage.setItem('tuTienLogAntiCheat', String(val));
+      }
+      const logSt = getVal('logFilterStats', 'tuTienLogStats');
+      if (logSt !== undefined && logSt !== null) {
+        const val = String(logSt) !== 'false';
+        setLogFilterStats(val);
+        localStorage.setItem('tuTienLogStats', String(val));
+      }
+      const logIt = getVal('logFilterItems', 'tuTienLogItems');
+      if (logIt !== undefined && logIt !== null) {
+        const val = String(logIt) !== 'false';
+        setLogFilterItems(val);
+        localStorage.setItem('tuTienLogItems', String(val));
+      }
+      const logCu = getVal('logFilterCultivation', 'tuTienLogCultivation');
+      if (logCu !== undefined && logCu !== null) {
+        const val = String(logCu) !== 'false';
+        setLogFilterCultivation(val);
+        localStorage.setItem('tuTienLogCultivation', String(val));
+      }
+      const logSe = getVal('logFilterSect', 'tuTienLogSect');
+      if (logSe !== undefined && logSe !== null) {
+        const val = String(logSe) !== 'false';
+        setLogFilterSect(val);
+        localStorage.setItem('tuTienLogSect', String(val));
+      }
+      const thm = getVal('theme', 'tuTienTheme');
+      if (thm !== undefined && thm !== null) {
+        setTheme(String(thm));
+        localStorage.setItem('tuTienTheme', String(thm));
+      }
+      const vm = getVal('viewMode', 'tuTienViewMode');
+      if (vm !== undefined && vm !== null) {
+        setViewMode(String(vm));
+        localStorage.setItem('tuTienViewMode', String(vm));
+      }
+      const chapLen = getVal('chapterLengthLevel', 'tuTienChapLength');
+      if (chapLen !== undefined && chapLen !== null) {
+        const val = Number(chapLen) || 4;
+        setChapterLengthLevel(val);
+        localStorage.setItem('tuTienChapLength', String(val));
+      }
+      const wExp = getVal('worldExpansionDepth', 'tuTienWorldExpDepth');
+      if (wExp !== undefined && wExp !== null) {
+        const val = Number(wExp) || 10;
+        setWorldExpansionDepth(val);
+        localStorage.setItem('tuTienWorldExpDepth', String(val));
+      }
+      const autoExp = getVal('isAutoWorldExpansion', 'tuTienAutoWorldExp');
+      if (autoExp !== undefined && autoExp !== null) {
+        const val = String(autoExp) === 'true';
+        setIsAutoWorldExpansion(val);
+        localStorage.setItem('tuTienAutoWorldExp', String(val));
+      }
+    } catch(err) {
+      console.error("Lỗi khi áp dụng Cài Đặt Hệ Thống:", err);
+    }
+  };
+
+ // V5.12: Trạng thái Ẩn/Hiện, Lưu dữ liệu và Bộ lọc Liên Giới Ký
+  const [isLienGioiKyOpen, setIsLienGioiKyOpen] = useState(true);
+  // V1.96 ETSUO FIX: Tự động đồng bộ Cài Đặt Hệ Thống lên Cloud Firestore khi thay đổi
+  useEffect(() => {
+    if (!user?.uid) return;
+    const sysSettings = getCurrentSystemSettings();
+    try {
+      setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'global'), { systemSettings: sysSettings, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+    } catch(e) {}
+    if (currentProfileId) {
+      try {
+        setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profiles', currentProfileId), { systemSettings: sysSettings }, { merge: true }).catch(() => {});
+      } catch(e) {}
+    }
+  }, [
+    settingShowCrowd, settingNsfwMode, settingHumorousCrowd, settingHideOptions, settingHideOptionTags,
+    settingEpicCombat, settingDeepReasoning, settingNoPraise, settingNoMuttering, settingOptionsCount,
+    invSearchMode, isAliasEnabled, settingGenZAll, settingGenZRomance, settingGenZCombat, settingGenZCultivate,
+    visibleSubStats, logFilterAntiCheat, logFilterStats, logFilterItems, logFilterCultivation, logFilterSect,
+    theme, viewMode, chapterLengthLevel, worldExpansionDepth, isAutoWorldExpansion,
+    user?.uid, currentProfileId
+  ]);
+
+  const [isChaosTowerOpen, setIsChaosTowerOpen] = useState(false);
+  const [coopLogFilter, setCoopLogFilter] = useState('all'); // Bộ lọc xem nhật ký
+  // V1.58: Đã gỡ bỏ toàn bộ logic Vạn Giới Thương Hội (Góp ý Dark)
+  // ================= V6.32: VẠN GIỚI PHONG THẦN BẢNG (GLOBAL LEADERBOARD) =================
+  const [isGlobalBoardOpen, setIsGlobalBoardOpen] = useState(false);
+  const [globalBoardTab, setGlobalBoardTab] = useState('arena'); // V2.86: arena, chapter
+  const [globalBoardSubTab, setGlobalBoardSubTab] = useState('week'); // week, month
+  const [globalBoardData, setGlobalBoardData] = useState({ tower: [], arena: [], chapters: [], isLoading: false });
+

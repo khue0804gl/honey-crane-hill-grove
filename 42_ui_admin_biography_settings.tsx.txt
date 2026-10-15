@@ -1,0 +1,1490 @@
+      {isAdminModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--bg-overlay)] p-0 md:p-4">
+          <div className={`bg-[var(--bg-panel)] flex flex-col border border-[var(--border-main)] relative overflow-hidden animate-in zoom-in-95 ${(!isAdminLoggedIn || adminViewingPlayer) ? 'w-full h-full rounded-none md:rounded-2xl' : 'w-full max-w-4xl h-full md:h-[85vh] rounded-none md:rounded-2xl shadow-[0_0_50px_rgba(20,184,166,0.15)]'}`}>
+            <div className="p-3 md:p-5 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-body)] shrink-0">
+               <div className="flex items-center gap-3">
+                   <div className="bg-teal-900/30 p-2 rounded-lg border border-teal-500/50"><Bot className="text-teal-500" size={24} /></div>
+                   <div>
+                       <h3 className="text-base md:text-lg font-bold text-teal-500 uppercase tracking-widest">Hệ Thống Quản Trị (Admin)</h3>
+                       {(!adminViewingPlayer && isAdminLoggedIn) && (
+                           <div className="flex gap-2 mt-1.5">
+                              <button onClick={() => setAdminTabMode('diagnostics')} className={`text-[10px] uppercase font-bold px-2 py-1 rounded border transition-colors ${adminTabMode === 'diagnostics' ? 'bg-teal-600 text-white border-teal-500 shadow-sm' : 'bg-[var(--bg-body)] text-[var(--text-muted)] border-transparent hover:border-[var(--border-main)]'}`}>Chẩn Đoán</button>
+                              <button onClick={() => setAdminTabMode('monitor')} className={`text-[10px] uppercase font-bold px-2 py-1 rounded border transition-colors ${adminTabMode === 'monitor' ? 'bg-red-600 text-white border-red-500 shadow-sm' : 'bg-[var(--bg-body)] text-[var(--text-muted)] border-transparent hover:border-[var(--border-main)]'}`}>Giám Sát Server</button>
+                              <button onClick={() => setAdminTabMode('import')} className={`text-[10px] uppercase font-bold px-2 py-1 rounded border transition-colors ${adminTabMode === 'import' ? 'bg-orange-600 text-white border-orange-500 shadow-sm' : 'bg-[var(--bg-body)] text-[var(--text-muted)] border-transparent hover:border-[var(--border-main)]'}`}>Đặc Xá Dữ Liệu</button>
+                           </div>
+                       )}
+                   </div>
+               </div>
+               <div className="flex items-center gap-2">
+                   {adminViewingPlayer && (
+                       <div className="flex gap-1 bg-[var(--bg-body)] rounded-lg border border-[var(--border-main)] p-1 mr-2">
+                          <button onClick={() => setAdminViewFontSize(Math.max(12, adminViewFontSize - 2))} className="px-3 py-1 text-sm font-bold text-[var(--text-muted)] hover:text-teal-400 rounded transition-colors" title="Thu nhỏ chữ">A-</button>
+                          <button onClick={() => setAdminViewFontSize(Math.min(28, adminViewFontSize + 2))} className="px-3 py-1 text-sm font-bold text-[var(--text-muted)] hover:text-teal-400 rounded transition-colors" title="Phóng to chữ">A+</button>
+                       </div>
+                   )}
+                   <button onClick={() => { if(adminViewingPlayer) setAdminViewingPlayer(null); else setIsAdminModalOpen(false); }} className="p-2 hover:bg-red-900/30 hover:text-red-500 rounded-lg border border-transparent hover:border-red-900/50 text-[var(--text-muted)] transition-colors"><X size={20}/></button>
+               </div>
+            </div>
+            
+            <div className="flex-1 overflow-hidden flex flex-col bg-[var(--bg-body)]">
+                {!isAdminLoggedIn ? (
+                       <div className="flex flex-col items-center justify-center h-full max-w-xs mx-auto w-full animate-in zoom-in-95 pb-10">
+                           <ShieldAlert size={60} className="text-red-500 mb-6 drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]" />
+                           <h4 className="text-2xl font-black text-red-500 mb-2 uppercase tracking-widest text-center">Khu Vực Cấm</h4>
+                           <p className="text-sm text-[var(--text-muted)] text-center mb-8">Yêu cầu xác thực tài khoản Quản Trị Viên để truy cập công cụ hệ thống.</p>
+                           <input type="text" placeholder="Tài khoản..." value={adminLoginInput.user} onChange={e=>setAdminLoginInput(prev=>({...prev, user: e.target.value}))} className="w-full bg-[var(--bg-surface)] border border-red-900/50 rounded-xl p-4 text-base mb-4 focus:border-red-500 outline-none text-red-100 font-bold" />
+                           <input type="password" placeholder="Mật khẩu..." value={adminLoginInput.pass} onChange={e=>setAdminLoginInput(prev=>({...prev, pass: e.target.value}))} onKeyDown={(e) => { if (e.key === 'Enter') document.getElementById('btn-admin-login').click(); }} className="w-full bg-[var(--bg-surface)] border border-red-900/50 rounded-xl p-4 text-base mb-6 focus:border-red-500 outline-none text-red-100 font-bold" />
+                           <button id="btn-admin-login" onClick={() => {
+                               if(adminLoginInput.user === 'admin' && adminLoginInput.pass === '625299') {
+                                   setIsAdminLoggedIn(true);
+                                   fetchAdminLogs();
+                                   fetchAdminPlayersList();
+                               } else {
+                                   showAlert("Sai tài khoản hoặc mật khẩu!");
+                               }
+                           }} className="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.4)] text-lg uppercase tracking-widest transition-transform hover:scale-105">Xác Thực</button>
+                       </div>
+                ) : adminViewingPlayer ? (
+                    <div className="flex flex-col h-full animate-in slide-in-from-right-4">
+                        <div className="bg-[var(--bg-surface)] p-4 border-b border-[var(--border-main)] flex gap-2 overflow-x-auto custom-scrollbar shrink-0">
+                            {['stats', 'history', 'audit', 'inventory', 'equipped', 'skills', 'npcs', 'companions', 'sect', 'ai_chat'].map(tab => (
+                                <button key={tab} onClick={() => setAdminPlayerTab(tab)} className={`px-4 py-2 text-xs md:text-sm font-bold rounded-lg border transition-colors whitespace-nowrap ${adminPlayerTab === tab ? 'bg-teal-600 text-white border-teal-500 shadow-md' : 'bg-[var(--bg-body)] text-[var(--text-muted)] border-[var(--border-main)] hover:text-teal-400'}`}>
+                                    {tab === 'stats' ? 'Thông Số' : tab === 'history' ? 'Lịch Sử' : tab === 'audit' ? 'Biến Động' : tab === 'inventory' ? 'Hành Trang' : tab === 'equipped' ? 'Trang Bị' : tab === 'skills' ? 'Tuyệt Học' : tab === 'npcs' ? 'Hồng Trần Lục' : tab === 'companions' ? 'Tùy Tùng' : tab === 'sect' ? 'Tông Môn' : 'AI Min'}
+                                </button>
+                            ))}
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+                            {adminPlayerTab === 'stats' && (() => {
+                                const vStage = getStageConfig(adminViewingPlayer.state.cultivationLevel);
+                                const vMaxHp = Math.floor(100 * vStage.statMult * Math.pow(1.15, vStage.id - 1)) + (Number(adminViewingPlayer.state.bonusMaxHp) || 0);
+                                const vMaxMp = Math.floor(50 * vStage.statMult * Math.pow(1.15, vStage.id - 1)) + (Number(adminViewingPlayer.state.bonusMaxMp) || 0);
+                                const vMaxStamina = 100 + (Number(adminViewingPlayer.state.bonusMaxStamina) || 0);
+                                
+                                const vPassives = getPassiveStats(adminViewingPlayer.state.traits, adminViewingPlayer.state.spiritualRoot, adminViewingPlayer.state.soulAge, adminViewingPlayer.state.age, adminViewingPlayer.state.equippedCoreMethod, adminViewingPlayer.state.journal?.skills, vStage.id, adminViewingPlayer.state.runeCount);
+                                const vMountSpd = adminViewingPlayer.state.mount ? Number(adminViewingPlayer.state.mount.speedBonus || 0) : 0;
+                                const vDsAtk = (adminViewingPlayer.state.isTransformed && adminViewingPlayer.state.demonSpirit) ? Number(adminViewingPlayer.state.demonSpirit.attackBonus || 0) : 0;
+                                const vDsDef = (adminViewingPlayer.state.isTransformed && adminViewingPlayer.state.demonSpirit) ? Number(adminViewingPlayer.state.demonSpirit.defenseBonus || 0) : 0;
+                                const vDsSpd = (adminViewingPlayer.state.isTransformed && adminViewingPlayer.state.demonSpirit) ? Number(adminViewingPlayer.state.demonSpirit.speedBonus || 0) : 0;
+                                const vDsSpP = (adminViewingPlayer.state.isTransformed && adminViewingPlayer.state.demonSpirit) ? Number(adminViewingPlayer.state.demonSpirit.spiritPowerBonus || 0) : 0;
+                                const vEffAtk = (adminViewingPlayer.state.activeEffects || []).reduce((sum, e) => sum + (e.statMods?.attack || 0), 0);
+                                const vEffDef = (adminViewingPlayer.state.activeEffects || []).reduce((sum, e) => sum + (e.statMods?.defense || 0), 0);
+                                const vEffSpd = (adminViewingPlayer.state.activeEffects || []).reduce((sum, e) => sum + (e.statMods?.speed || 0), 0);
+                                const vEffSpP = (adminViewingPlayer.state.activeEffects || []).reduce((sum, e) => sum + (e.statMods?.spiritPower || 0), 0);
+                                const vEqAtk = Object.values(adminViewingPlayer.state.equipped || {}).reduce((sum, item) => sum + getEffectiveEquipStat(item, 'attackBonus'), 0);
+                                const vEqDef = Object.values(adminViewingPlayer.state.equipped || {}).reduce((sum, item) => sum + getEffectiveEquipStat(item, 'defenseBonus'), 0);
+                                const vEqSpd = Object.values(adminViewingPlayer.state.equipped || {}).reduce((sum, item) => sum + getEffectiveEquipStat(item, 'speedBonus'), 0);
+                                const vEqSpP = Object.values(adminViewingPlayer.state.equipped || {}).reduce((sum, item) => sum + getEffectiveEquipStat(item, 'spiritPowerBonus'), 0);
+
+                                const vTotalAtk = Math.floor(Math.max(1, (Number(adminViewingPlayer.state.attack) || 10) + vDsAtk + vEffAtk + vEqAtk + vPassives.atk) * vStage.statMult * (vPassives.mult || 1));
+                                const vTotalDef = Math.floor(Math.max(1, (Number(adminViewingPlayer.state.defense) || 10) + vDsDef + vEffDef + vEqDef + vPassives.def) * vStage.statMult * (vPassives.mult || 1));
+                                const vTotalSpd = Math.floor(Math.max(1, (Number(adminViewingPlayer.state.speed) || 10) + vMountSpd + vDsSpd + vEffSpd + vEqSpd + vPassives.spd) * vStage.statMult * (vPassives.mult || 1));
+                                const vTotalSpP = Math.floor(Math.max(1, (Number(adminViewingPlayer.state.spiritPower) || 10) + vDsSpP + vEffSpP + vEqSpP + vPassives.spp) * vStage.statMult * (vPassives.mult || 1));
+
+                                const viewedGameMode = adminViewingPlayer.state.gameMode || adminViewingPlayer.meta?.gameMode || 'chan_thuc';
+
+                                return (
+                                    <div className="space-y-6 max-w-4xl mx-auto">
+                                        <div className="flex items-center justify-between gap-4 bg-teal-900/10 p-6 rounded-2xl border border-teal-500/30 flex-wrap">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-16 h-16 bg-[var(--bg-body)] rounded-full flex items-center justify-center border-2 border-teal-500"><User size={32} className="text-teal-500"/></div>
+                                                <div>
+                                                    <h2 className="text-2xl font-bold text-[var(--text-bold)] flex items-center gap-2 flex-wrap">
+                                                        {adminViewingPlayer.state.name}
+                                                        {viewedGameMode === 'mong_ao' ? (
+                                                            <span className="text-[10px] px-2 py-1 rounded bg-purple-900/30 text-purple-400 border border-purple-500/50 font-bold uppercase tracking-widest mt-1">Mộng Ảo</span>
+                                                        ) : (viewedGameMode === 'coop' || viewedGameMode === 'lien_gioi') ? (
+                                                            <span className="text-[10px] px-2 py-1 rounded bg-orange-900/30 text-orange-400 border border-orange-500/50 font-bold uppercase tracking-widest flex items-center gap-1 mt-1"><Users size={12}/> Liên Giới</span>
+                                                        ) : (
+                                                            <span className="text-[10px] px-2 py-1 rounded bg-emerald-900/30 text-emerald-400 border border-emerald-500/50 font-bold uppercase tracking-widest mt-1">Chân Thực</span>
+                                                        )}
+                                                    </h2>
+                                                    <p className="text-teal-400 font-bold flex items-center gap-1 mt-1 flex-wrap">
+                                                        <span>{adminViewingPlayer.state.cultivationLevel}</span> 
+                                                        <span>| Tuổi: {renderEditableAdminStat('age', adminViewingPlayer.state.age, Math.floor(adminViewingPlayer.state.age))}</span>
+                                                        <span>| Tiến độ: {renderEditableAdminStat('cultivationProgress', adminViewingPlayer.state.cultivationProgress, Math.floor(adminViewingPlayer.state.cultivationProgress || 0))}%</span>
+                                                        <span>| Nội uẩn: {renderEditableAdminStat('breakthroughPity', adminViewingPlayer.state.breakthroughPity, Math.floor(adminViewingPlayer.state.breakthroughPity || 0))}%</span>
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3 shrink-0 flex-wrap">
+                                                <button onClick={() => {
+                                                    setAiChatMessages([{ role: 'ai', text: `Chào Quản trị viên, ta là Tàng Kính Các Khí Linh. Ta đã soi thấu toàn bộ căn cốt, quá khứ và vận mệnh của [${adminViewingPlayer.state.name}]. Ngài muốn hỏi gì về người này?` }]);
+                                                    setIsAIAssistantOpen(true);
+                                                }} className="bg-purple-900/30 hover:bg-purple-600 text-purple-400 hover:text-white font-bold px-4 py-3 rounded-xl shadow-sm transition-transform hover:scale-105 flex items-center gap-2 border border-purple-500/50">
+                                                    <Brain size={18}/> AI Giải Đáp
+                                                </button>
+                                                <button onClick={() => setAdminQuickEditMode(!adminQuickEditMode)} className={`font-bold px-4 py-3 rounded-xl shadow-sm transition-transform hover:scale-105 flex items-center gap-2 border ${adminQuickEditMode ? 'bg-teal-600 text-white border-teal-400' : 'bg-[var(--bg-body)] text-[var(--text-muted)] border-[var(--border-main)] hover:text-teal-400'}`}>
+                                                    <PenTool size={18}/> {adminQuickEditMode ? 'Tắt Sửa Nhanh' : 'Bật Sửa Nhanh'}
+                                                </button>
+                                                <button onClick={() => handleAdminRollback(adminViewingPlayer.meta, adminViewingPlayer.state)} className="bg-blue-800 hover:bg-blue-600 text-white font-bold px-5 py-3 rounded-xl shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-transform hover:scale-105 flex items-center gap-2 border border-blue-500">
+                                                    <RotateCcw size={20}/> Nghịch Chuyển
+                                                </button>
+                                                <button onClick={() => handleAdminKillPlayer(adminViewingPlayer.state.name)} className="bg-red-800 hover:bg-red-600 text-white font-bold px-5 py-3 rounded-xl shadow-[0_0_15px_rgba(220,38,38,0.5)] transition-transform hover:scale-105 flex items-center gap-2 border border-red-500">
+                                                    <Skull size={20}/> Ban Án Tử
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] text-center"><p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest mb-1">{'MÁU (HP)'}</p><p className="text-lg font-mono text-red-500 flex items-center justify-center flex-wrap">{renderEditableAdminStat('health', adminViewingPlayer.state.health, formatLargeNumber(adminViewingPlayer.state.health))} / {renderEditableAdminStat('bonusMaxHp', adminViewingPlayer.state.bonusMaxHp || 0, formatLargeNumber(vMaxHp))}</p></div>
+                                            <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] text-center"><p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest mb-1">Năng Lượng</p><p className="text-lg font-mono text-blue-500 flex items-center justify-center flex-wrap">{renderEditableAdminStat('spiritualEnergy', adminViewingPlayer.state.spiritualEnergy, formatLargeNumber(adminViewingPlayer.state.spiritualEnergy))} / {renderEditableAdminStat('bonusMaxMp', adminViewingPlayer.state.bonusMaxMp || 0, formatLargeNumber(vMaxMp))}</p></div>
+                                            <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] text-center"><p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest mb-1">Thể Lực</p><p className="text-lg font-mono text-yellow-500 flex items-center justify-center flex-wrap">{renderEditableAdminStat('stamina', adminViewingPlayer.state.stamina, Math.floor(adminViewingPlayer.state.stamina))} / {renderEditableAdminStat('bonusMaxStamina', adminViewingPlayer.state.bonusMaxStamina || 0, vMaxStamina)}</p></div>
+                                            <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] text-center"><p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest mb-1">Linh Thạch</p><p className="text-lg font-mono text-emerald-500 flex items-center justify-center flex-wrap">{renderEditableAdminStat('spiritStones', adminViewingPlayer.state.spiritStones, formatLargeNumber(adminViewingPlayer.state.spiritStones))}</p></div>
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] text-center"><p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest mb-1">Tấn Công</p><p className="text-lg font-mono text-red-400 flex items-center justify-center flex-wrap">{renderEditableAdminStat('attack', adminViewingPlayer.state.attack, formatLargeNumber(vTotalAtk))}</p></div>
+                                            <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] text-center"><p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest mb-1">Phòng Thủ</p><p className="text-lg font-mono text-blue-400 flex items-center justify-center flex-wrap">{renderEditableAdminStat('defense', adminViewingPlayer.state.defense, formatLargeNumber(vTotalDef))}</p></div>
+                                            <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] text-center"><p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest mb-1">Tốc Độ</p><p className="text-lg font-mono text-emerald-400 flex items-center justify-center flex-wrap">{renderEditableAdminStat('speed', adminViewingPlayer.state.speed, formatLargeNumber(vTotalSpd))}</p></div>
+                                            <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] text-center"><p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest mb-1">Thần Thức</p><p className="text-lg font-mono text-purple-400 flex items-center justify-center flex-wrap">{renderEditableAdminStat('spiritPower', adminViewingPlayer.state.spiritPower, formatLargeNumber(vTotalSpP))}</p></div>
+                                        </div>
+                                        <div className="bg-[var(--bg-surface)] p-5 rounded-xl border border-[var(--border-main)]">
+                                            <h4 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest mb-4">{'Khí Vận & Đạo Tâm'}</h4>
+                                            <p className="text-sm text-[var(--text-main)] mb-3 flex items-center gap-1 flex-wrap"><strong>{'Đạo Tâm:'}</strong> <span className="text-orange-400">{adminViewingPlayer.state.daoHeart || 'Không rõ'}</span> ( {renderEditableAdminStat('karma', adminViewingPlayer.state.karma, adminViewingPlayer.state.karma)} Điểm )</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {(adminViewingPlayer.state.traits || []).map((t, i) => {
+                                                    const traitTitle = 'KHÍ VẬN';
+                                                    if (vStage.id >= 20) {
+                                                        return (
+                                                            <div key={i} onClick={() => showAlert(`${traitTitle}: ${t.name}\n\nPhẩm chất: ${t.rarity}\n\n${t.desc}\n\n[Đại Đạo Pháp Tắc]: Khí vận đã thăng hoa cùng Đạo Tổ, vạn pháp bất xâm, ngự trị thiên địa!`)} title={`${t.desc}\n\n[Đại Đạo Pháp Tắc]: Khí vận đã thăng hoa cùng Đạo Tổ, vạn pháp bất xâm, ngự trị thiên địa!`} className="golden-aura rounded shadow-[0_0_15px_rgba(234,179,8,0.5)] cursor-pointer">
+                                                                <span className="golden-content relative z-10 block text-xs px-2.5 py-1 text-yellow-400 drop-shadow-md font-bold tracking-wider">
+                                                                    {t.name}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return <span key={i} onClick={() => showAlert(`${traitTitle}: ${t.name}\n\nPhẩm chất: ${t.rarity}\n\n${t.desc}`)} title={t.desc} className={`text-xs bg-[var(--bg-body)] px-2 py-1 rounded border ${RARITY_COLORS[t.rarity]?.text || 'text-gray-400'} ${RARITY_COLORS[t.rarity]?.border || 'border-gray-700'} cursor-pointer`}>{t.name}</span>;
+                                                })}
+                                            </div>
+                                        </div>
+                                        <div className="bg-[var(--bg-surface)] p-5 rounded-xl border border-[var(--border-main)]">
+                                            <h4 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest mb-4">Hiệu Ứng Trạng Thái</h4>
+                                            <div className="flex flex-wrap gap-2">
+                                                {(adminViewingPlayer.state.activeEffects || []).length === 0 ? <span className="text-xs text-gray-500 italic">Không có.</span> : (adminViewingPlayer.state.activeEffects || []).map((eff, i) => <span key={i} className="text-xs bg-emerald-900/20 text-emerald-400 px-2 py-1 rounded border border-emerald-800/50">{eff.name} ({formatEffTime(eff.durationMinutes)})</span>)}
+                                            </div>
+                                        </div>
+                                        {/* V8.94 FIX: Hiển thị Nhật ký lạm dụng Lệnh Admin */}
+                                        <div className="bg-[var(--bg-surface)] p-5 rounded-xl border border-red-900/50 shadow-inner">
+                                            <h4 className="text-sm font-bold text-red-500 uppercase tracking-widest mb-4 flex items-center gap-2"><AlertTriangle size={16}/> Nhật Ký Dùng Lệnh Admin</h4>
+                                            {(adminViewingPlayer.state.adminCommandLogs || []).length === 0 ? (
+                                                <span className="text-xs text-emerald-500 font-bold bg-emerald-900/20 px-3 py-2 rounded block text-center border border-emerald-500/30">Người chơi này trong sạch, chưa từng sử dụng lệnh đặc quyền.</span>
+                                            ) : (
+                                                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
+                                                    <div className="text-xs text-red-400 mb-2 italic">Phát hiện <span className="font-bold text-white">{adminViewingPlayer.state.adminCommandLogs.length}</span> lần sử dụng lệnh Đồng Bộ Cảnh Giới:</div>
+                                                    {adminViewingPlayer.state.adminCommandLogs.map((log, i) => (
+                                                        <div key={i} className="text-xs bg-red-900/20 text-red-300 px-3 py-2 rounded border border-red-800/50 flex flex-col gap-1">
+                                                            <div className="flex justify-between font-bold">
+                                                                <span>Chương: {log.chapter}</span>
+                                                                <span className="text-yellow-400">{log.level}</span>
+                                                            </div>
+                                                            <div className="text-[10px] text-gray-500">{log.time}</div>
+                                                        </div>
+                                                    )).reverse()}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {adminPlayerTab === 'history' && (
+                                <div className="max-w-4xl mx-auto space-y-4">
+                                    <div className="flex justify-between items-center mb-4 bg-[var(--bg-surface)] p-3 rounded-xl border border-[var(--border-main)]">
+                                        <span className="text-xs font-bold text-teal-400">Tổng Số Chương: {(adminViewingPlayer.state.summaries || []).length}</span>
+                                        <select value={adminHistorySortOrder} onChange={e => setAdminHistorySortOrder(e.target.value)} className="bg-[var(--bg-body)] border border-[var(--border-main)] text-[var(--text-muted)] text-[10px] p-1.5 rounded outline-none cursor-pointer">
+                                            <option value="newest">Mới Nhất Trước (Cập nhật gần đây)</option>
+                                            <option value="oldest">Cũ Nhất Trước (Từ lúc tạo nhân vật)</option>
+                                        </select>
+                                    </div>
+                                    {(adminViewingPlayer.state.summaries || []).length === 0 ? <p className="text-center text-[var(--text-muted)]">Chưa có nhật ký tóm tắt.</p> :
+                                    (adminHistorySortOrder === 'newest' ? [...(adminViewingPlayer.state.summaries || [])] : [...(adminViewingPlayer.state.summaries || [])].reverse()).map((s, i) => (
+                                        <div key={i} className="bg-[var(--bg-surface)] p-5 rounded-xl border border-[var(--border-main)]">
+                                            <h4 className="font-bold text-yellow-500 mb-2">{s.title || s.timeLabel}</h4>
+                                            <div className="text-[var(--text-main)] leading-relaxed whitespace-pre-wrap" style={{ fontSize: `${adminViewFontSize}px` }}>{s.content}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {adminPlayerTab === 'audit' && (() => {
+                                let combinedAudit = [];
+                                const addAudit = (arr, typeName, isLevel = false) => {
+                                    if (!arr) return;
+                                    arr.forEach(item => {
+                                        if (item.userAction) {
+                                            combinedAudit.push({
+                                                type: typeName,
+                                                time: item.time,
+                                                chapter: item.chapter || '?',
+                                                userAction: item.userAction || 'Không có thao tác',
+                                                reason: item.reason,
+                                                change: item.change,
+                                                isLevel: isLevel
+                                            });
+                                        }
+                                    });
+                                };
+                                addAudit(adminViewingPlayer.state.hpHistory, 'Máu (HP)');
+                                addAudit(adminViewingPlayer.state.mpHistory, 'Năng Lượng');
+                                addAudit(adminViewingPlayer.state.stonesHistory, 'Linh Thạch');
+                                addAudit(adminViewingPlayer.state.mortalCoinsHistory, 'Văn Tiền');
+                                addAudit(adminViewingPlayer.state.atkHistory, 'Tấn Công');
+                                addAudit(adminViewingPlayer.state.defHistory, 'Phòng Thủ');
+                                addAudit(adminViewingPlayer.state.spdHistory, 'Tốc Độ');
+                                addAudit(adminViewingPlayer.state.sppHistory, 'Thần Thức');
+                                addAudit(adminViewingPlayer.state.alcHistory, 'Luyện Đan');
+                                addAudit(adminViewingPlayer.state.smiHistory, 'Luyện Khí');
+                                addAudit(adminViewingPlayer.state.arrHistory, 'Trận Pháp');
+                                addAudit(adminViewingPlayer.state.talHistory, 'Luyện Phù');
+                                addAudit(adminViewingPlayer.state.thuHistory, 'Ngự Thú');
+                                addAudit(adminViewingPlayer.state.thucHistory, 'Thực Thần');
+                                addAudit(adminViewingPlayer.state.thuongHistory, 'Thương Đạo');
+                                addAudit(adminViewingPlayer.state.miHistory, 'Mị Lực');
+                                addAudit(adminViewingPlayer.state.corruptionHistory, 'Tâm Ma');
+                                addAudit(adminViewingPlayer.state.progressHistory, 'Tiến Độ Tu Vi');
+                                addAudit(adminViewingPlayer.state.pityHistory, 'Nội Uẩn');
+                                addAudit(adminViewingPlayer.state.levelHistory, 'Cảnh Giới', true);
+
+                                let groupedAuditMap = {};
+                                combinedAudit.forEach(a => {
+                                    const key = `${a.chapter}_${a.userAction}`;
+                                    if (!groupedAuditMap[key]) {
+                                        groupedAuditMap[key] = {
+                                            chapter: a.chapter,
+                                            userAction: a.userAction,
+                                            time: a.time,
+                                            changes: []
+                                        };
+                                    }
+                                    groupedAuditMap[key].changes.push({
+                                        type: a.type,
+                                        change: a.change,
+                                        reason: a.reason,
+                                        isLevel: a.isLevel
+                                    });
+                                });
+
+                                let groupedAuditArray = Object.values(groupedAuditMap);
+                                groupedAuditArray.sort((a, b) => {
+                                    const cA = Number(a.chapter) || 0;
+                                    const cB = Number(b.chapter) || 0;
+                                    return cB - cA;
+                                });
+
+                                return (
+                                    <div className="max-w-5xl mx-auto space-y-4">
+                                        <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-xl shadow-inner mb-4">
+                                            <h4 className="text-red-400 font-bold mb-2 uppercase tracking-widest text-sm flex items-center gap-2"><Activity size={16}/> Giám Sát Gian Lận (Audit Logs)</h4>
+                                            <p className="text-xs text-gray-400 italic">Bảng này tổng hợp các biến động quan trọng (Máu, Tiền, Cảnh Giới, Tâm Ma). Hệ thống sẽ đối chiếu giữa "Lệnh Chat" của người chơi và "Kết Quả AI" để bạn dễ dàng bắt quả tang những kẻ cố tình hack/cheat bằng câu lệnh.</p>
+                                        </div>
+                                        {groupedAuditArray.length === 0 ? <p className="text-center text-[var(--text-muted)] italic">Người chơi này chưa thực hiện thao tác nào gây biến động chỉ số (Hoặc hồ sơ cũ chưa có tính năng này).</p> :
+                                        groupedAuditArray.slice(0, 100).map((g, i) => (
+                                            <div key={i} className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] hover:border-red-500/30 transition-colors">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <span className="text-[10px] font-bold text-[var(--text-bold)] bg-[var(--bg-body)] px-2 py-1 rounded border border-[var(--border-main)]">Chương {g.chapter}</span>
+                                                    <span className="text-[10px] text-[var(--text-muted)] font-mono">{g.time}</span>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                                                    {g.changes.map((c, idx) => (
+                                                        <div key={idx} className="bg-[var(--bg-body)] p-2 rounded-lg border border-gray-800 shadow-inner flex flex-col justify-center items-center text-center">
+                                                            <span className="text-[10px] font-bold text-teal-400 uppercase tracking-widest mb-1">{c.type}</span>
+                                                            <span className={`text-sm font-bold font-mono ${c.isLevel ? 'text-purple-400' : String(c.change).includes('-') ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                                {c.isLevel ? c.change : (Number(c.change) > 0 ? '+' : '') + c.change}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <div className="bg-[var(--bg-body)] p-3 rounded-lg border border-gray-800 mb-2 shadow-inner">
+                                                    <span className="text-[10px] text-gray-500 uppercase tracking-widest block mb-1">Lệnh người chơi gõ:</span>
+                                                    <span className="text-sm text-blue-300 font-bold">"{g.userAction}"</span>
+                                                </div>
+                                                <div className="text-[11px] text-[var(--text-muted)] mt-2 bg-[var(--bg-body)] p-3 rounded-lg border border-gray-800 shadow-inner">
+                                                    <span className="text-orange-400 font-bold block mb-1 uppercase tracking-widest text-[10px]">Lý do xử lý (AI):</span>
+                                                    <ul className="space-y-1 list-disc pl-4">
+                                                        {g.changes.map((c, idx) => (
+                                                            <li key={idx}><span className="text-gray-400 font-bold">{c.type}:</span> {c.reason}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+
+                            {adminPlayerTab === 'inventory' && (
+                                <div className="max-w-5xl mx-auto">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {(adminViewingPlayer.state.inventory || []).map((item, i) => (
+                                            <div key={i} className="bg-[var(--bg-surface)] p-3 rounded-xl border border-[var(--border-main)] flex gap-3 items-center">
+                                                <div className="p-2 bg-[var(--bg-body)] rounded-lg"><Package size={20} className="text-[var(--text-muted)]"/></div>
+                                                <div className="flex-1 overflow-hidden">
+                                                    <div className="font-bold text-sm text-[var(--text-main)] truncate">{item.name} <span className="text-[10px] text-gray-500 ml-1">x{item.quantity}</span></div>
+                                                    <div className="text-xs text-[var(--text-muted)] truncate mt-0.5">{item.desc}</div>
+                                                </div>
+                                                <span className="text-[10px] bg-[var(--bg-body)] px-1.5 py-0.5 rounded border border-[var(--border-main)] text-[var(--text-muted)] shrink-0">{item.type}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {adminPlayerTab === 'equipped' && (
+                                <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {['weapon', 'armor', 'head', 'boots', 'artifact', 'accessory'].map(slot => {
+                                        const eq = adminViewingPlayer.state.equipped?.[slot];
+                                        if (!eq) return (
+                                            <div key={slot} className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] border-dashed opacity-50 flex items-center justify-center">
+                                                <span className="text-xs text-gray-500 uppercase tracking-widest">{slot} - Trống</span>
+                                            </div>
+                                        );
+                                        return (
+                                            <div key={slot} className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] flex gap-3 items-start">
+                                                <div className="flex-1">
+                                                    <div className="text-[10px] text-teal-500 uppercase tracking-widest mb-1">{slot}</div>
+                                                    <div className={`font-bold text-base ${RARITY_COLORS[eq.rarity]?.text || 'text-gray-400'} mb-1`}>{eq.name}</div>
+                                                    <div className="text-xs text-gray-400 mb-2">Bền: {eq.durability || 0}/{eq.maxDurability || 0}</div>
+                                                    <div className="text-xs font-mono text-gray-300">
+                                                        {eq.attackBonus > 0 && <span className="text-red-400 mr-2">Công +{eq.attackBonus}</span>}
+                                                        {eq.defenseBonus > 0 && <span className="text-blue-400 mr-2">Thủ +{eq.defenseBonus}</span>}
+                                                        {eq.speedBonus > 0 && <span className="text-emerald-400 mr-2">Tốc +{eq.speedBonus}</span>}
+                                                        {eq.spiritPowerBonus > 0 && <span className="text-purple-400">Thức +{eq.spiritPowerBonus}</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {adminPlayerTab === 'skills' && (
+                                <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {(adminViewingPlayer.state.journal?.skills || []).map((skill, i) => (
+                                        <div key={i} className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)]">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <span className="font-bold text-purple-400">{skill.name}</span>
+                                                <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-body)] px-2 py-1 rounded border">{skill.level}</span>
+                                            </div>
+                                            <div className="text-xs text-[var(--text-main)] italic leading-relaxed">{String(skill.desc || '')}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {adminPlayerTab === 'npcs' && (
+                                <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {(adminViewingPlayer.state.journal?.npcs || []).map((npc, i) => (
+                                        <div key={i} className={`bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] ${npc.isDead ? 'opacity-60' : ''}`}>
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="font-bold text-emerald-400">{npc.name} {npc.isDead && '(Đã chết)'}</span>
+                                                <span className="text-xs font-bold text-orange-400">{npc.relationType}</span>
+                                            </div>
+                                            <div className="text-[11px] text-[var(--text-muted)] mb-2">{npc.level} | {npc.alignment}</div>
+                                            <div className="text-xs text-[var(--text-main)] italic line-clamp-2">{String(npc.state || '')}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {adminPlayerTab === 'companions' && (
+                                <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {(adminViewingPlayer.state.companions || []).length === 0 ? <p className="text-center text-[var(--text-muted)] col-span-2">Không có lực lượng tùy tùng.</p> :
+                                    (adminViewingPlayer.state.companions || []).map((comp, i) => (
+                                        <div key={i} className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)]">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <span className="font-bold text-teal-400 text-lg">{comp.name}</span>
+                                                <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-body)] px-2 py-1 rounded border">{comp.type} | {comp.level}</span>
+                                            </div>
+                                            <div className="text-xs font-mono text-gray-400 mb-2">HP: {Math.floor(comp.hp || 0)}/{comp.maxHp} | MP: {Math.floor(comp.mp || 0)}/{comp.maxMp}</div>
+                                            <div className="flex gap-2 text-xs font-mono mb-2">
+                                                <span className="text-red-400">Công: {comp.attack||0}</span>
+                                                <span className="text-blue-400">Thủ: {comp.defense||0}</span>
+                                                <span className="text-emerald-400">Tốc: {comp.speed||0}</span>
+                                                <span className="text-purple-400">Thức: {comp.spiritPower||0}</span>
+                                            </div>
+                                            <div className="text-xs text-[var(--text-main)] italic leading-relaxed line-clamp-2">{String(comp.desc || comp.status || '')}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {adminPlayerTab === 'sect' && (() => {
+                                const s = adminViewingPlayer.state.sect;
+                                if (!s) return <p className="text-center text-[var(--text-muted)]">Chưa lập Tông môn.</p>;
+                                return (
+                                    <div className="max-w-4xl mx-auto bg-[var(--bg-surface)] p-6 rounded-xl border border-[var(--border-main)]">
+                                        <h2 className="text-2xl font-bold text-purple-400 uppercase tracking-widest text-center mb-6">{s.name}</h2>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                                            <div className="bg-[var(--bg-body)] p-4 rounded-lg border border-[var(--border-main)] text-center"><p className="text-[10px] text-gray-500 uppercase">Cấp Bậc</p><p className="text-sm font-bold text-purple-300">{s.tier}</p></div>
+                                            <div className="bg-[var(--bg-body)] p-4 rounded-lg border border-[var(--border-main)] text-center"><p className="text-[10px] text-gray-500 uppercase">Uy Tín</p><p className="text-sm font-bold text-blue-400">{formatLargeNumber(s.prestige)}</p></div>
+                                            <div className="bg-[var(--bg-body)] p-4 rounded-lg border border-[var(--border-main)] text-center"><p className="text-[10px] text-gray-500 uppercase">Môn Đồ</p><p className="text-sm font-bold text-teal-400">{formatLargeNumber(s.members)}</p></div>
+                                            <div className="bg-[var(--bg-body)] p-4 rounded-lg border border-[var(--border-main)] text-center"><p className="text-[10px] text-gray-500 uppercase">{'Quỹ (LT)'}</p><p className="text-sm font-bold text-yellow-400">{formatLargeNumber(s.wealth)}</p></div>
+                                        </div>
+                                        <div className="mb-4">
+                                            <h4 className="text-sm font-bold text-gray-400 mb-2">Tôn Chỉ:</h4>
+                                            <p className="text-sm italic text-gray-300">"{s.rules}"</p>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-gray-400 mb-2">Công Trình:</h4>
+                                            <div className="flex flex-wrap gap-2">
+                                                {(s.buildings || []).map((b, i) => <span key={i} className="text-xs bg-purple-900/20 text-purple-300 px-2 py-1 rounded border border-purple-800/50">{b}</span>)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {adminPlayerTab === 'ai_chat' && (
+                                <div className="max-w-4xl mx-auto space-y-4">
+                                    <div className="bg-pink-900/20 border border-pink-500/50 p-4 rounded-xl shadow-inner mb-4">
+                                        <h4 className="text-pink-400 font-bold mb-2 uppercase tracking-widest text-sm flex items-center gap-2"><Bot size={16}/> Giám Sát Chat AI Min</h4>
+                                        <p className="text-xs text-gray-400 italic">Nhật ký trò chuyện giữa người chơi và trợ lý AI Min. Giúp quản trị viên nắm bắt tình hình và kiểm tra xem người chơi có lạm dụng AI không.</p>
+                                    </div>
+                                    <div className="bg-[var(--bg-body)] p-4 rounded-xl border border-pink-900/30 h-[500px] overflow-y-auto custom-scrollbar space-y-4">
+                                        {!(adminViewingPlayer.state.playerAiLogs) || adminViewingPlayer.state.playerAiLogs.length === 0 ? (
+                                            <p className="text-center text-[var(--text-muted)] italic mt-10">Người chơi này chưa từng trò chuyện với AI Min.</p>
+                                        ) : (
+                                            adminViewingPlayer.state.playerAiLogs.map((msg, idx) => (
+                                                <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2`}>
+                                                    {msg.role === 'ai' && <span className="text-[10px] font-bold text-pink-500/80 mb-1 ml-1 flex items-center gap-1"><Bot size={12}/> AI Min</span>}
+                                                    {msg.role === 'user' && <span className="text-[10px] font-bold text-blue-500/80 mb-1 mr-1 flex items-center gap-1"><User size={12}/> Người Chơi</span>}
+                                                    <div className={`max-w-[90%] p-3 text-[13px] leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'bg-blue-900/30 border border-blue-500/30 text-blue-100 rounded-2xl rounded-tr-sm shadow-sm' : 'bg-[var(--bg-surface)] border border-pink-900/50 text-pink-100 rounded-2xl rounded-tl-sm shadow-sm'}`}>
+                                                        {msg.text}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : adminTabMode === 'diagnostics' ? (
+                   /* GIAO DIỆN CHẨN ĐOÁN CŨ */
+                   <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+                        <div className="text-sm text-[var(--text-main)] bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] leading-relaxed mb-5 shadow-inner">
+                            <span className="font-bold text-teal-400">Cách hoạt động:</span> Bảng rà soát này sẽ kiểm tra tính toàn vẹn của mã nguồn. Nút <span className="font-bold text-purple-400">"Robot Min"</span> sẽ đóng vai trò như một người chơi ẩn, tự động gửi payload hành động cho AI và kiểm tra chéo xem AI có trả về đúng định dạng JSON hay không.
+                        </div>
+                        <div className="flex flex-col md:flex-row justify-center gap-4 mb-5">
+                            <button onClick={runDiagnostics} disabled={isDiagnosing} className="flex-1 px-6 py-3 bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white rounded-xl font-bold flex justify-center items-center gap-2 shadow-lg transition-transform hover:scale-105"><Bug size={18}/> Check Cấu Hình Khung</button>
+                            <button onClick={runAllRobotTests} disabled={isDiagnosing} className="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-xl font-bold flex justify-center items-center gap-2 shadow-lg transition-transform hover:scale-105"><Bot size={18}/> Chạy Toàn Bộ Kịch Bản AI</button>
+                        </div>
+                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] mb-5">
+                            <h4 className="font-bold text-purple-400 mb-3 flex items-center gap-2"><Bot size={18}/> Các Kịch Bản Giả Lập (Robot Min)</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {ROBOT_MIN_TEST_CASES.map(tc => (
+                                    <button key={tc.id} onClick={() => runSpecificRobotTest(tc)} disabled={isDiagnosing} className="text-left px-4 py-3 bg-[var(--bg-body)] hover:bg-purple-900/30 disabled:opacity-50 border border-[var(--border-main)] hover:border-purple-500/50 rounded-xl text-sm font-bold text-[var(--text-main)] transition-colors flex items-center gap-2 shadow-sm"><span className="text-purple-400 shrink-0">{tc.icon}</span> {tc.name}</button>
+                                ))}
+                            </div>
+                        </div>
+                        {diagnosticProgress.percent > 0 && (
+                            <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-teal-500/30 mb-4 animate-in fade-in">
+                                <div className="flex justify-between text-sm mb-2"><span className="text-teal-400 font-bold flex items-center gap-2"><Activity size={14} className="animate-spin"/> {diagnosticProgress.text}</span><span className="text-teal-300 font-mono font-bold">{diagnosticProgress.percent}%</span></div>
+                                <div className="h-1.5 w-full bg-[var(--bg-body)] rounded-full overflow-hidden border border-[var(--border-main)]"><div className="h-full bg-gradient-to-r from-teal-600 to-teal-400 transition-all duration-500 ease-out" style={{ width: `${diagnosticProgress.percent}%` }}></div></div>
+                            </div>
+                        )}
+                        <div className="space-y-3">
+                            {diagnosticLogs.length === 0 && !isDiagnosing && <p className="text-center text-[var(--text-muted)] italic py-8">Chưa có dữ liệu rà soát. Hãy chọn một thao tác bên trên.</p>}
+                            {diagnosticLogs.map((log, idx) => (
+                                <div key={idx} className={`p-4 rounded-lg border flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 ${log.status === 'error' ? 'bg-red-900/10 border-red-500/30' : log.status === 'warn' ? 'bg-yellow-900/10 border-yellow-500/30' : log.status === 'info' ? 'bg-blue-900/10 border-blue-500/30' : 'bg-emerald-900/10 border-emerald-500/30'}`}>
+                                    <div className="mt-0.5 shrink-0">{log.status === 'error' ? <X size={18} className="text-red-500"/> : log.status === 'warn' ? <AlertTriangle size={18} className="text-yellow-500"/> : log.status === 'info' ? ((isDiagnosing && idx === diagnosticLogs.length - 1) ? <Activity size={18} className="text-blue-500 animate-spin"/> : <Info size={18} className="text-blue-500"/>) : <ShieldCheck size={18} className="text-emerald-500"/>}</div>
+                                    <p className={`text-sm font-medium leading-relaxed whitespace-pre-wrap ${log.status === 'error' ? 'text-red-400' : log.status === 'warn' ? 'text-yellow-400' : log.status === 'info' ? 'text-blue-400' : 'text-emerald-400'}`}>{log.msg}</p>
+                                </div>
+                            ))}
+                        </div>
+                   </div>
+               ) : adminTabMode === 'import' ? (
+                   /* GIAO DIỆN ĐẶC XÁ (KHÔI PHỤC BYPASS) */
+                   <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+                        <div className="text-sm text-[var(--text-main)] bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] leading-relaxed mb-5 shadow-inner">
+                            <span className="font-bold text-orange-400">Đặc Xá Dữ Liệu Cũ:</span> Tính năng này cho phép Quản Trị Viên tải lên các mã lưu trữ từ những phiên bản cũ (như v8.08). Nhân vật được khôi phục qua đây sẽ được hệ thống đóng Dấu Ấn Thiên Đạo hợp lệ và <span className="font-bold text-emerald-400">không bị trừng phạt</span> vì lỗi sai lệch chỉ số.
+                        </div>
+                        <textarea id="adminImportInput" placeholder="Dán mã lưu trữ vào đây..." className="w-full h-40 bg-[var(--bg-body)] text-[var(--text-main)] text-sm p-4 rounded-xl border border-[var(--border-main)] custom-scrollbar mb-4" />
+                        
+                        <div className="flex gap-3 mt-3">
+                            <button onClick={() => {
+                                const code = document.getElementById('adminImportInput').value;
+                                if(code) {
+                                    processRestoreCode(code, true);
+                                    setIsAdminModalOpen(false);
+                                } else {
+                                    showAlert("Vui lòng dán mã lưu trữ!");
+                                }
+                            }} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(234,88,12,0.4)] text-lg uppercase tracking-widest transition-transform hover:scale-[1.02]">Khôi Phục Từ Mã</button>
+                            
+                            <input type="file" id="adminUploadSaveFile" accept=".txt,.json" className="hidden" onChange={handleAdminFileUpload} />
+                            <button onClick={() => document.getElementById('adminUploadSaveFile').click()} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.4)] text-lg uppercase tracking-widest transition-transform hover:scale-[1.02] flex items-center justify-center gap-2"><Upload size={22}/> Đọc File Máy</button>
+                        </div>
+                   </div>
+               ) : (
+                   /* V6.45: GIAO DIỆN GIÁM SÁT SERVER CẢI TIẾN */
+                       <div className="flex flex-col h-full animate-in fade-in">
+                           <div className="flex flex-wrap justify-between items-center bg-[var(--bg-surface)] p-3 border-b border-[var(--border-main)] shrink-0 gap-3">
+                               <div className="flex gap-2">
+                                   <button onClick={() => setAdminMonitorTab('logs')} className={`px-4 py-2 text-xs font-bold rounded-lg border transition-colors ${adminMonitorTab === 'logs' ? 'bg-red-900/30 text-red-400 border-red-500/50 shadow-sm' : 'bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)]'}`}>Lịch Sử Logs</button>
+                                   <button onClick={() => setAdminMonitorTab('players')} className={`px-4 py-2 text-xs font-bold rounded-lg border transition-colors ${adminMonitorTab === 'players' ? 'bg-teal-900/30 text-teal-400 border-teal-500/50 shadow-sm' : 'bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)]'}`}>Người Chơi</button>
+                                   <button onClick={() => setAdminMonitorTab('coop')} className={`px-4 py-2 text-xs font-bold rounded-lg border transition-colors ${adminMonitorTab === 'coop' ? 'bg-orange-900/30 text-orange-400 border-orange-500/50 shadow-sm' : 'bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)]'}`}>Giám Sát Liên Giới</button>
+                                   <button onClick={() => { setAdminMonitorTab('seal'); fetchAdminLogs(); }} className={`px-4 py-2 text-xs font-bold rounded-lg border transition-colors ${adminMonitorTab === 'seal' ? 'bg-purple-900/30 text-purple-400 border-purple-500/50 shadow-sm' : 'bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)]'}`}>Phong Ấn Tên</button>
+                                   <button onClick={() => { setAdminMonitorTab('error_reports'); fetchAdminLogs(); }} className={`px-4 py-2 text-xs font-bold rounded-lg border transition-colors ${adminMonitorTab === 'error_reports' ? 'bg-pink-900/30 text-pink-400 border-pink-500/50 shadow-sm' : 'bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)]'}`}>Hồ Sơ Sự Cố</button>
+                               </div>
+                               <button onClick={() => { if(adminMonitorTab==='logs' || adminMonitorTab==='seal') fetchAdminLogs(); else if(adminMonitorTab==='players') fetchAdminPlayersList(); else fetchAdminCoopRooms(); }} disabled={isAdminFetching} className="text-xs bg-[var(--bg-body)] hover:bg-[var(--bg-hover)] text-[var(--text-main)] border border-[var(--border-main)] px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm disabled:opacity-50 transition-colors">
+                                   <RotateCcw size={14} className={isAdminFetching ? 'animate-spin' : ''}/> Làm Mới
+                               </button>
+                           </div>
+                           
+                           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-[var(--bg-body)]">
+                               {adminMonitorTab === 'logs' ? (
+                                   <div className="space-y-3">
+                                       <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+                                           <button onClick={() => setAdminLogFilter('all')} className={`px-3 py-1.5 text-[10px] font-bold rounded-md border ${adminLogFilter === 'all' ? 'bg-gray-800 text-white border-gray-500' : 'bg-transparent text-[var(--text-muted)] border-[var(--border-main)]'}`}>Tất Cả</button>
+                                           <button onClick={() => setAdminLogFilter('action')} className={`px-3 py-1.5 text-[10px] font-bold rounded-md border ${adminLogFilter === 'action' ? 'bg-blue-900/30 text-blue-400 border-blue-500/50' : 'bg-transparent text-[var(--text-muted)] border-[var(--border-main)]'}`}>💬 Hành Động</button>
+                                           <button onClick={() => setAdminLogFilter('death')} className={`px-3 py-1.5 text-[10px] font-bold rounded-md border ${adminLogFilter === 'death' ? 'bg-orange-900/30 text-orange-400 border-orange-500/50' : 'bg-transparent text-[var(--text-muted)] border-[var(--border-main)]'}`}>💀 Tử Vong</button>
+                                           <button onClick={() => setAdminLogFilter('error')} className={`px-3 py-1.5 text-[10px] font-bold rounded-md border ${adminLogFilter === 'error' ? 'bg-purple-900/30 text-purple-400 border-purple-500/50' : 'bg-transparent text-[var(--text-muted)] border-[var(--border-main)]'}`}>⚠️ Lỗi</button>
+                                       </div>
+                                       
+                                       {adminGlobalLogs.filter(l => adminLogFilter === 'all' || l.type === adminLogFilter).length === 0 ? (
+                                           <div className="text-center py-20 text-[var(--text-muted)] italic"><Database size={40} className="mx-auto opacity-20 mb-3"/> Chưa có dữ liệu lịch sử nào trên máy chủ.</div>
+                                       ) : (
+                                           adminGlobalLogs.filter(l => adminLogFilter === 'all' || l.type === adminLogFilter).map((log, i) => (
+                                               <div key={i} className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] flex flex-col gap-2 hover:border-red-500/30 transition-colors shadow-sm">
+                                                   <div className="flex justify-between items-start">
+                                                       <div className="flex items-center gap-2 flex-wrap">
+                                                           {log.type === 'action' ? <span className="bg-blue-900/20 p-1.5 rounded-lg"><Activity size={14} className="text-blue-400"/></span> :
+                                                            log.type === 'death' ? <span className="bg-orange-900/20 p-1.5 rounded-lg"><Skull size={14} className="text-orange-400"/></span> :
+                                                            <span className="bg-purple-900/20 p-1.5 rounded-lg"><Bug size={14} className="text-purple-400"/></span>}
+                                                           <span className="font-bold text-[var(--text-bold)] text-base">{log.name}</span>
+                                                           <span className="text-[10px] bg-[var(--bg-body)] px-2 py-0.5 rounded border border-[var(--border-main)] text-[var(--text-muted)] uppercase tracking-widest font-bold">{log.level}</span>
+                                                       </div>
+                                                       <span className="text-[10px] text-[var(--text-muted)] font-mono">{new Date(log.timestamp).toLocaleString('vi-VN')}</span>
+                                                   </div>
+                                                   <div className="text-sm text-[var(--text-main)] bg-[var(--bg-body)] p-3 rounded-lg border border-[var(--border-main)] leading-relaxed shadow-inner">
+                                                       {String(log.detail || '')}
+                                                   </div>
+                                                   <div className="text-[9px] text-[var(--text-muted)] font-mono opacity-50 flex justify-end">UID: {log.uid}</div>
+                                               </div>
+                                           ))
+                                       )}
+                                   </div>
+                               ) : adminMonitorTab === 'error_reports' ? (
+                                   <div className="space-y-4 animate-in slide-in-from-left-4">
+                                       <div className="flex justify-between items-center mb-4 bg-pink-900/20 p-4 rounded-xl border border-pink-500/50 shadow-inner">
+                                           <div>
+                                               <span className="text-sm font-bold text-pink-400 flex items-center gap-2"><Bug size={16}/> Hồ Sơ Sự Cố (Error Reports)</span>
+                                               <p className="text-[10px] text-gray-400 mt-1">Bài viết chi tiết về các lỗi người chơi gặp phải, được sắp xếp theo Tên Người Chơi.</p>
+                                           </div>
+                                       </div>
+                                       
+                                       {(() => {
+                                           const errorReports = adminGlobalLogs.filter(l => l.type === 'error_report');
+                                           errorReports.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                                           
+                                           if (errorReports.length === 0) return <div className="text-center py-20 text-[var(--text-muted)] italic"><Check size={40} className="mx-auto opacity-20 mb-3 text-emerald-500"/> Chưa ghi nhận sự cố nào.</div>;
+                                           
+                                           return errorReports.map((log, i) => {
+                                               let detailObj = {};
+                                               try {
+                                                   detailObj = JSON.parse(log.detail);
+                                               } catch(e) {
+                                                   detailObj = { errorMsg: log.detail, time: new Date(log.timestamp).toLocaleString('vi-VN') };
+                                               }
+                                               
+                                               return (
+                                                   <div key={i} className="bg-[var(--bg-surface)] p-5 rounded-xl border border-pink-900/50 shadow-sm flex flex-col gap-3">
+                                                       <div className="flex justify-between items-center border-b border-pink-900/30 pb-2">
+                                                           <span className="font-bold text-lg text-pink-400">{log.name}</span>
+                                                           <span className="text-[10px] bg-[var(--bg-body)] px-2 py-0.5 rounded border border-[var(--border-main)] text-[var(--text-muted)]">{log.level}</span>
+                                                       </div>
+                                                       
+                                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                           <div>
+                                                               <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Thời Gian Lỗi:</p>
+                                                               <p className="text-xs text-[var(--text-main)] font-mono">{detailObj.time || new Date(log.timestamp).toLocaleString('vi-VN')}</p>
+                                                           </div>
+                                                           <div>
+                                                               <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Hành Động / Diễn Biến Gây Lỗi:</p>
+                                                               <p className="text-xs text-orange-400 font-bold italic line-clamp-2">"{detailObj.action || 'Không rõ'}"</p>
+                                                           </div>
+                                                       </div>
+
+                                                       <div>
+                                                           <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Thông Tin Lỗi (Nguyên Nhân):</p>
+                                                           <div className="bg-red-900/10 p-3 rounded-lg border border-red-900/30 text-xs text-red-400 font-mono whitespace-pre-wrap max-h-32 overflow-y-auto custom-scrollbar">
+                                                               {detailObj.errorMsg}
+                                                               {detailObj.errorStack && `\n${detailObj.errorStack}`}
+                                                           </div>
+                                                       </div>
+
+                                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                           <div>
+                                                               <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Khí Vận Hiện Tại:</p>
+                                                               <div className="text-xs text-[var(--text-main)] leading-relaxed">
+                                                                   {detailObj.traits || 'Không có'}
+                                                               </div>
+                                                           </div>
+                                                           <div>
+                                                               <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Túi Đồ (Hành Trang):</p>
+                                                               <div className="text-xs text-[var(--text-main)] leading-relaxed max-h-20 overflow-y-auto custom-scrollbar">
+                                                                   {detailObj.inventory || 'Trống'}
+                                                               </div>
+                                                           </div>
+                                                       </div>
+                                                       
+                                                       <div>
+                                                           <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Cốt Truyện Vừa Xảy Ra:</p>
+                                                           <div className="bg-[var(--bg-body)] p-3 rounded-lg border border-[var(--border-main)] text-xs text-gray-400 italic whitespace-pre-wrap max-h-32 overflow-y-auto custom-scrollbar">
+                                                               {detailObj.recentStory || 'Không có'}
+                                                           </div>
+                                                       </div>
+                                                   </div>
+                                               );
+                                           });
+                                       })()}
+                                   </div>
+                               ) : adminMonitorTab === 'seal' ? (
+                                   <div className="space-y-3 animate-in slide-in-from-left-4">
+                                       <div className="flex justify-between items-center mb-4 bg-purple-900/20 p-4 rounded-xl border border-purple-500/50 shadow-inner">
+                                           <div>
+                                               <span className="text-sm font-bold text-purple-400 flex items-center gap-2"><Lock size={16}/> Sổ Bìa Đen (Phong Ấn Danh Xưng)</span>
+                                               <p className="text-[10px] text-gray-400 mt-1">Radar tự động lưu lại những kẻ dám lách luật dùng từ khóa Admin. Tên đã bị phong ấn sẽ tô màu đỏ.</p>
+                                           </div>
+                                           <button onClick={async () => {
+                                               if (selectedSealNames.length === 0) return showAlert("Bạn chưa tick chọn tên nào để phong ấn!");
+                                               showConfirm(`Bạn chuẩn bị PHONG ẤN VĨNH VIỄN ${selectedSealNames.length} danh xưng này?\nBất cứ ai mang tên này sẽ lập tức bị Thiên Đạo mạt sát khi vào game.`, async () => {
+                                                   setDialog({ type: 'loading', message: 'Đang khắc ấn danh sách đen lên Bia Đá Tử Thần...' });
+                                                   try {
+                                                       const blRef = doc(db, 'artifacts', appId, 'public', 'data', 'admin_config', 'blacklist');
+                                                       const snap = await getDoc(blRef);
+                                                       let currentNames = snap.exists() ? (snap.data().names || []) : [];
+                                                       let addedCount = 0;
+                                                       selectedSealNames.forEach(name => {
+                                                           if (!currentNames.includes(name)) { currentNames.push(name); addedCount++; }
+                                                       });
+                                                       if (addedCount > 0) await setDoc(blRef, { names: currentNames }, { merge: true });
+                                                       setSelectedSealNames([]);
+                                                       closeDialog();
+                                                       showAlert(`Đã phong ấn thành công ${addedCount} danh xưng! Bọn chúng đã bị tước đoạt quyền sinh tồn.`);
+                                                   } catch(e) { closeDialog(); showAlert("Lỗi phong ấn hàng loạt: " + e.message); }
+                                               });
+                                           }} className="bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-md transition-colors flex items-center gap-2">
+                                               <ShieldAlert size={14}/> Phong Ấn Hàng Loạt ({selectedSealNames.length})
+                                           </button>
+                                       </div>
+
+                                       {/* V11.98 FIX: KHUNG SAO LƯU & KHÔI PHỤC SỔ ĐEN */}
+                                       <div className="bg-[var(--bg-body)] p-4 rounded-xl border border-purple-900/50 mb-4 shadow-sm">
+                                           <div className="flex justify-between items-center mb-2">
+                                               <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">Sao Lưu / Khôi Phục Tên Phong Ấn</span>
+                                               <span className="text-[10px] text-gray-500 bg-gray-800 px-2 py-0.5 rounded border border-gray-700">Đang có: {bannedNames.length} tội đồ</span>
+                                           </div>
+                                           <textarea 
+                                               id="adminImportBans" 
+                                               placeholder="Dán danh sách các tên cần phong ấn vào đây (cách nhau bằng dấu phẩy). Hoặc nhấn Nút Copy bên dưới để sao lưu danh sách hiện tại trước khi chuyển Server..." 
+                                               className="w-full h-20 bg-[var(--bg-body)] border border-purple-900/30 rounded-lg p-3 text-xs text-purple-300 focus:outline-none focus:border-purple-500 custom-scrollbar mb-3 leading-relaxed" 
+                                               defaultValue={bannedNames.join(', ')}
+                                           ></textarea>
+                                           <div className="flex gap-2">
+                                               <button onClick={async () => {
+                                                   const val = document.getElementById('adminImportBans').value;
+                                                   if (!val.trim()) return showAlert("Vui lòng nhập ít nhất 1 cái tên!");
+                                                   
+                                                   const namesToAdd = val.split(',').map(n => n.trim()).filter(n => n.length > 0);
+                                                   if (namesToAdd.length === 0) return;
+                                                   
+                                                   showConfirm(`Bạn chuẩn bị đồng bộ ${namesToAdd.length} danh xưng vào Sổ Đen.\nHệ thống sẽ tự động gộp danh sách này vào Đám Mây (Bỏ qua các tên đã trùng lặp). Xác nhận?`, async () => {
+                                                       setDialog({ type: 'loading', message: 'Đang dung hợp danh sách lên Bia Đá Tử Thần...' });
+                                                       try {
+                                                           const blRef = doc(db, 'artifacts', appId, 'public', 'data', 'admin_config', 'blacklist');
+                                                           const snap = await getDoc(blRef);
+                                                           let currentNames = snap.exists() ? (snap.data().names || []) : [];
+                                                           
+                                                           let addedCount = 0;
+                                                           namesToAdd.forEach(name => {
+                                                               if (!currentNames.includes(name)) { 
+                                                                   currentNames.push(name); 
+                                                                   addedCount++; 
+                                                               }
+                                                           });
+                                                           
+                                                           await setDoc(blRef, { names: currentNames }, { merge: true });
+                                                           closeDialog();
+                                                           showAlert(`Đồng bộ thành công! Đã thêm mới ${addedCount} danh xưng vào hệ thống phong ấn.`);
+                                                       } catch(e) { closeDialog(); showAlert("Lỗi đồng bộ Sổ Đen: " + e.message); }
+                                                   });
+                                               }} className="flex-1 bg-purple-900/20 hover:bg-purple-600 text-purple-400 hover:text-white border border-purple-500/50 py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
+                                                   <Upload size={14}/> Đồng Bộ Lên Mây
+                                               </button>
+                                               <button onClick={() => {
+                                                   const ta = document.getElementById('adminImportBans');
+                                                   ta.value = bannedNames.join(', ');
+                                                   ta.select();
+                                                   try {
+                                                       document.execCommand('copy');
+                                                       showAlert("Đã Copy thành công toàn bộ danh sách Sổ Đen hiện tại! Bạn có thể lưu vào file Text để cất giữ.");
+                                                   } catch(e) {
+                                                       showAlert("Trình duyệt không hỗ trợ Copy tự động, bạn hãy tự bôi đen và nhấn Ctrl+C nhé.");
+                                                   }
+                                               }} className="flex-1 bg-[var(--bg-surface)] hover:bg-gray-700 text-gray-300 border border-[var(--border-main)] py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
+                                                   <Copy size={14}/> Copy Danh Sách Hiện Tại
+                                               </button>
+                                           </div>
+                                       </div>
+                                       
+                                       {adminGlobalLogs.filter(l => l.type === 'cheat_attempt').length === 0 ? (
+                                           <div className="text-center py-20 text-[var(--text-muted)] italic"><Check size={40} className="mx-auto opacity-20 mb-3 text-emerald-500"/> Giang hồ thái bình. Chưa phát hiện kẻ gian lận nào.</div>
+                                       ) : (
+                                           adminGlobalLogs.filter(l => l.type === 'cheat_attempt').map((log, i) => {
+                                               const isBanned = bannedNames.includes(log.name);
+                                               const isChecked = selectedSealNames.includes(log.name);
+                                               return (
+                                               <div key={i} className={`p-4 rounded-xl border transition-colors shadow-sm flex items-center gap-4 ${isBanned ? 'bg-red-900/10 border-red-500/50' : isChecked ? 'bg-purple-900/20 border-purple-500/50' : 'bg-[var(--bg-surface)] border-[var(--border-main)] hover:border-purple-500/30'}`}>
+                                                   {!isBanned && (
+                                                       <input type="checkbox" checked={isChecked} onChange={(e) => {
+                                                           if (e.target.checked) setSelectedSealNames(prev => [...prev, log.name]);
+                                                           else setSelectedSealNames(prev => prev.filter(n => n !== log.name));
+                                                       }} className="w-5 h-5 rounded border-gray-600 text-purple-600 focus:ring-purple-500 bg-gray-800 cursor-pointer shrink-0" />
+                                                   )}
+                                                   {isBanned && <Lock size={20} className="text-red-500 shrink-0"/>}
+                                                   
+                                                   <div className="flex-1 overflow-hidden">
+                                                       <div className="flex items-center gap-3 mb-1.5">
+                                                           <span className={`font-bold text-lg ${isBanned ? 'text-red-500 line-through' : 'text-[var(--text-bold)]'}`}>{log.name}</span>
+                                                           <span className="text-[10px] bg-[var(--bg-body)] px-2 py-0.5 rounded border border-[var(--border-main)] text-[var(--text-muted)]">{log.level}</span>
+                                                           <span className="text-[10px] text-gray-500 font-mono">{new Date(log.timestamp).toLocaleString('vi-VN')}</span>
+                                                       </div>
+                                                       <div className="text-sm text-[var(--text-main)] bg-[var(--bg-body)] p-3 rounded-lg border border-[var(--border-main)] shadow-inner">
+                                                           <span className="text-purple-400 font-bold mr-2">Bằng chứng:</span>{log.detail}
+                                                       </div>
+                                                   </div>
+                                                   
+                                                   {!isBanned && (
+                                                       <button onClick={() => handleAdminKillPlayer(log.name)} className="bg-[var(--bg-body)] hover:bg-red-900/30 text-gray-500 hover:text-red-500 border border-[var(--border-main)] hover:border-red-500/50 px-4 py-3 rounded-lg text-xs font-bold transition-all shadow-sm shrink-0 flex flex-col items-center gap-1">
+                                                           <Skull size={16}/> Phong Ấn
+                                                       </button>
+                                                   )}
+                                               </div>
+                                           )})
+                                       )}
+                                   </div>
+                               ) : adminMonitorTab === 'players' ? (
+                                   <div className="space-y-3">
+                                       <div className="flex justify-between items-center mb-4 bg-[var(--bg-surface)] p-3 rounded-xl border border-[var(--border-main)]">
+                                           <span className="text-xs font-bold text-teal-400">Tổng Sinh Mệnh Tồn Tại: {adminPlayersList.length}</span>
+                                           <select value={adminSortOrder} onChange={e => setAdminSortOrder(e.target.value)} className="bg-[var(--bg-body)] border border-[var(--border-main)] text-[var(--text-muted)] text-[10px] p-1.5 rounded outline-none cursor-pointer">
+                                               <option value="newest">Mới Nhất Trước (Cập nhật gần đây)</option>
+                                               <option value="oldest">Cũ Nhất Trước</option>
+                                           </select>
+                                       </div>
+                                       
+                                       {adminPlayersList.length === 0 ? (
+                                           <div className="text-center py-20 text-[var(--text-muted)] italic"><Users size={40} className="mx-auto opacity-20 mb-3"/> Chưa có người chơi nào khắc ấn lên mây.</div>
+                                       ) : (
+                                           [...adminPlayersList].sort((a,b) => adminSortOrder === 'newest' ? (b.lastUpdated||0)-(a.lastUpdated||0) : (a.lastUpdated||0)-(b.lastUpdated||0)).map((p, i) => (
+                                               <div key={i} onClick={() => adminViewPlayerDetails(p)} className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] hover:border-teal-500 cursor-pointer flex justify-between items-center transition-colors group">
+                                                   <div className="flex items-center gap-4">
+                                                       <div className="w-10 h-10 rounded-full bg-[var(--bg-body)] border border-[var(--border-main)] flex items-center justify-center text-[var(--text-muted)] group-hover:text-teal-400 group-hover:border-teal-500 transition-colors"><User size={20}/></div>
+                                                       <div>
+                                                           <div className="font-bold text-[var(--text-bold)] text-base group-hover:text-teal-400 transition-colors">{p.name}</div>
+                                                           <div className="text-xs text-[var(--text-muted)] mt-0.5">{p.level}</div>
+                                                       </div>
+                                                   </div>
+                                                   <div className="flex flex-col items-end">
+                                                       <span className="text-[10px] text-[var(--text-muted)] font-mono">Hoạt động: {new Date(p.lastUpdated).toLocaleDateString('vi-VN')} {new Date(p.lastUpdated).toLocaleTimeString('vi-VN')}</span>
+                                                       <button className="text-[10px] mt-2 bg-teal-900/20 text-teal-500 border border-teal-500/30 px-3 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">Soi Kính</button>
+                                                   </div>
+                                               </div>
+                                           ))
+                                       )}
+                                   </div>
+                               ) : adminViewingRoom ? (
+                                   <div className="flex flex-col h-full animate-in slide-in-from-right-4">
+                                       <div className="flex justify-between items-center mb-4 bg-[var(--bg-surface)] p-3 rounded-xl border border-[var(--border-main)]">
+                                           <span className="text-sm font-bold text-orange-400 flex items-center gap-2"><Globe size={18}/> Liên Giới: {adminViewingRoom.id} {adminViewingRoom.password && <Lock size={14} className="text-yellow-500"/>}</span>
+                                           <button onClick={() => setAdminViewingRoom(null)} className="text-xs bg-[var(--bg-body)] text-[var(--text-muted)] border border-[var(--border-main)] px-3 py-1.5 rounded transition-colors hover:text-white">Quay lại</button>
+                                       </div>
+                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-hidden">
+                                           <div className="bg-[var(--bg-surface)] border border-[var(--border-main)] rounded-xl flex flex-col h-full overflow-hidden">
+                                               <div className="p-3 border-b border-[var(--border-main)] font-bold text-xs text-center text-teal-400 uppercase">Biên Niên Sử (World Log)</div>
+                                               <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2">
+                                                   {(adminViewingRoom.worldLog || []).map((l, i) => (
+                                                       <div key={i} className="text-xs text-[var(--text-main)] border-l-2 border-teal-500 pl-2 bg-[var(--bg-body)] p-2 rounded">
+                                                           <span className="text-teal-400 font-bold">{l.name}:</span> {l.text} <span className="text-gray-500">[{l.location}]</span>
+                                                       </div>
+                                                   )).reverse()}
+                                               </div>
+                                           </div>
+                                           <div className="bg-[var(--bg-surface)] border border-[var(--border-main)] rounded-xl flex flex-col h-full overflow-hidden">
+                                               <div className="p-3 border-b border-[var(--border-main)] font-bold text-xs text-center text-blue-400 uppercase">Hộp Thư Truyền Âm (Chat)</div>
+                                               <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2">
+                                                   {adminRoomChat.map((m, i) => (
+                                                       <div key={i} className="text-xs bg-[var(--bg-body)] p-2 rounded border border-[var(--border-main)]">
+                                                           <div className="flex justify-between text-gray-500 mb-1">
+                                                               <span className="font-bold text-blue-400">{m.name}</span>
+                                                               <span>{new Date(m.timestamp).toLocaleTimeString('vi-VN')}</span>
+                                                           </div>
+                                                           <div className="text-[var(--text-main)]">{m.text}</div>
+                                                       </div>
+                                                   ))}
+                                               </div>
+                                           </div>
+                                       </div>
+                                   </div>
+                               ) : (
+                                   <div className="space-y-3 animate-in slide-in-from-left-4">
+                                       <div className="flex justify-between items-center mb-4 bg-[var(--bg-surface)] p-3 rounded-xl border border-[var(--border-main)]">
+                                           <span className="text-xs font-bold text-orange-400">Danh Sách Liên Giới Đang Chạy: {adminCoopRooms.length}</span>
+                                       </div>
+                                       {adminCoopRooms.length === 0 ? (
+                                           <div className="text-center py-20 text-[var(--text-muted)] italic"><Globe size={40} className="mx-auto opacity-20 mb-3"/> Chưa có phòng Liên Giới nào.</div>
+                                       ) : (
+                                           adminCoopRooms.map((r, i) => (
+                                               <div key={i} className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] hover:border-orange-500 cursor-pointer flex justify-between items-center transition-colors group">
+                                                   <div className="flex items-center gap-4">
+                                                       <div className="w-10 h-10 rounded-full bg-[var(--bg-body)] border border-[var(--border-main)] flex items-center justify-center text-[var(--text-muted)] group-hover:text-orange-400 group-hover:border-orange-500 transition-colors"><Globe size={20}/></div>
+                                                       <div>
+                                                           <div className="font-bold text-[var(--text-bold)] text-base group-hover:text-orange-400 transition-colors">{r.id} {r.password && <Lock size={12} className="inline text-yellow-500"/>}</div>
+                                                           <div className="text-xs text-[var(--text-muted)] mt-0.5">Host: {r.players?.find(p=>p.isHost)?.name || 'Vô danh'} | Người: {r.players?.length}/{r.maxPlayers}</div>
+                                                       </div>
+                                                   </div>
+                                                   <div className="flex flex-col items-end">
+                                                       <span className="text-[10px] text-[var(--text-muted)] font-mono">Tạo: {new Date(r.createdAt).toLocaleString('vi-VN')}</span>
+                                                       <button onClick={() => adminSpectateRoom(r)} className="text-[10px] mt-2 bg-orange-900/20 text-orange-500 border border-orange-500/30 px-3 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">Soi Kính</button>
+                                                   </div>
+                                               </div>
+                                           ))
+                                       )}
+                                   </div>
+                               )}
+                           </div>
+                       </div>
+               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* V7.15: MODAL TIỂU THUYẾT ĐỜI NGƯỜI (BẢN KỶ) */}
+      {biographyModal.isOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[var(--bg-body)]/95 p-4 animate-in fade-in zoom-in-95 duration-500">
+          <div className="bg-[var(--bg-surface)] w-full max-w-4xl h-[90vh] rounded-2xl flex flex-col border border-yellow-600/30 shadow-[0_0_80px_rgba(234,179,8,0.15)] relative overflow-hidden">
+            {/* Viền sáng */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-50"></div>
+            
+            <div className="p-6 flex justify-between items-start shrink-0 relative z-10">
+               <div className="flex items-center gap-4">
+                   <div className="p-3 bg-yellow-900/20 rounded-full border border-yellow-500/30 shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+                       <ScrollText className="text-yellow-500" size={28} />
+                   </div>
+                   <div>
+                       <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-600 uppercase tracking-widest" style={{fontFamily: 'Lexend, sans-serif'}}>{biographyModal.title}</h3>
+                       <p className="text-xs text-yellow-500/50 mt-1 italic font-mono">Dữ liệu được lưu trữ vĩnh viễn trên Đám Mây Thiên Đạo</p>
+                   </div>
+               </div>
+               <button onClick={() => setBiographyModal({isOpen: false, title: '', content: ''})} className="p-2 bg-[var(--bg-body)] hover:bg-red-900/30 border border-yellow-900/30 hover:border-red-500/50 rounded-xl text-yellow-500/50 hover:text-red-400 transition-colors"><X size={24}/></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar relative z-10">
+               <div 
+                   className="text-[17px] md:text-[19px] leading-[2.2] text-yellow-100/90 whitespace-pre-wrap text-justify"
+                   style={{ fontFamily: "'Lora', serif", textShadow: "0 2px 4px rgba(0,0,0,0.8)" }}
+               >
+                   {biographyModal.content}
+               </div>
+               
+               <div className="mt-16 text-center opacity-30">
+                   <div className="w-24 h-px bg-gradient-to-r from-transparent via-yellow-500 to-transparent mx-auto mb-4"></div>
+                   <p className="font-mono text-xs uppercase tracking-widest">Hết</p>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* V7.52: MODAL CÀI ĐẶT HỆ THỐNG VÀ DLC */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[var(--bg-overlay)] p-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-[var(--bg-panel)] w-full max-w-md rounded-2xl flex flex-col border border-[var(--border-main)] shadow-2xl relative overflow-hidden h-[85vh]">
+            <div className="p-4 border-b border-[var(--border-main)] flex justify-between items-center bg-[var(--bg-body)] shrink-0">
+               <div className="flex items-center gap-3">
+                   <div className="bg-gray-800 p-2 rounded-lg border border-gray-600"><Settings className="text-gray-300" size={20} /></div>
+                   <h3 className="text-lg font-bold text-[var(--text-bold)] uppercase tracking-widest">Cài Đặt Hệ Thống</h3>
+               </div>
+               <div className="flex items-center gap-2">
+                   <button onClick={() => { setIsSettingsOpen(false); setIsErrorLogModalOpen(true); }} className="p-2 hover:bg-red-900/30 border border-transparent hover:border-red-900/50 rounded-lg text-red-500 transition-colors animate-pulse shadow-sm" title="Xem Báo Cáo Lỗi Hệ Thống"><Bug size={20}/></button>
+                   <button onClick={() => setIsSettingsOpen(false)} className="p-2 hover:bg-[var(--bg-hover)] border border-transparent hover:border-[var(--border-main)] rounded-lg text-[var(--text-muted)] transition-colors"><X size={20}/></button>
+               </div>
+            </div>
+
+            {/* Điều Hướng Cài Đặt */}
+            <div className="flex bg-[var(--bg-body)] border-b border-[var(--border-main)] shrink-0 p-2 gap-2 overflow-x-auto custom-scrollbar">
+                <button onClick={() => setSettingsTab('general')} className={`shrink-0 px-4 py-2.5 text-[10px] font-bold rounded-lg transition-colors uppercase tracking-widest ${settingsTab === 'general' ? 'bg-gray-800 text-white' : 'text-[var(--text-muted)] hover:text-gray-300'}`}>Tùy Chỉnh Cơ Bản</button>
+                <button onClick={() => setSettingsTab('logs')} className={`shrink-0 px-4 py-2.5 text-[10px] font-bold rounded-lg transition-colors uppercase tracking-widest ${settingsTab === 'logs' ? 'bg-orange-900/40 text-orange-400 border border-orange-500/50 shadow-sm' : 'text-[var(--text-muted)] hover:text-orange-400'}`}>Thông Báo Hệ Thống</button>
+                {true && true && (
+                <button onClick={() => setSettingsTab('dlc')} className={`shrink-0 px-4 py-2.5 text-[10px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 uppercase tracking-widest ${settingsTab === 'dlc' ? 'bg-purple-900/40 text-purple-400 border border-purple-500/50 shadow-sm' : 'text-[var(--text-muted)] hover:text-purple-400'}`}><Globe size={14}/> Mở Rộng Vi Diện</button>
+                )}
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-5 custom-scrollbar bg-[var(--bg-body)]">
+                
+                {settingsTab === 'general' && (
+                    <div className="space-y-4 animate-in slide-in-from-left-4">
+                        <h4 className="text-xs font-bold text-teal-500 uppercase tracking-widest border-b border-[var(--border-main)] pb-2">{'Trải Nghiệm Cốt Truyện'}</h4>
+                        
+                        <div className="flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] hover:border-teal-500/30 transition-colors">
+                            <div className="pr-4">
+                                <div className="font-bold text-sm text-[var(--text-main)] mb-1 flex items-center gap-2">
+                                    <Users size={16} className="text-teal-500"/> {'Hiển thị Quần Chúng'}
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                    {'Cho phép AI miêu tả sự bàn tán, hoảng sợ hoặc phản ứng của bá tánh/người qua đường xung quanh khi có biến cố.'}
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setSettingShowCrowd(!settingShowCrowd)} 
+                                className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${settingShowCrowd ? 'bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.6)]' : 'bg-gray-600'}`} 
+                                title={settingShowCrowd ? "Đang Bật" : "Đang Tắt"}
+                            >
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${settingShowCrowd ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                        </div>
+
+                        {/* V2.96: ĐÃ GỠ BỎ CHẾ ĐỘ 21+ THEO CHỈ THỊ CHỦ TOẠ DARK */}
+
+                        {/* V7.59 Nút Quần Chúng Tấu Hài */}
+                        {true && (
+                        <div className={`flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] transition-all ${settingShowCrowd ? 'hover:border-orange-500/30' : 'opacity-50 grayscale pointer-events-none'}`}>
+                            <div className="pr-4">
+                                <div className="font-bold text-sm text-[var(--text-main)] mb-1 flex items-center gap-2">
+                                    <Smile size={16} className="text-orange-500"/> Bình Luận Hài Hước (Châu Tinh Trì)
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                    Thiên Đạo sẽ dành riêng một đoạn ở cuối chương để dân tình, ăn mày, bà bán nước... "bóc phốt" hoặc châm biếm hành động của bạn.
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setSettingHumorousCrowd(!settingHumorousCrowd)} 
+                                className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${settingHumorousCrowd ? 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.6)]' : 'bg-gray-600'}`} 
+                                title={settingHumorousCrowd ? "Đang Bật" : "Đang Tắt"}
+                            >
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${settingHumorousCrowd ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                        </div>
+                        )}
+
+                        {/* Bãi Bỏ Định Kiến Sảng Văn & Tôn Sùng NVC */}
+                        <div className={`flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] transition-all hover:border-red-500/30 mt-4`}>
+                            <div className="pr-4">
+                                <div className="font-bold text-sm text-[var(--text-main)] mb-1 flex items-center gap-2">
+                                    <ShieldAlert size={16} className="text-red-500"/> Xóa Bỏ Định Kiến Sảng Văn & Tôn Sùng NVC
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                    Thiên Địa bất nhân, xem vạn vật như rơm rác. Cấm tâng bốc NVC, triệt tiêu NPC não tàn quỳ phục vô lý, bãi bỏ blacklist từ vựng sảng văn (hít ngụm khí lạnh, toàn trường tĩnh mịch, đạo tâm vỡ vụn...).
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setSettingNoPraise(!settingNoPraise)} 
+                                className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${settingNoPraise ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)]' : 'bg-gray-600'}`} 
+                                title={settingNoPraise ? "Đang Bật (Thế Giới Khách Quan)" : "Đang Tắt"}
+                            >
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${settingNoPraise ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                        </div>
+
+                        {/* Tắt Lẩm Bẩm */}
+                        <div className={`flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] transition-all hover:border-orange-500/30 mt-4`}>
+                            <div className="pr-4">
+                                <div className="font-bold text-sm text-[var(--text-main)] mb-1 flex items-center gap-2">
+                                    <Brain size={16} className="text-orange-500"/> Tắt NVC Lẩm Bẩm / Độc Thoại
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                    Cấm Thiên Đạo miêu tả Nhân vật chính tự lẩm bẩm một mình, nói chuyện trong đầu hoặc độc thoại nội tâm lặp đi lặp lại. Giúp mạch truyện diễn ra dứt khoát hơn.
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setSettingNoMuttering(!settingNoMuttering)} 
+                                className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${settingNoMuttering ? 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.6)]' : 'bg-gray-600'}`} 
+                                title={settingNoMuttering ? "Đang Bật (Cấm Lẩm Bẩm)" : "Đang Tắt"}
+                            >
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${settingNoMuttering ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                        </div>
+
+                        {/* V12.42: LỚP PHỦ THAY THẾ TỪ KHÓA */}
+                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] mt-4 shadow-sm">
+                            <div className="flex justify-between items-center mb-3 border-b border-[var(--border-main)] pb-3">
+                                <div className="font-bold text-sm text-[var(--text-main)] flex items-center gap-2">
+                                    <PenTool size={16} className="text-teal-500"/> Lớp Phủ Thay Thế Từ Khóa
+                                </div>
+                                <button 
+                                    onClick={() => setIsAliasEnabled(!isAliasEnabled)} 
+                                    className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${isAliasEnabled ? 'bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.6)]' : 'bg-gray-600'}`} 
+                                    title={isAliasEnabled ? "Đang Bật" : "Đang Tắt"}
+                                >
+                                    <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${isAliasEnabled ? 'translate-x-5' : ''}`}></div>
+                                </button>
+                            </div>
+                            <div className={`transition-all ${isAliasEnabled ? '' : 'opacity-50 grayscale pointer-events-none'}`}>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed mb-3">
+                                    Tính năng này giúp thay đổi cách hiển thị chữ trong diễn biến truyện mà không làm hỏng dữ liệu báo cáo cho Thiên Đạo.<br/>
+                                    <strong className="text-orange-400">Cú pháp 1:</strong> Từ cũ - Từ mới (Ví dụ: <span className="text-teal-400">Linh thạch - Vàng</span>)<br/>
+                                    <strong className="text-orange-400">Cú pháp 2:</strong> (Từ 1, Từ 2) - Từ mới (Ví dụ: <span className="text-teal-400">(con cá, con cua, con cú) - con gà</span>)
+                                </div>
+                                <textarea 
+                                    value={aliasInput} 
+                                    onChange={e => {
+                                        setAliasInput(e.target.value);
+                                        setAliasError('');
+                                    }} 
+                                    placeholder="Từ cũ - Từ mới&#10;(Gà, Vịt) - Chim" 
+                                    className="w-full h-24 bg-[var(--bg-body)] border border-[var(--border-main)] rounded-lg p-3 text-sm text-[var(--text-main)] focus:outline-none focus:border-teal-500 custom-scrollbar resize-none font-mono"
+                                ></textarea>
+                                {aliasError && (
+                                    <p className="text-xs text-red-500 font-bold mt-2 bg-red-900/20 p-2 rounded border border-red-500/50">
+                                        {aliasError}
+                                    </p>
+                                )}
+                                <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => {
+                                            if (!aliasInput || !aliasInput.trim()) return showAlert("Không có từ khóa nào để lưu!");
+                                            const blob = new Blob([aliasInput], { type: "text/plain;charset=utf-8" });
+                                            const url = URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.href = url;
+                                            a.download = "TuTien_TuKhoa.txt";
+                                            document.body.appendChild(a);
+                                            a.click();
+                                            document.body.removeChild(a);
+                                            URL.revokeObjectURL(url);
+                                            showAlert("Đã tải về tệp từ khóa thành công!");
+                                        }} className="bg-blue-900/30 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/50 font-bold py-1.5 px-3 rounded-lg text-xs shadow-sm transition-colors flex items-center gap-1">
+                                            <Save size={14}/> Save
+                                        </button>
+                                        <input type="file" id="uploadAliasFile" accept=".txt" className="hidden" onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (!file) return;
+                                            const reader = new FileReader();
+                                            reader.onload = (event) => setAliasInput(event.target.result);
+                                            reader.readAsText(file);
+                                            e.target.value = '';
+                                        }} />
+                                        <button onClick={() => document.getElementById('uploadAliasFile').click()} className="bg-orange-900/30 hover:bg-orange-600 text-orange-400 hover:text-white border border-orange-500/50 font-bold py-1.5 px-3 rounded-lg text-xs shadow-sm transition-colors flex items-center gap-1">
+                                            <Upload size={14}/> Load
+                                        </button>
+                                    </div>
+                                    <button onClick={() => {
+                                        const lines = aliasInput.split('\n');
+                                        let allSourceWords = [];
+                                        let duplicates = [];
+                                        
+                                        lines.forEach(line => {
+                                            const parts = line.split('-');
+                                            if (parts.length >= 2) {
+                                                const originalPart = parts[0].trim();
+                                                if (originalPart) {
+                                                    let words = [];
+                                                    if (originalPart.startsWith('(') && originalPart.endsWith(')')) {
+                                                        words = originalPart.slice(1, -1).split(',').map(w => w.trim()).filter(Boolean);
+                                                    } else {
+                                                        words = [originalPart];
+                                                    }
+                                                    words.forEach(w => {
+                                                        if (allSourceWords.includes(w) && !duplicates.includes(w)) {
+                                                            duplicates.push(w);
+                                                        }
+                                                        allSourceWords.push(w);
+                                                    });
+                                                }
+                                            }
+                                        });
+
+                                        if (duplicates.length > 0) {
+                                            setAliasError(`Phát hiện từ khóa cũ bị cấu hình trùng lặp nhiều lần: ${duplicates.join(', ')}. Vui lòng xóa bớt hoặc sửa lại!`);
+                                        } else {
+                                            setAliasError('');
+                                            setGameState(prev => ({...prev, wordAliasesText: aliasInput}));
+                                            showAlert("Đã xác nhận và áp dụng Lớp Phủ Thay Thế Từ Khóa thành công!");
+                                        }
+                                    }} className="bg-teal-600 hover:bg-teal-500 text-white font-bold py-1.5 px-4 rounded-lg text-xs shadow-md transition-colors">
+                                        Xác Nhận & Áp Dụng
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* V10.45: Cụm Tùy Chỉnh Phân Tách Ngôn Ngữ Gen Z */}
+                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] mt-4 space-y-4 shadow-sm">
+                            <div className="flex justify-between items-center pb-3 border-b border-[var(--border-main)]">
+                                <div className="pr-4">
+                                    <div className="font-bold text-sm text-[var(--text-main)] mb-1 flex items-center gap-2">
+                                        <Sparkles size={16} className="text-pink-500"/> Bật Toàn Bộ Ngôn Ngữ Gen Z
+                                    </div>
+                                    <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                        Áp dụng từ lóng bựa/hiện đại (Tóp Tóp) cho <span className="text-pink-400 font-bold">tất cả</span> các ngữ cảnh trong game. Tắt đi sẽ áp dụng văn phong Tiên hiệp cổ điển nghiêm túc.
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => setSettingGenZAll(!settingGenZAll)} 
+                                    className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${settingGenZAll ? 'bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.6)]' : 'bg-gray-600'}`} 
+                                    title={settingGenZAll ? "Đang Bật Toàn Bộ" : "Đang Tắt"}
+                                >
+                                    <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${settingGenZAll ? 'translate-x-5' : ''}`}></div>
+                                </button>
+                            </div>
+
+                            {/* Chỉ hiển thị 3 nút phụ nếu nút Tổng đang Tắt */}
+                            {!settingGenZAll && (
+                                <div className="space-y-3 pl-3 md:pl-4 border-l-2 border-pink-500/30">
+                                    <div className="flex justify-between items-center">
+                                        <div className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                                            <Heart size={14} className="text-rose-400"/> Áp dụng cho Song Tu / Tình Ái
+                                        </div>
+                                        <button onClick={() => setSettingGenZRomance(!settingGenZRomance)} className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${settingGenZRomance ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 'bg-gray-600'}`}>
+                                            <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${settingGenZRomance ? 'translate-x-4' : ''}`}></div>
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="flex justify-between items-center">
+                                        <div className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                                            <Swords size={14} className="text-red-400"/> Áp dụng cho Chiến Đấu (Combat)
+                                        </div>
+                                        <button onClick={() => setSettingGenZCombat(!settingGenZCombat)} className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${settingGenZCombat ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'bg-gray-600'}`}>
+                                            <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${settingGenZCombat ? 'translate-x-4' : ''}`}></div>
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="flex justify-between items-center">
+                                        <div className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                                            <TrendingUp size={14} className="text-emerald-400"/> {'Áp dụng cho Tu Luyện / Cảm Xúc'}
+                                        </div>
+                                        <button onClick={() => setSettingGenZCultivate(!settingGenZCultivate)} className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${settingGenZCultivate ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-gray-600'}`}>
+                                            <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${settingGenZCultivate ? 'translate-x-4' : ''}`}></div>
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-[var(--text-muted)] italic mt-2">Bật các công tắc nhỏ này để pha trộn riêng từ lóng vào từng loại cốt truyện cụ thể.</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <h4 className="text-xs font-bold text-yellow-500 uppercase tracking-widest border-b border-[var(--border-main)] pb-2 mt-6">Hệ Thống Lựa Chọn</h4>
+                        
+                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] mt-4 shadow-sm">
+                            <div className="flex justify-between items-center mb-2">
+                                <div className="font-bold text-sm text-[var(--text-main)] flex items-center gap-2">
+                                    <Menu size={16} className="text-yellow-500"/> Số Lượng Lựa Chọn Gợi Ý
+                                </div>
+                                <span className="text-sm font-mono font-bold text-yellow-500 bg-yellow-900/20 px-2 py-0.5 rounded border border-yellow-500/30">{settingOptionsCount}</span>
+                            </div>
+                            <div className="text-[11px] text-[var(--text-muted)] leading-relaxed mb-3">
+                                Điều chỉnh số lượng gợi ý hành động ở cuối mỗi chương. Mặc định là 4, có thể tăng lên để có nhiều hướng đi hơn (Tối đa 10). Lưu ý: Nếu nhân vật có Khí Vận "Hệ Thống Lựa Chọn (Tích Tẩu)", hệ thống sẽ luôn ép cứng 3 lựa chọn bất chấp cài đặt này!
+                            </div>
+                            <input 
+                                type="range" 
+                                min="4" 
+                                max="10" 
+                                value={settingOptionsCount} 
+                                onChange={e => setSettingOptionsCount(Number(e.target.value))} 
+                                className="w-full accent-yellow-500 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer" 
+                            />
+                        </div>
+
+                        {/* V8.33: Cài đặt hiển thị Tùy chọn */}
+                        <h4 className="text-xs font-bold text-red-500 uppercase tracking-widest border-b border-[var(--border-main)] pb-2 mt-6">Hardcore (Giấu Gợi Ý)</h4>
+                        
+                        <div className="flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] hover:border-red-500/30 transition-colors">
+                            <div className="pr-4">
+                                <div className="font-bold text-sm text-[var(--text-main)] mb-1 flex items-center gap-2">
+                                    <EyeOff size={16} className="text-red-500"/> Ẩn Gợi Ý Hành Động
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                    Tắt hoàn toàn 4 khung gợi ý hành động ở cuối màn hình. Bạn phải TỰ ĐÁNH MÁY 100% mọi hành động để chơi.
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setSettingHideOptions(!settingHideOptions)} 
+                                className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${settingHideOptions ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)]' : 'bg-gray-600'}`} 
+                            >
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${settingHideOptions ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                        </div>
+
+                        <div className={`flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] transition-all ${!settingHideOptions ? 'hover:border-yellow-500/30' : 'opacity-50 grayscale pointer-events-none'}`}>
+                            <div className="pr-4">
+                                <div className="font-bold text-sm text-[var(--text-main)] mb-1 flex items-center gap-2">
+                                    <Tags size={16} className="text-yellow-500"/> Ẩn Nhãn Rủi Ro/Cơ Duyên
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                    Chỉ hiển thị dòng chữ Gợi ý, giấu đi các thẻ tag đánh giá mức độ nguy hiểm phía dưới để bạn tự quyết định.
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setSettingHideOptionTags(!settingHideOptionTags)} 
+                                className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${settingHideOptionTags ? 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.6)]' : 'bg-gray-600'}`} 
+                            >
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${settingHideOptionTags ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                        </div>
+
+                        {/* V11.63: Cài đặt Miêu tả chiến đấu */}
+                        <h4 className="text-xs font-bold text-purple-500 uppercase tracking-widest border-b border-[var(--border-main)] pb-2 mt-6">{'Chiến Đấu & Công Pháp'}</h4>
+                        
+                        <div className={`flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] transition-all hover:border-purple-500/30 mb-4`}>
+                            <div className="pr-4">
+                                <div className="font-bold text-sm text-[var(--text-main)] mb-1 flex items-center gap-2">
+                                    <Swords size={16} className="text-purple-500"/> {'Miêu Tả Chiến Đấu Sử Thi'}
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                    {'Thiên Đạo sẽ miêu tả cực kỳ chi tiết hình thái năng lượng, uy lực và dị tượng của công pháp khi tung chiêu thay vì chỉ báo cáo sát thương khô khan.'} <br/><span className="text-yellow-500 italic">(Lưu ý: Có hệ thống AI làm việc, sẽ làm màn hình phản hồi chậm hơn 1-2 giây).</span>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setSettingEpicCombat(!settingEpicCombat)} 
+                                className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${settingEpicCombat ? 'bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.6)]' : 'bg-gray-600'}`} 
+                            >
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${settingEpicCombat ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                        </div>
+
+                        {/* V12.13: Chế Độ Suy Luận Sâu */}
+                        <div className={`flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] transition-all hover:border-cyan-500/30`}>
+                            <div className="pr-4">
+                                <div className="font-bold text-sm text-[var(--text-main)] mb-1 flex items-center gap-2">
+                                    <Brain size={16} className="text-cyan-500"/> Chế Độ Suy Luận Sâu (Chậm & Logic)
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                    Về mặt kỹ thuật LLM, việc ép AI "suy luận chậm lại, kiểm tra chéo các thông số trước khi xuất kết quả" (Chain of Thought / System-2 Thinking) sẽ làm Thiên Đạo thông minh hơn, hạn chế tối đa ảo giác (hallucination) và tạo ra các pha lật kèo/âm mưu sâu sắc hơn rất nhiều. <br/><span className="text-yellow-500 italic">(Lưu ý: Thời gian phản hồi sẽ lâu hơn đáng kể).</span>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setSettingDeepReasoning(!settingDeepReasoning)} 
+                                className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${settingDeepReasoning ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.6)]' : 'bg-gray-600'}`} 
+                            >
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${settingDeepReasoning ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                        </div>
+
+                        {isAdminLoggedIn && (
+                            <>
+                                <h4 className="text-xs font-bold text-blue-500 uppercase tracking-widest border-b border-[var(--border-main)] pb-2 mt-6">Đặc Quyền Admin</h4>
+                                <div className="flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-blue-500/50 shadow-inner">
+                                    <div className="pr-4">
+                                        <div className="font-bold text-sm text-blue-400 mb-1 flex items-center gap-2">
+                                            <Maximize size={16}/> Tùy Chỉnh Hitbox (Vùng Bấm)
+                                        </div>
+                                        <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                            Công cụ dành riêng cho Admin để điều chỉnh và debug vùng nhận click của các nút trên thanh Header.
+                                        </div>
+                                    </div>
+                                    <button onClick={() => setIsHitboxModalOpen(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow-md transition-colors shrink-0">
+                                        Mở Bảng
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                    </div>
+                )}
+
+                {settingsTab === 'logs' && (
+                    <div className="space-y-4 animate-in slide-in-from-bottom-4">
+                        <p className="text-[11px] text-[var(--text-muted)] leading-relaxed italic bg-[var(--bg-surface)] p-3 rounded-xl border border-[var(--border-main)] shadow-inner">💡 <strong>Mẹo:</strong> Tắt bớt các thông báo chữ vàng không cần thiết sẽ giúp không gian đọc tiểu thuyết của bạn sạch sẽ và nhập vai hơn.</p>
+                        
+                        {/* V1.28.1: Bộ Đôi Nút Thao Tác Nhanh Toàn Bộ Thông Báo */}
+                        <div className="flex gap-2">
+                            <button onClick={() => {
+                                setLogFilterAntiCheat(true);
+                                setLogFilterStats(true);
+                                setLogFilterItems(true);
+                                setLogFilterCultivation(true);
+                                setLogFilterSect(true);
+                            }} className="flex-1 py-2 text-xs bg-orange-950/40 hover:bg-orange-800 text-orange-300 hover:text-white border border-orange-500/40 rounded-xl font-bold transition-colors shadow-sm flex items-center justify-center gap-1.5">
+                                🔔 Bật Toàn Bộ
+                            </button>
+                            <button onClick={() => {
+                                setLogFilterAntiCheat(false);
+                                setLogFilterStats(false);
+                                setLogFilterItems(false);
+                                setLogFilterCultivation(false);
+                                setLogFilterSect(false);
+                            }} className="flex-1 py-2 text-xs bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-red-400 border border-[var(--border-main)] rounded-xl font-bold transition-colors shadow-sm flex items-center justify-center gap-1.5">
+                                🔕 Tắt Toàn Bộ
+                            </button>
+                        </div>
+                        
+                        <div className="flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] hover:border-orange-500/30 transition-colors">
+                            <div className="pr-4">
+                                <div className="font-bold text-sm text-orange-500 mb-1 flex items-center gap-2">
+                                    <ShieldAlert size={16}/> Chống Cheat & Bảo Vệ
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                    Các thông báo chữ vàng khi Hệ thống đánh chặn AI lú lẫn, gọt giá trị tiền tệ, chặn lạm phát, hoặc cảnh báo gian lận.
+                                </div>
+                            </div>
+                            <button onClick={() => setLogFilterAntiCheat(!logFilterAntiCheat)} className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${logFilterAntiCheat ? 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.6)]' : 'bg-gray-600'}`}>
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${logFilterAntiCheat ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                        </div>
+
+                        <div className="flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] hover:border-red-500/30 transition-colors">
+                            <div className="pr-4">
+                                <div className="font-bold text-sm text-red-500 mb-1 flex items-center gap-2">
+                                    <Activity size={16}/> Sinh Tồn & Chỉ Số
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                    Báo cáo biến động Sinh lực, hiển thị nhận/mất Buff/Debuff, cảnh báo quá tải Thức hải, kiệt sức.
+                                </div>
+                            </div>
+                            <button onClick={() => setLogFilterStats(!logFilterStats)} className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${logFilterStats ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)]' : 'bg-gray-600'}`}>
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${logFilterStats ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                        </div>
+
+                        <div className="flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] hover:border-blue-500/30 transition-colors">
+                            <div className="pr-4">
+                                <div className="font-bold text-sm text-blue-500 mb-1 flex items-center gap-2">
+                                    <Backpack size={16}/> Hành Trang & Trang Bị
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                    Báo cáo khi túi đồ quá tải, trang bị vỡ nát, cảnh báo túi Càn Khôn cũ sụp đổ, hay thông báo tháo/mặc đồ.
+                                </div>
+                            </div>
+                            <button onClick={() => setLogFilterItems(!logFilterItems)} className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${logFilterItems ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.6)]' : 'bg-gray-600'}`}>
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${logFilterItems ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                        </div>
+
+                        <div className="flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] hover:border-emerald-500/30 transition-colors">
+                            <div className="pr-4">
+                                <div className="font-bold text-sm text-emerald-500 mb-1 flex items-center gap-2">
+                                    <TrendingUp size={16}/> {'Tu Vi & Tuyệt Học'}
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                    {'Thông báo đột phá, cảnh báo kẹt bình cảnh, báo cáo tăng % độ thuần thục công pháp và Đan Độc.'}
+                                </div>
+                            </div>
+                            <button onClick={() => setLogFilterCultivation(!logFilterCultivation)} className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${logFilterCultivation ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)]' : 'bg-gray-600'}`}>
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${logFilterCultivation ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                        </div>
+
+                        <div className="flex justify-between items-center bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-main)] hover:border-purple-500/30 transition-colors">
+                            <div className="pr-4">
+                                <div className="font-bold text-sm text-purple-500 mb-1 flex items-center gap-2">
+                                    <ShieldCheck size={16}/> {'Tông Môn & Lực Lượng'}
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                    {'Báo cáo thu hoạch Tông Môn, Tùy tùng thăng cấp, dung hợp cấm thuật, thu nhận đệ tử.'}
+                                </div>
+                            </div>
+                            <button onClick={() => setLogFilterSect(!logFilterSect)} className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${logFilterSect ? 'bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.6)]' : 'bg-gray-600'}`}>
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${logFilterSect ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {settingsTab === 'dlc' && true && true && (
+                    <div className="space-y-4 animate-in slide-in-from-right-4">
+                        <p className="text-[11px] text-red-400 leading-relaxed italic bg-red-900/10 p-3 rounded-xl border border-red-900/30 shadow-inner">⚠️ <strong className="text-red-500">CẢNH BÁO NHÂN QUẢ (XÂM LƯỢC ĐA VŨ TRỤ):</strong> Nút bật DLC không còn dùng để mở cốt truyện mặc định nữa (Xuất thân của bạn đã tự quyết định Thế Giới Gốc). Việc Bật Gói DLC tại đây đồng nghĩa với việc bạn ĐANG XÉ RÁCH KHÔNG GIAN, gọi các thế giới khác tràn sang XÂM LƯỢC vi diện hiện tại của bạn! Hành động này vĩnh viễn không thể hoàn tác!</p>
+                        
+                        {(() => {
+                            // V7.98: Logic Thời Gian Dung Hợp (Cooldown)
+                            const currentChap = gameState.chapterCount || 0;
+                            const lastDlcChap = gameState.lastDlcChapter || 0;
+                            const isCooldown = (gameState.activeDLCs || []).length > 0 && (currentChap - lastDlcChap) < 5;
+                            const chapsLeft = 5 - (currentChap - lastDlcChap);
+
+                            return (
+                                <>
+                                    {isCooldown && (
+                                        <div className="bg-yellow-900/20 border border-yellow-500/50 p-3 rounded-xl flex items-start gap-3 animate-pulse shadow-sm">
+                                            <Clock className="text-yellow-500 shrink-0 mt-0.5" size={18}/>
+                                            <p className="text-[11px] text-yellow-400 font-bold leading-relaxed">Thiên Đạo đang trong quá trình dung hợp bối cảnh đa vũ trụ! Ngươi cần trải qua thêm <span className="text-white text-sm bg-yellow-600/50 px-1.5 py-0.5 rounded">{chapsLeft}</span> chương nữa để thiên địa ổn định mới có thể gọi thêm một Vi Diện xâm lược mới.</p>
+                                        </div>
+                                    )}
+                                    {DLC_PACKS.map(dlc => {
+                                        const isActive = gameState.activeDLCs?.includes(dlc.id);
+                                        return (
+                                            <div key={dlc.id} className={`p-4 rounded-xl border transition-all ${dlc.bg} ${dlc.border} ${isActive ? 'opacity-80' : 'hover:scale-[1.02] shadow-sm'}`}>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div className={`font-bold text-base uppercase tracking-widest ${dlc.color}`}>{dlc.name}</div>
+                                                    <button 
+                                                        onClick={() => {
+                                                            if (isActive) return;
+                                                            if (!gameStarted) return showAlert("Vui lòng Bước Vào Luân Hồi (chơi game) trước khi kích hoạt Vi Diện mới!");
+                                                            if (isCooldown) return showAlert(`Thiên Đạo đang bận rộn dung hợp dữ liệu cũ. Hãy trải nghiệm thêm ${chapsLeft} chương nữa rồi mới có thể bật tiếp DLC!`);
+
+                                                            showConfirm(`CẢNH BÁO TỐI CAO!\nBạn chuẩn bị kích hoạt Vi Diện [${dlc.name}].\nHành động này sẽ TÁC ĐỘNG VĨNH VIỄN vào thế giới hiện tại và vĩnh viễn KHÔNG THỂ TẮT ĐI.\n\nXác nhận dung hợp Vi Diện?`, () => {
+                                                                setGameState(prev => ({ 
+                                                                    ...prev, 
+                                                                    activeDLCs: [...(prev.activeDLCs || []), dlc.id],
+                                                                    lastDlcChapter: prev.chapterCount // V7.98: Lưu mốc chương
+                                                                }));
+                                                                setStoryLog(prev => {
+                                                                    const newLog = [...prev, { type: 'system', text: `[THIÊN ĐẠO BIẾN ĐỔI] Đã dung hợp thành công Vi Diện [${dlc.name}] vào dòng chảy thời không! Thế giới bắt đầu sinh ra những dị tượng và quy luật mới...`, chapter: gameState.chapterCount }];
+                                                                    return newLog.length > 50 ? newLog.slice(-50) : newLog;
+                                                                });
+                                                            });
+                                                        }}
+                                                        className={`w-12 h-6 rounded-full relative transition-colors shrink-0 ${isActive ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)] cursor-not-allowed' : isCooldown ? 'bg-gray-800 cursor-not-allowed opacity-50' : 'bg-gray-700 cursor-pointer hover:bg-gray-600'}`}
+                                                        title={isActive ? "Đã Kích Hoạt" : isCooldown ? "Đang Khóa" : "Bật DLC Này"}
+                                                    >
+                                                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${isActive ? 'translate-x-6' : ''}`}></div>
+                                                    </button>
+                                                </div>
+                                                <div className="text-[11px] text-[var(--text-main)] italic leading-relaxed opacity-90">{dlc.desc}</div>
+                                                {isActive && <div className="mt-3 text-[10px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-900/30 px-2 py-1 rounded inline-block border border-emerald-500/50">Đã Kích Hoạt Vĩnh Viễn</div>}
+                                            </div>
+                                        );
+                                    })}
+                                        {/* V2.33 HOÀNG ĐẠT: CHUYỂN ĐỔI 2 CẤP ĐỘ ÁC MỘNG TRONG CÀI ĐẶT */}
+                                        {(gameState.activeDLCs?.includes('dlc_nightmare') || gameState.activeDLCs?.includes('dlc_nightmare_abyss')) && (
+                                            <div className="p-4 rounded-xl border border-fuchsia-500/50 bg-fuchsia-950/20 mt-3 shadow-inner">
+                                                <div className="font-bold text-sm text-fuchsia-400 mb-1 flex items-center gap-2">
+                                                    <ShieldAlert size={16} /> Phân Tách Cấp Độ Ác Mộng (Góp Ý Hoàng Đạt)
+                                                </div>
+                                                <div className="text-[11px] text-[var(--text-muted)] mb-3 leading-relaxed">
+                                                    Tùy chọn chuyển đổi giữa bản Ác Mộng Thường và bản Ác Mộng Vô Gian (lưu đè trực tiếp vào save):
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            setGameState((prev: any) => {
+                                                                const newDlcs = (prev.activeDLCs || []).filter((d: any) => d !== 'dlc_nightmare_abyss');
+                                                                if (!newDlcs.includes('dlc_nightmare')) newDlcs.push('dlc_nightmare');
+                                                                return { ...prev, activeDLCs: newDlcs, nightmareTier: 'standard' };
+                                                            });
+                                                            showAlert("Đã chuyển về Chế Độ Ác Mộng (Thường): Áp chế chỉ số NPC và giảm 50% EXP tu vi, gỡ bỏ toàn bộ cơ chế săn bắt Lô Đỉnh!");
+                                                        }}
+                                                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all border ${(!gameState.activeDLCs?.includes('dlc_nightmare_abyss') && (gameState.nightmareTier === 'standard' || gameState.activeDLCs?.includes('dlc_nightmare'))) ? 'bg-fuchsia-600 text-white border-fuchsia-400 shadow-md' : 'bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-500'}`}
+                                                    >
+                                                        Ác Mộng Thường (Không Lô Đỉnh)
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setGameState((prev: any) => {
+                                                                const newDlcs = (prev.activeDLCs || []).filter((d: any) => d !== 'dlc_nightmare');
+                                                                if (!newDlcs.includes('dlc_nightmare_abyss')) newDlcs.push('dlc_nightmare_abyss');
+                                                                return { ...prev, activeDLCs: newDlcs, nightmareTier: 'abyss' };
+                                                            });
+                                                            showAlert("Đã chuyển sang Chế Độ Ác Mộng (Vô Gian): Kích hoạt toàn bộ áp chế NPC và sinh tồn khốc liệt cực hạn!");
+                                                        }}
+                                                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all border ${(gameState.activeDLCs?.includes('dlc_nightmare_abyss') || gameState.nightmareTier === 'abyss') ? 'bg-rose-700 text-white border-rose-500 shadow-md' : 'bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-500'}`}
+                                                    >
+                                                        Ác Mộng Vô Gian (Áp Chế Cực Hạn)
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                </>
+                            );
+                        })()}
+                    </div>
+                )}
+            </div>
+          </div>
+        </div>
+      )}
+
+            {/* V2.33 HOÀNG ĐẠT: MỎ NEO NGUYÊN TÁC & SỰ KIỆN HẸN GIỜ MODAL */}

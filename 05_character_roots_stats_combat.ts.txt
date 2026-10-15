@@ -1,0 +1,979 @@
+const getEnergyDetails = (bgId, traits, level = '') => {
+    if (__GlobalPremadeWorld === 'dau_pha') return { name: 'Đấu Khí', icon: Zap, color: 'bg-red-500', text: 'text-red-500', isPhysical: true };
+    const traitNames = traits.map(t => t?.name || '');
+    const levelStr = String(level).toLowerCase();
+    
+    // Ưu tiên 1: Lưới Lọc V13 - Cơ giới và Quân đội
+    // V1.22.4: ĐỒNG BỘ NĂNG LƯỢNG CHO CÁC THẦN THỂ DUNG HỢP TỐI CAO
+    if (traitNames.includes('Hỗn Độn Bàn Cổ Khu') || traitNames.includes('Thập Nhị Đô Thiên Thần Sát Chân Thân')) {
+        return { name: 'Cương Khí', icon: Flame, color: 'bg-orange-600', text: 'text-orange-500', isPhysical: true };
+    }
+    if (traitNames.includes('Cơ Giới Hắc Quang Thể') || traitNames.includes('Hạch Tâm Cơ Thần Khôi Lỗi') || traitNames.includes('Chung Yên Điểm Kỳ Dị Thể')) {
+        return { name: 'Thể Năng Lõi', icon: Zap, color: 'bg-blue-600', text: 'text-blue-500', isPhysical: true };
+    }
+    if (traitNames.includes('Vạn Yêu Thánh Hoàng Thể')) {
+        return { name: 'Yêu Lực', icon: Zap, color: 'bg-purple-600', text: 'text-purple-400', isPhysical: false };
+    }
+    if (traitNames.includes('Cực Đạo Ma Hoàng Khí Vận') || traitNames.includes('Cửu U Minh Mị Thể')) {
+        return { name: 'Ma Khí', icon: Skull, color: 'bg-gray-800', text: 'text-gray-400', isPhysical: false };
+    }
+    if (traitNames.includes('Bồ Đề Ma La Bất Hoại Thân') || traitNames.includes('Hỗn Độn Thái Cực Thần Thể') || traitNames.includes('Vạn Khí Quy Nguyên Thể')) {
+        return { name: 'Hỗn Nguyên Khí', icon: Sparkles, color: 'bg-amber-600', text: 'text-amber-400', isPhysical: false };
+    }
+    if (traitNames.includes('Thái Hư Thần Binh Chi Khu')) {
+        return { name: 'Sát Khí', icon: Crosshair, color: 'bg-red-600', text: 'text-red-500', isPhysical: false };
+    }
+    // V2.47 FIX (Báo lỗi haovippro) & V3.3 FIX (Báo lỗi Dark): ƯU TIÊN TUYỆT ĐỐI 1 - Khí Vận Đặc Thù Đại Đạo Trùng Tu (Khi đã đập nát đan điền / Hóa phàm đổi hệ)
+    const hasTrungTuMa = traitNames.includes('Đại Đạo Trùng Tu (Ma Khí)');
+    const hasTrungTuLinh = traitNames.includes('Đại Đạo Trùng Tu (Linh Lực)');
+    if (hasTrungTuMa && hasTrungTuLinh) {
+        if (/(ma|tụ khí|ngưng mạch|ma đan|ma anh|hóa ma|luyện ma|hợp ma|đại ma)/.test(levelStr)) {
+            return { name: 'Ma Khí', icon: Skull, color: 'bg-gray-800', text: 'text-gray-400', isPhysical: false };
+        }
+        return { name: 'Linh Lực', icon: Zap, color: 'bg-teal-500', text: 'text-teal-500', isPhysical: false };
+    }
+    if (hasTrungTuMa) return { name: 'Ma Khí', icon: Skull, color: 'bg-gray-800', text: 'text-gray-400', isPhysical: false };
+    if (traitNames.includes('Đại Đạo Trùng Tu (Cương Khí)')) return { name: 'Cương Khí', icon: Flame, color: 'bg-orange-600', text: 'text-orange-500', isPhysical: true };
+    if (traitNames.includes('Đại Đạo Trùng Tu (Yêu Lực)')) return { name: 'Yêu Lực', icon: Zap, color: 'bg-purple-600', text: 'text-purple-400', isPhysical: false };
+    if (traitNames.includes('Đại Đạo Trùng Tu (Phật Lực)')) return { name: 'Phật Lực', icon: Sun, color: 'bg-yellow-500', text: 'text-yellow-500', isPhysical: false };
+    if (hasTrungTuLinh) return { name: 'Linh Lực', icon: Zap, color: 'bg-teal-500', text: 'text-teal-500', isPhysical: false };
+    if (traitNames.includes('Đại Đạo Trùng Tu (Đấu Khí)')) return { name: 'Đấu Khí', icon: Zap, color: 'bg-red-500', text: 'text-red-500', isPhysical: true };
+    if (traitNames.includes('Đại Đạo Trùng Tu (Võ Công)')) return { name: 'Nội Lực', icon: Wind, color: 'bg-cyan-500', text: 'text-cyan-400', isPhysical: true };
+    if (traitNames.includes('Đại Đạo Trùng Tu (Ma Pháp)')) return { name: 'Áo Năng', icon: Sparkles, color: 'bg-blue-700', text: 'text-blue-400', isPhysical: false };
+
+    // V1.22.11b FIX: Thêm 4 Thần Thể fusion thiếu
+    if (traitNames.includes('Hoang Cổ Chí Tôn Thể')) {
+        return { name: 'Cương Khí', icon: Flame, color: 'bg-orange-600', text: 'text-orange-500', isPhysical: true };
+    }
+    if (traitNames.includes('Vạn Kiếp Chân Tôn Thể') || traitNames.includes('Đạo Tổ Toàn Tri Thể') || traitNames.includes('Vạn Trận Quy Tông Thể')) {
+        return { name: 'Linh Lực', icon: Zap, color: 'bg-teal-500', text: 'text-teal-500', isPhysical: false };
+    }
+
+    if (bgId === 'bg_military') return { name: 'Sĩ Khí', icon: Flame, color: 'bg-red-600', text: 'text-red-500', isPhysical: true };
+    if (traitNames.includes('Cơ Khí Chân Lý (Iron Suit)') || ['co_gioi_su'].includes(bgId)) return { name: 'Thể Năng Lõi', icon: Zap, color: 'bg-blue-600', text: 'text-blue-500', isPhysical: true };
+
+    // Ưu tiên 3: Quét Khí Vận / Xuất Thân bẩm sinh (Chống AI ép sai năng lượng)
+    if (traitNames.includes('Bàn Cổ Huyết Mạch') || ['bg_18', 'bg_1', 'bg_21', 'bg_titan', 'bg_behemoth', 'bg_vu_toc'].includes(bgId) || traitNames.includes('Cự Nhân Thể')) return { name: 'Cương Khí', icon: Flame, color: 'bg-orange-600', text: 'text-orange-500', isPhysical: true };
+    if (['bg_10', 'bg_25', 'bg_taotie', 'bg_long_toc', 'bg_con_bang', 'bg_ho_toc', 'bg_vien_co_cu_long', 'bg_yeu_thuan_long', 'bg_yeu_thuan_phuong', 'bg_yeu_thuan_mieu', 'bg_yeu_thuan_ho', 'bg_yeu_thuan_dieu', 'bg_yeu_thuan_di_toc', 'bg_yeu_thuan_ngu'].includes(bgId) || traitNames.includes('Bán yêu (Dị loại)') || traitNames.includes('Bán Yêu (Nô Lệ)') || traitNames.includes('Bán Yêu (Huyết Mạch Lai)') || traitNames.includes('Bán Long (Huyết Mạch Lai)') || traitNames.includes('Tiên Thiên Đại Yêu') || traitNames.includes('Thôn Phệ Tinh Không')) return { name: 'Yêu Lực', icon: Zap, color: 'bg-purple-600', text: 'text-purple-400', isPhysical: false };
+    if (['bg_16', 'bg_23'].includes(bgId) || traitNames.some(t => t.includes('Tuyệt Thế')) || traitNames.includes('Đao phủ tử tù')) return { name: 'Sát Khí', icon: Crosshair, color: 'bg-red-600', text: 'text-red-500', isPhysical: false };
+    // V3.8 ĐẶC QUYỀN CHỦ TOẠ THÀNH KHÔN: KHÓA CỨNG ÁO NĂNG ARCANE (#1d4ed8 / bg-blue-700) CHO NHÁNH MA PHÁP (ƯU TIÊN TUYỆT ĐỐI TRƯỚC MA KHÍ)
+    const isMaPhapLevel = /(học đồ ma pháp|pháp sư|đại pháp sư|ma đạo sư|pháp thần|bán thần|hạ vị thần|trung vị thần|thượng vị thần|chủ thần|sáng thế thần|pháp tắc chi chủ|vạn pháp khởi nguyên)/i.test(levelStr);
+    const isMaPhapBgOrTrait = ['ma_phap', 'bg_high_elf', 'bg_dark_elf'].includes(bgId) || traitNames.includes('Ma Pháp Khởi Nguyên') || traitNames.includes('Đại Đạo Trùng Tu (Ma Pháp)');
+    if (isMaPhapBgOrTrait || isMaPhapLevel) {
+        return { name: 'Áo Năng', icon: Sparkles, color: 'bg-blue-700', text: 'text-blue-400', isPhysical: false };
+    }
+
+    if (['bg_19', 'bg_succubus', 'bg_nightmare', 'bg_undead', 'bg_thi_am_tong', 'bg_hu_khong', 'bg_blood_angel'].includes(bgId) || traitNames.includes('Ma Tôn Chuyển Thế') || traitNames.includes('Thiên Ma Thể') || traitNames.includes('Vạn Ác Tội Thể') || traitNames.includes('Hợp Hoan Mị Cốt') || traitNames.includes('Bán Mị Ma (Huyết Mạch Lai)') || traitNames.includes('Bán Ma (Huyết Mạch Lai)') || traitNames.includes('Thi Âm Luyện Sư') || traitNames.includes('Quỷ Đạo Truyền Nhân') || traitNames.includes('Thái Âm Táng Thể') || traitNames.includes('Hỗn Độn Diệt Thế Ma Căn')) return { name: 'Ma Khí', icon: Skull, color: 'bg-gray-800', text: 'text-gray-400', isPhysical: false };
+    if (['bg_angel'].includes(bgId) || traitNames.includes('Phật Cốt Xá Lợi') || traitNames.includes('Hạo Nhiên Chính Khí')) return { name: 'Phật Lực', icon: Sun, color: 'bg-yellow-500', text: 'text-yellow-500', isPhysical: false };
+    if (['bg_nho_sinh'].includes(bgId)) return { name: 'Chính Khí', icon: BookOpen, color: 'bg-blue-500', text: 'text-blue-500', isPhysical: false };
+    if (['dau_khi'].includes(bgId) || traitNames.includes('Nghịch Mệnh Đấu Giả')) return { name: 'Đấu Khí', icon: Zap, color: 'bg-red-500', text: 'text-red-500', isPhysical: true };
+
+    // Ưu tiên 4 - Bắt chữ trong Cảnh Giới để đồng bộ năng lượng khi chơi chế độ Mộng Ảo hoặc bị AI ép cấp
+    if (/(yêu|đại yêu)/.test(levelStr)) return { name: 'Yêu Lực', icon: Zap, color: 'bg-purple-600', text: 'text-purple-400', isPhysical: false };
+    if (/(ma|ác quỷ|lệ quỷ)/.test(levelStr) && !isMaPhapLevel) return { name: 'Ma Khí', icon: Skull, color: 'bg-gray-800', text: 'text-gray-400', isPhysical: false };
+    if (/(phật|tăng|la hán|bồ tát|sa di)/.test(levelStr)) return { name: 'Phật Lực', icon: Sun, color: 'bg-yellow-500', text: 'text-yellow-500', isPhysical: false };
+    if (/(nho|đồng sinh|tú tài|cử nhân|tiến sĩ|hàn lâm)/.test(levelStr)) return { name: 'Chính Khí', icon: BookOpen, color: 'bg-blue-500', text: 'text-blue-500', isPhysical: false };
+    if (/(bì|cốt|huyết|kim thân|phá hư|thần thể|nhục thân|bàn cổ)/.test(levelStr)) return { name: 'Cương Khí', icon: Flame, color: 'bg-orange-600', text: 'text-orange-500', isPhysical: true };
+    if (/(võ|hậu thiên|tiên thiên|tông sư)/i.test(levelStr) || ['vo_cong'].includes(bgId) || traitNames.includes('Võ Đạo Đỉnh Phong')) return { name: 'Nội Lực', icon: Wind, color: 'bg-cyan-500', text: 'text-cyan-400', isPhysical: true };
+    if (/(pháp|ma đạo|thần|chủ thần|sáng thế)/i.test(levelStr)) return { name: 'Áo Năng', icon: Sparkles, color: 'bg-blue-700', text: 'text-blue-400', isPhysical: false };
+    
+    return { name: 'Linh Lực', icon: Zap, color: 'bg-teal-500', text: 'text-teal-500', isPhysical: false };
+};
+
+// V12.15: THIẾT KẾ LẠI TỈ LỆ VÔ LINH CĂN DỰA TRÊN XUẤT THÂN PHÀM NHÂN
+const getSpiritualRoot = (traits, bgId = 'bg_0') => {
+  // V1.79: XUẤT THÂN THIÊN ĐẠO KHƯỚC TỪ (Góp ý Kha)
+  if (bgId === 'bg_thien_dao_khuoc_tu') {
+      return { name: 'Phế Linh Căn (Ngũ Hành Tạp Căn Khuyết)', elements: ['Kim Khuyết', 'Mộc Tàn', 'Thủy Cạn', 'Hỏa Lụi', 'Thổ Nứt'], purity: 'Phế Phẩm Bị Thiên Đạo Ruồng Bỏ', color: 'text-gray-500 font-bold drop-shadow-[0_0_5px_rgba(107,114,128,0.8)]' };
+  }
+  // V1.49: YÊU TỘC THUẦN CHỦNG KHỞI ĐẦU VÔ LINH CĂN (Chờ Kim Đan hóa hình thức tỉnh - Góp ý Ethan195)
+  if (isPureYeuTocBg(bgId)) {
+      if (bgId === 'bg_yeu_thuan_ngu') {
+          return { name: 'Đơn Thủy Linh Căn (Hải Uyên Thần Chủng)', elements: ['Thủy'], purity: 'Thuần Khiết Hải Vực', color: 'text-cyan-400 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]' };
+      }
+      if (bgId === 'bg_yeu_thuan_phuong') {
+          return { name: 'Vô Linh Căn (Chờ Thức Tỉnh Linh Hỏa Kim Đan)', elements: ['Phượng Hỏa Yêu Khí'], purity: 'Phượng Hoàng Thuần Chủng', color: 'text-orange-400 font-bold drop-shadow-[0_0_5px_rgba(251,146,60,0.8)]' };
+      }
+      return { name: 'Vô Linh Căn (Yêu Khí Bẩm Sinh)', elements: ['Yêu Khí'], purity: 'Yêu Tộc Chờ Hóa Hình', color: 'text-purple-400 font-bold drop-shadow-[0_0_5px_rgba(192,132,252,0.8)]' };
+  }
+    const tNames = (traits || []).map(t => t?.name || '');
+    
+    if (tNames.includes('Thiên Sinh Rác Rưởi')) {
+        if (typeof __GlobalPremadeWorld !== 'undefined' && __GlobalPremadeWorld === 'dau_pha') {
+            return { name: 'Vô Thuộc Tính', elements: ['Không Có'], purity: 'Phế Vật', color: 'text-gray-500 font-medium' };
+        }
+        return { name: 'Vô Linh Căn', elements: ['Không Có'], purity: 'Phế Vật', color: 'text-gray-500 font-medium' };
+    }
+
+    if (tNames.includes('Thiên Sinh Phế Vật')) {
+        if (Math.random() < 0.70) {
+            if (typeof __GlobalPremadeWorld !== 'undefined' && __GlobalPremadeWorld === 'dau_pha') {
+                return { name: 'Vô Thuộc Tính', elements: ['Không Có'], purity: 'Phế Vật', color: 'text-gray-500 font-medium' };
+            }
+            return { name: 'Vô Linh Căn', elements: ['Không Có'], purity: 'Phế Vật', color: 'text-gray-500 font-medium' };
+        } else {
+            if (typeof __GlobalPremadeWorld !== 'undefined' && __GlobalPremadeWorld === 'dau_pha') {
+                const dpEls = ['Hỏa', 'Mộc', 'Thủy', 'Lôi', 'Băng', 'Phong', 'Thổ', 'Kim', 'Ám'];
+                const shuffled = [...dpEls].sort(() => 0.5 - Math.random());
+                const myEls = shuffled.slice(0, 5);
+                return { name: `Ngũ Thuộc Tính (${myEls.join('-')})`, elements: myEls, purity: 'Kém', color: 'text-[var(--text-muted)] font-medium' };
+            } else {
+                const els = ['Kim', 'Mộc', 'Thủy', 'Hỏa', 'Thổ'];
+                const shuffled = [...els].sort(() => 0.5 - Math.random());
+                return { name: `Ngũ (Tạp) Linh Căn (${shuffled.join('-')})`, elements: shuffled, purity: 'Kém', color: 'text-[var(--text-muted)] font-medium' };
+            }
+        }
+    }
+
+    // V13: Độc tôn Thuộc Tính Đấu Khí (Thay thế Linh Căn)
+    if (typeof __GlobalPremadeWorld !== 'undefined' && __GlobalPremadeWorld === 'dau_pha') {
+        const dpEls = ['Hỏa', 'Mộc', 'Thủy', 'Lôi', 'Băng', 'Phong', 'Thổ', 'Kim', 'Ám'];
+        const isAlchemist = Math.random() < 0.15 || tNames.includes('Học Đồ Luyện Dược') || tNames.includes('Luyện Dược Kì Tài');
+        
+        if (isAlchemist) {
+            return { name: 'Hỏa Mang Mộc Khí (Luyện Dược Sư)', elements: ['Hỏa', 'Mộc'], purity: 'Cực Phẩm', color: 'text-red-500 font-bold drop-shadow-[0_0_5px_rgba(239,68,68,0.8)]' };
+        }
+        const myEl = dpEls[Math.floor(Math.random() * dpEls.length)];
+        return { name: `Thuộc Tính (${myEl})`, elements: [myEl], purity: 'Bình Thường', color: 'text-orange-400 font-bold' };
+    }
+
+    const els = ['Kim', 'Mộc', 'Thủy', 'Hỏa', 'Thổ'];
+    const rares = ['Băng', 'Phong', 'Lôi', 'Ám', 'Quang'];
+    
+    if (tNames.includes('Hư Không Lậu Thể')) return { name: 'Phản Vật Chất Hố Đen', elements: ['Không Gian', 'Thời Gian'], purity: 'Độc Nhất', color: 'text-gray-900 border border-gray-600 bg-black font-black drop-shadow-[0_0_5px_rgba(255,255,255,0.5)] px-1 rounded' };
+    if (tNames.includes('Thủy Băng Hàn Thể')) return { name: 'Thủy Băng Linh Căn', elements: ['Thủy', 'Băng', 'Hàn'], purity: 'Tuyệt Đối', color: 'text-cyan-300 font-black drop-shadow-[0_0_5px_rgba(103,232,249,0.8)]' };
+    if (tNames.includes('Tuyệt Thế Kiếm Tu') || tNames.includes('Tuyệt Thế Đao Tu') || tNames.includes('Tuyệt Thế Thương Tu') || tNames.includes('Tuyệt Thế Kích Tu')) return { name: 'Cực Kim Linh Căn', elements: ['Kim'], purity: 'Tuyệt Đối', color: 'text-yellow-400 font-black drop-shadow-[0_0_5px_rgba(250,204,21,0.5)]' };
+    if (tNames.includes('Tuyệt Thế Cung Tu') || tNames.includes('Phong Ảnh Thể')) return { name: 'Cực Phong Linh Căn', elements: ['Phong'], purity: 'Tuyệt Đối', color: 'text-emerald-300 font-black drop-shadow-[0_0_5px_rgba(110,231,183,0.5)]' };
+    if (tNames.includes('Tuyệt Thế Phủ Tu') || tNames.includes('Tuyệt Thế Chùy Tu')) return { name: 'Cực Thổ Linh Căn', elements: ['Thổ'], purity: 'Tuyệt Đối', color: 'text-amber-600 font-black drop-shadow-[0_0_5px_rgba(217,119,6,0.8)]' };
+    if (tNames.includes('Tuyệt Thế Roi Tu')) return { name: 'Cực Lôi Linh Căn', elements: ['Lôi'], purity: 'Tuyệt Đối', color: 'text-purple-400 font-black drop-shadow-[0_0_5px_rgba(192,132,252,0.8)]' };
+    if (tNames.includes('Tuyệt Thế Nhạc Tu')) return { name: 'Cực Thủy Linh Căn', elements: ['Thủy'], purity: 'Tuyệt Đối', color: 'text-blue-400 font-black drop-shadow-[0_0_5px_rgba(96,165,250,0.8)]' };
+    if (tNames.includes('Thánh Quang Thần Thể')) return { name: 'Cực Quang Linh Căn', elements: ['Quang'], purity: 'Tuyệt Đối', color: 'text-yellow-200 font-black drop-shadow-[0_0_5px_rgba(254,240,138,0.8)]' };
+    if (tNames.includes('Thiên Lôi Thể')) return { name: 'Cực Lôi Linh Căn', elements: ['Lôi'], purity: 'Tuyệt Đối', color: 'text-purple-400 font-black drop-shadow-[0_0_5px_rgba(192,132,252,0.8)]' };
+    if (tNames.includes('Địa Thổ Mộc Thể')) return { name: 'Cực Thổ Mộc Linh Căn', elements: ['Thổ', 'Mộc'], purity: 'Tuyệt Đối', color: 'text-amber-600 font-black drop-shadow-[0_0_5px_rgba(217,119,6,0.8)]' };
+    if (tNames.includes('Hỗn Độn Diệt Thế Ma Căn')) return { name: 'Diệt Thế Ma Căn', elements: ['Hỗn Độn', 'Hủy Diệt', 'Hủ Hóa', 'Phóng Xạ', 'Ám'], purity: 'Tối Thượng', color: 'text-red-600 font-black drop-shadow-[0_0_8px_rgba(220,38,38,0.8)]' };
+    if (tNames.includes('Hỗn Độn Đạo Thể')) return { name: 'Hỗn Độn Linh Căn', elements: ['Kim', 'Mộc', 'Thủy', 'Hỏa', 'Thổ', 'Âm', 'Dương'], purity: 'Tuyệt Đối', color: 'text-rose-500 font-black drop-shadow-[0_0_5px_rgba(244,63,94,0.5)]' };
+    if (tNames.includes('Thiên Linh Căn')) {
+        const isRare = Math.random() > 0.8;
+        const el = isRare ? rares[Math.floor(Math.random()*rares.length)] : els[Math.floor(Math.random()*els.length)];
+        return { name: `Thiên Linh Căn (${el})`, elements: [el], purity: 'Thuần Khiết', color: 'text-red-500 font-bold' };
+    }
+    
+    if (bgId === 'bg_0') {
+        if (Math.random() < 0.40) {
+            return { name: 'Vô Linh Căn', elements: ['Không Có'], purity: 'Phế Vật', color: 'text-gray-500 font-medium' };
+        } else {
+            const rootRoll = Math.random();
+            if (rootRoll < 0.10) { 
+                const isRare = Math.random() > 0.8;
+                const el = isRare ? rares[Math.floor(Math.random()*rares.length)] : els[Math.floor(Math.random()*els.length)];
+                return { name: `Thiên Linh Căn (${el})`, elements: [el], purity: 'Thuần Khiết', color: 'text-red-500 font-bold' };
+            } else if (rootRoll < 0.20) { 
+                if (Math.random() > 0.5) {
+                    const el = rares[Math.floor(Math.random()*rares.length)];
+                    return { name: `Dị Linh Căn (${el})`, elements: [el], purity: 'Biến Dị', color: 'text-purple-400 font-bold' };
+                } else {
+                    const shuffled = [...els].sort(() => 0.5 - Math.random());
+                    const myEls = shuffled.slice(0, 2);
+                    return { name: `Song Linh Căn (${myEls.join('-')})`, elements: myEls, purity: 'Thượng Phẩm', color: 'text-blue-400 font-bold' };
+                }
+            } else { 
+                const countRoll = Math.random();
+                const count = countRoll > 0.6 ? 3 : countRoll > 0.2 ? 4 : 5;
+                const shuffled = [...els].sort(() => 0.5 - Math.random());
+                const myEls = shuffled.slice(0, count);
+                const prefix = count === 3 ? 'Tam' : count === 4 ? 'Tứ' : 'Ngũ (Tạp)';
+                let color = count === 3 ? 'text-emerald-500 font-bold' : 'text-[var(--text-muted)] font-medium';
+                return { name: `${prefix} Linh Căn (${myEls.join('-')})`, elements: myEls, purity: count === 3 ? 'Trung Phẩm' : 'Kém', color };
+            }
+        }
+    }
+
+    const mortalBgs = ['bg_17', 'bg_tieu_nhi', 'bg_lang_y', 'bg_ngu_phu', 'bg_tieu_thuong', 'bg_ca_ki', 'bg_linh_quen', 'bg_no_le', 'bg_tu_tu', 'bg_kiem_no', 'bg_dao_tac', 'bg_vo_su_pham'];
+    const isMortalBg = mortalBgs.includes(bgId) || tNames.includes('Kẻ Ăn Mày') || tNames.includes('Thường Dân');
+    const isGodBg = ['bg_8', 'bg_9', 'bg_10', 'bg_19', 'bg_20', 'bg_21', 'bg_22', 'bg_23', 'bg_24', 'bg_25', 'bg_long_toc', 'bg_con_bang', 'bg_ho_toc', 'bg_vu_toc', 'bg_chan_thien_menh', 'bg_elf', 'bg_angel', 'bg_blood_angel', 'bg_succubus', 'bg_nightmare', 'bg_undead', 'bg_titan', 'bg_behemoth', 'bg_taotie', 'bg_ctan', 'bg_vien_co_cu_long'].includes(bgId);
+    
+    if (isMortalBg && Math.random() < 0.90) {
+        return { name: 'Vô Linh Căn', elements: ['Không Có'], purity: 'Phế Vật', color: 'text-gray-500 font-medium' };
+    }
+    if (!isGodBg && !isMortalBg && Math.random() < 0.40) {
+        return { name: 'Vô Linh Căn', elements: ['Không Có'], purity: 'Phế Vật', color: 'text-gray-500 font-medium' };
+    }
+
+    const countRoll = Math.random();
+    const count = countRoll > 0.8 ? 2 : countRoll > 0.4 ? 3 : countRoll > 0.1 ? 4 : 5;
+    
+    if (count === 2 && Math.random() > 0.8) {
+        const el = rares[Math.floor(Math.random()*rares.length)];
+        return { name: `Dị Linh Căn (${el})`, elements: [el], purity: 'Biến Dị', color: 'text-purple-400 font-bold' };
+    }
+    
+    const shuffled = [...els].sort(() => 0.5 - Math.random());
+    const myEls = shuffled.slice(0, count);
+    const prefix = count === 2 ? 'Song' : count === 3 ? 'Tam' : count === 4 ? 'Tứ' : 'Ngũ (Tạp)';
+    
+    let color = 'text-[var(--text-main)]';
+    if (count === 2) color = 'text-blue-400 font-bold';
+    else if (count === 3) color = 'text-emerald-500 font-bold';
+    else if (count >= 4) color = 'text-[var(--text-muted)] font-medium';
+
+    const calcPurity = count === 2 ? 'Thượng Phẩm' : count === 3 ? 'Trung Phẩm' : 'Kém';
+    return { name: `${prefix} Linh Căn (${myEls.join('-')})`, elements: myEls, purity: calcPurity, color };
+};
+
+// V6.99 & V11.38: HỆ THỐNG CHỈ SỐ BỊ ĐỘNG TỪ THỂ CHẤT, LINH CĂN & TÂM PHÁP
+// V1.29.2: BẢNG CHI TIẾT BUFF LINH CĂN (GÓP Ý KHA)
+const getLinhCanBuffDetails = (spiritualRoot) => {
+    if (!spiritualRoot || !spiritualRoot.name) return null;
+    const sr = spiritualRoot.name;
+    const pur = spiritualRoot.purity || 'Bình Thường';
+    const rawElements = Array.isArray(spiritualRoot.elements) ? spiritualRoot.elements : [];
+    const els = rawElements.join(', ') || 'Vô Hệ';
+    
+    let tuLuyenSpeed = 0;  // % bonus tốc độ tu luyện
+    let passiveBuff = {};  // {atk, def, spd, spp, mult}
+    let specialNote = '';  // Ghi chú đặc biệt
+    let elementSynergy = ''; // Ngũ Hành Sinh Khắc
+    let skillAffinity = '';  // Tương Thích Công Pháp
+    let tribulationResist = ''; // Thiên Kiếp / Lôi Kiếp Cảm Ứng
+
+    if (sr.includes('Chung Yên') || sr.includes('Lôi Ma') || (rawElements.includes('Ám') && rawElements.includes('Lôi') && rawElements.includes('Diệt'))) {
+        tuLuyenSpeed = 85; passiveBuff = {atk:80, def:50, spd:65, spp:70};
+        specialNote = 'Chung Yên vạn vật, Lôi Đình phạt thế, Ma Đạo tột cùng, Khởi Nguyên vạn linh quy tàn.';
+        elementSynergy = 'Tam Cực Biến Dị (Ám - Lôi - Diệt): Cuồng bạo xé rách vạn vật, công kích kèm theo sát thương Diệt Tuyệt và Băng Hoại chân nguyên.';
+        skillAffinity = 'Chung Yên Ma Đạo & Lôi Phạt: Tăng 50% uy lực công pháp Ma hệ và Lôi hệ, bỏ qua 30% phòng ngự của mục tiêu.';
+        tribulationResist = 'Chung Yên Nghịch Kiếp: Hấp thu lôi kiếp và ma kiếp, chuyển hóa 40% uy lực kiếp lôi thành tu vi bản thân.';
+    } else if (sr.includes('Hỗn Độn') || sr.includes('Hỗn Độn Đạo Thể')) {
+        tuLuyenSpeed = 80; passiveBuff = {atk:60, def:60, spd:40, spp:60}; 
+        specialNote = 'Vạn vật quy nguyên, hội tụ trọn vẹn Ngũ Hành và Cực Dị thuộc tính.';
+        elementSynergy = 'Ngũ Hành Viên Mãn: Tương sinh tuần hoàn bất diệt (Kim -> Thủy -> Mộc -> Hỏa -> Thổ), triệt tiêu mọi tương khắc nghịch cảnh.';
+        skillAffinity = 'Tuyệt Đỉnh Tương Thích: Tu luyện được toàn bộ mọi công pháp thế gian, uy lực tăng thêm 40%, không có điểm mù nguyên tố.';
+        tribulationResist = 'Dung Hợp Thiên Đạo: Kháng tính Lôi Kiếp +40%, biến lôi kiếp thành linh lực tôi luyện đạo cơ.';
+    } else if (sr.includes('Diệt Thế Ma Căn') || sr.includes('Hỗn Độn Diệt Thế')) {
+        tuLuyenSpeed = 75; passiveBuff = {atk:75, def:40, spd:35, spp:60};
+        specialNote = 'Diệt thế ma khí, cắn nuốt vạn linh, bá đạo tuyệt luân vạn pháp bất dung.';
+        elementSynergy = 'Ma Khí Thôn Phệ: Hấp thu và làm hoen ố mọi thuộc tính Ngũ Hành, chuyển hóa thành ma nguyên hộ thân.';
+        skillAffinity = 'Ma Đạo Cực Hạn: Uy lực công pháp Ma hệ tăng 50%, có xác suất hút máu và chân nguyên khi trúng đòn.';
+        tribulationResist = 'Nghịch Thiên Hóa Ma: Miễn nhiễm 35% uy áp Thiên Kiếp, kiếp lôi càng mạnh ma căn càng hung hãn.';
+    } else if (sr.includes('Phản Vật Chất Hố Đen') || sr.includes('Hư Không Lậu Thể')) {
+        tuLuyenSpeed = 70; passiveBuff = {atk:50, def:50, spd:70, spp:70};
+        specialNote = 'Không gian thời gian sụp đổ, điên đảo nhân quả, thôn phệ càn khôn.';
+        elementSynergy = 'Dị Thứ Nguyên Hóa: Bẻ cong quỹ đạo ngũ hành tấn công, miễn nhiễm phần lớn sát thương thuộc tính đơn lẻ.';
+        skillAffinity = 'Không Gian Thần Thông: Thần thức và tốc độ dịch chuyển tăng vượt bậc, thuật độn không bị truy vết.';
+        tribulationResist = 'Hố Đen Thôn Kiếp: Nuốt chửng 30% năng lượng lôi kiếp vào hư vô.';
+    } else if (sr.includes('Thiên Linh Căn')) {
+        tuLuyenSpeed = 60;
+        if (sr.includes('Mộc') || rawElements.includes('Mộc')) {
+            passiveBuff = {spp:80, def:40, atk:30};
+            specialNote = 'Thiên Đạo ban ân, Tiên Mộc thuần khiết sinh sôi bất tận, vạn linh sinh cơ quy phục.';
+            elementSynergy = 'Thuần Dương Tiên Mộc: Tương sinh cực thịnh hỗ trợ Hỏa hệ; khắc chế tuyệt đối Thổ hệ; sinh mệnh liên tục tự dưỡng.';
+            skillAffinity = 'Thuần Nhất Mộc Đạo: Uy lực công pháp hệ Mộc tăng 50%, hiệu quả linh thảo đan dược và hồi phục tăng 50%.';
+            tribulationResist = 'Tiên Thiên Sinh Mệnh Tự Dưỡng: Hồi phục sinh mệnh siêu tốc sau mỗi đợt thiên kiếp, giảm 40% tổn hại kinh mạch.';
+        } else if (sr.includes('Hỏa') || rawElements.includes('Hỏa')) {
+            passiveBuff = {atk:80, spp:40, spd:30};
+            specialNote = 'Thiên Đạo ban ân, Chân Hỏa thuần dương phần thiên chử hải, cuồng bạo bá đạo tuyệt luân.';
+            elementSynergy = 'Thuần Dương Liệt Diễm: Khắc chế cực mạnh Kim hệ và Âm Tà; tương sinh bồi bổ Thổ hệ bộc phát.';
+            skillAffinity = 'Thuần Nhất Hỏa Đạo: Uy lực công pháp hệ Hỏa tăng 50%, tăng 40% tỷ lệ luyện chế đan dược thượng phẩm.';
+            tribulationResist = 'Chân Hỏa Luyện Thể: Miễn nhiễm Địa Hỏa Tâm Ma Kiếp, chuyển hóa 40% hỏa kiếp thành hỏa lực bản mệnh.';
+        } else if (sr.includes('Kim') || rawElements.includes('Kim')) {
+            passiveBuff = {atk:80, def:40, spd:30};
+            specialNote = 'Thiên Đạo ban ân, Vô kiên bất tồi, sát phạt chi khí sắc bén ngút trời quán triệt càn khôn.';
+            elementSynergy = 'Tiên Thiên Bạch Kim: Khắc chế tuyệt đối Mộc hệ; tương sinh bồi bổ Thủy hệ; xuyên thấu mọi hộ giáp.';
+            skillAffinity = 'Thuần Nhất Kiếm Đạo: Uy lực Kiếm Pháp và công pháp Kim hệ tăng 50%, tăng 35% tỷ lệ bạo kích và phá giáp.';
+            tribulationResist = 'Kim Cương Bất Hoại: Kháng tính sát thương vật lý của kiếp lôi +45%.';
+        } else if (sr.includes('Thủy') || rawElements.includes('Thủy')) {
+            passiveBuff = {def:80, spp:40, spd:30};
+            specialNote = 'Thiên Đạo ban ân, Thượng thiện nhược thủy, bao dung vạn vật, sinh sôi bất tận, hộ thân tuyệt luân.';
+            elementSynergy = 'Thuần Dương Chân Thủy: Dập tắt liệt hỏa, tương sinh bồi dưỡng Mộc hệ, hóa giải sát thương nhu hòa.';
+            skillAffinity = 'Thuần Nhất Thủy Đạo: Uy lực công pháp hệ Thủy/Băng tăng 50%, giảm 30% chân nguyên tiêu hao và tăng 50% hồi phục.';
+            tribulationResist = 'Uẩn Thủy Hóa Kiếp: Hấp thu 40% xung lực Lôi Kiếp chuyển hóa thành Chân Nguyên dồi dào.';
+        } else if (sr.includes('Thổ') || rawElements.includes('Thổ')) {
+            passiveBuff = {def:90, atk:30, spp:30};
+            specialNote = 'Thiên Đạo ban ân, Hậu đức tải vật, phòng thủ kiên cố như Thái Sơn, bất động như đại địa.';
+            elementSynergy = 'Tiên Thiên Huyền Thổ: Đứng trên đại địa bất động như sơn, tương sinh bồi bổ Kim hệ, khắc chế Thủy hệ.';
+            skillAffinity = 'Thuần Nhất Thổ Đạo: Uy lực công pháp hệ Thổ tăng 50%, thể lực và hộ giáp tăng vượt trội.';
+            tribulationResist = 'Địa Thạch Định Tâm: Giảm 45% chấn thương kinh mạch từ thiên kiếp.';
+        } else if (sr.includes('Phong') || rawElements.includes('Phong')) {
+            passiveBuff = {spd:80, atk:40, spp:30};
+            specialNote = 'Thiên Đạo ban ân, Ngự phong tiêu dao, thân pháp xuất quỷ nhập thần vô tung vô ảnh.';
+            elementSynergy = 'Tiên Thiên Cực Phong: Hỗ trợ hỏa diễm bùng phát cuồng bạo; né tránh va chạm trực diện.';
+            skillAffinity = 'Thuần Nhất Phong Đạo: Uy lực công pháp hệ Phong tăng 50%, thân pháp và tốc độ di chuyển tăng 50%.';
+            tribulationResist = 'Hóa Phong Tránh Kiếp: Tăng 40% tỷ lệ né tránh trực diện các tia lôi kiếp biên duyên.';
+        } else if (sr.includes('Băng') || rawElements.includes('Băng')) {
+            passiveBuff = {def:70, atk:45, spp:35};
+            specialNote = 'Thiên Đạo ban ân, Vạn dặm băng phong, tuyệt đối lãnh độ đóng băng kinh mạch đối thủ.';
+            elementSynergy = 'Huyền Băng Cực Độ: Dập tắt liệt hỏa, làm chậm và phong tỏa hoàn toàn chân nguyên kẻ thù.';
+            skillAffinity = 'Thuần Nhất Băng Đạo: Uy lực công pháp hệ Băng tăng 50%, tăng 40% tỷ lệ đóng băng đối thủ.';
+            tribulationResist = 'Huyền Băng Hộ Giáp: Giảm 40% sát thương xung kích từ lôi kiếp.';
+        } else if (sr.includes('Quang') || rawElements.includes('Quang')) {
+            passiveBuff = {spp:80, atk:40, def:30};
+            specialNote = 'Thiên Đạo ban ân, Thánh quang tịnh thế, bài trừ tà ma, vạn pháp bất xâm.';
+            elementSynergy = 'Thuần Nhất Thánh Quang: Tịnh hóa mọi uế khí và ma niệm, khắc chế tuyệt đối Ám hệ và Thi Quỷ.';
+            skillAffinity = 'Thuần Nhất Quang Đạo: Uy lực công pháp Quang hệ tăng 50%, hộ giáp quang minh hấp thu sát thương.';
+            tribulationResist = 'Quang Minh Hộ Thể: Giảm 45% sát thương lôi kiếp, miễn nhiễm tâm ma xâm lấn khi độ kiếp.';
+        } else if (sr.includes('Ám') || rawElements.includes('Ám')) {
+            passiveBuff = {atk:80, spd:45, spp:25};
+            specialNote = 'Thiên Đạo ban ân, Hắc ám thôn phệ vạn vật, thích sát vô ảnh trong bóng đêm.';
+            elementSynergy = 'Hắc Ám Cực Đạo: Ăn mòn quang minh và sinh cơ, khắc chế Quang hệ.';
+            skillAffinity = 'Thuần Nhất Ám Đạo: Uy lực công pháp Ám hệ tăng 50%, sát thương đánh lén tăng vượt bậc.';
+            tribulationResist = 'Hắc Ám Ẩn Thân: Giảm 40% sát thương định vị của kiếp lôi.';
+        } else {
+            // Mặc định hoặc Lôi
+            passiveBuff = {spd:80, atk:40, spp:30};
+            specialNote = 'Thiên Đạo ban ân, Lôi Tốc đệ nhất thiên hạ, thần thông phát động trong chớp mắt.';
+            elementSynergy = 'Biến Dị Dương Lôi: Chuyên khắc Tà Ma, Quỷ Đạo và Thủy hệ; tương sinh hỗ trợ Hỏa hệ bộc phát.';
+            skillAffinity = 'Thuần Nhất Lôi Đạo: Uy lực công pháp hệ Lôi tăng 50%, giảm 30% chân nguyên tiêu hao khi xuất chiêu.';
+            tribulationResist = 'Tiên Thiên Bất Diệt Lôi Thể: Kháng tính Lôi Kiếp +50%, miễn nhiễm hoàn toàn Lôi Hỏa sơ kiếp.';
+        }
+    } else if (sr.includes('Cực Lôi') || rawElements.includes('Lôi')) {
+        tuLuyenSpeed = 50; passiveBuff = {spd:70, atk:35, spp:25};
+        specialNote = 'Cực Lôi phạt thế, thân pháp sấm sét, công phạt bộc phát kinh người.';
+        elementSynergy = 'Dương Lôi Chi Lực: Khắc Tà Ma, Quỷ Đạo và Thủy hệ; tương sinh hỗ trợ Hỏa hệ.';
+        skillAffinity = 'Lôi Đạo Thần Pháp: Uy lực công pháp hệ Lôi tăng 40%, giảm 20% chân nguyên tiêu hao.';
+        tribulationResist = 'Lôi Linh Hộ Thể: Kháng tính Lôi Kiếp +35%.';
+    } else if (sr.includes('Cực Kim') || rawElements.includes('Kim')) {
+        tuLuyenSpeed = 45; passiveBuff = {atk:50, def:20, spd:15};
+        specialNote = 'Vô Kiên Bất Tồi, sát phạt chi khí sắc bén ngút trời.';
+        elementSynergy = 'Kim Sinh Thủy: Hỗ trợ linh lực lưu chuyển nhu hòa; Khắc Mộc: Áp chế mộc linh và yêu thực mạnh mẽ.';
+        skillAffinity = 'Kiếm Đạo Độc Tôn: Uy lực Kiếm Pháp và Binh Khí công kích tăng 35%, tăng tỷ lệ xuyên thấu hộ giáp.';
+        tribulationResist = 'Kim Cương Cốt: Kháng tính sát thương vật lý của kiếp lôi +25%.';
+    } else if (sr.includes('Cực Hỏa') || rawElements.includes('Hỏa')) {
+        tuLuyenSpeed = 45; passiveBuff = {atk:50, spp:30};
+        specialNote = 'Liệt diễm phần thiên, cuồng bạo bá đạo bộc phá tức thời.';
+        elementSynergy = 'Hỏa Sinh Thổ: Bồi bổ khí huyết phòng hộ; Khắc Kim: Thiêu rụi giáp trụ và binh khí đối thủ.';
+        skillAffinity = 'Đan Đạo & Hỏa Pháp: Tăng 40% uy lực công pháp Hỏa hệ, tỷ lệ luyện đan thượng phẩm tăng 30%.';
+        tribulationResist = 'Hỏa Linh Hộ Thể: Miễn nhiễm Địa Hỏa Tâm Ma Kiếp.';
+    } else if (sr.includes('Cực Thủy') || sr.includes('Thủy Băng') || rawElements.includes('Thủy')) {
+        tuLuyenSpeed = 45; passiveBuff = {def:40, spp:40};
+        specialNote = 'Thượng thiện nhược thủy, sinh sôi bất tận, trị liệu và hộ thân tuyệt luân.';
+        elementSynergy = 'Thủy Sinh Mộc: Bồi dưỡng sinh cơ dồi dào; Khắc Hỏa: Dập tắt mọi cuồng bạo liệt diễm.';
+        skillAffinity = 'Băng Phách Trị Liệu: Tăng 40% hiệu quả hồi phục và uy lực băng phong khống chế đối thủ.';
+        tribulationResist = 'Uẩn Thủy Hóa Kiếp: Hấp thu 20% xung lực Lôi Kiếp chuyển hóa thành Chân Nguyên.';
+    } else if (sr.includes('Cực Mộc') || rawElements.includes('Mộc')) {
+        tuLuyenSpeed = 45; passiveBuff = {spp:45, def:25};
+        specialNote = 'Vạn vật hồi xuân, sinh mệnh lực dồi dào, thọ nguyên kéo dài.';
+        elementSynergy = 'Mộc Sinh Hỏa: Thúc đẩy hỏa lực bộc phát; Khắc Thổ: Hút cạn sinh khí thổ nhưỡng.';
+        skillAffinity = 'Dược Đạo & Trận Pháp: Tăng 35% hiệu quả linh thảo và uy lực mộc hệ trói buộc.';
+        tribulationResist = 'Thanh Mộc Hóa Sinh: Hồi phục sinh mệnh siêu tốc sau mỗi đợt thiên kiếp giáng xuống.';
+    } else if (sr.includes('Cực Thổ') || rawElements.includes('Thổ')) {
+        tuLuyenSpeed = 45; passiveBuff = {def:70, atk:15};
+        specialNote = 'Hậu đức tải vật, phòng thủ kiên cố như bàn thạch.';
+        elementSynergy = 'Thổ Sinh Kim: Đúc kết khoáng thạch bản mệnh; Khắc Thủy: Ngăn chặn sóng thần linh lực.';
+        skillAffinity = 'Thể Phách Trọng Khôi: Tăng 40% phòng ngự và thể lực khi đứng trên đại địa.';
+        tribulationResist = 'Địa Thạch Định Tâm: Giảm 35% sát thương chấn động từ thiên kiếp.';
+    } else if (sr.includes('Cực Phong') || rawElements.includes('Phong')) {
+        tuLuyenSpeed = 45; passiveBuff = {spd:60, atk:25};
+        specialNote = 'Ngự phong tiêu dao, thân pháp phiêu dật vô tung vô ảnh.';
+        elementSynergy = 'Phong Trợ Hỏa Thế: Hỗ trợ hỏa diễm bùng phát cuồng bạo; linh hoạt tránh né va chạm trực diện.';
+        skillAffinity = 'Phi Hành Khinh Công: Thân pháp và né tránh tăng 40%, giảm phân nửa tiêu hao khi độn tẩu.';
+        tribulationResist = 'Hóa Phong Tránh Kiếp: Tăng 25% tỷ lệ né tránh trực diện các tia lôi kiếp biên duyên.';
+    } else if (sr.includes('Cực Quang') || rawElements.includes('Quang')) {
+        tuLuyenSpeed = 50; passiveBuff = {spp:50, def:35, atk:25};
+        specialNote = 'Thánh quang tịnh thế, bài trừ tà ma, vạn pháp bất xâm.';
+        elementSynergy = 'Quang Minh Hóa Sinh: Tịnh hóa mọi uế khí và ma niệm, khắc chế tuyệt đối Ám hệ và Thi Quỷ.';
+        skillAffinity = 'Thánh Quang Thần Pháp: Tăng 40% uy lực công pháp Quang hệ, hộ giáp quang minh hấp thu sát thương.';
+        tribulationResist = 'Quang Minh Hộ Thể: Giảm 30% sát thương lôi kiếp, miễn nhiễm tâm ma xâm lấn khi độ kiếp.';
+    } else if (sr.includes('Cực Ám') || rawElements.includes('Ám')) {
+        tuLuyenSpeed = 50; passiveBuff = {atk:50, spd:40, spp:20};
+        specialNote = 'Hắc ám thôn phệ, vô thanh vô tức, thích sát vô ảnh.';
+        elementSynergy = 'Hắc Ám Thôn Phệ: Ăn mòn quang minh và sinh cơ; Khắc Quang: Hấp thu quang linh áp chế tầm nhìn.';
+        skillAffinity = 'Ám Ảnh Sát Đạo: Tăng 40% sát thương đòn đánh lén từ bóng tối và công pháp Ám hệ.';
+        tribulationResist = 'Hắc Ám Ẩn Thân: Giảm 25% sát thương định vị của kiếp lôi.';
+    } else if (sr.includes('Cực Băng') || rawElements.includes('Băng')) {
+        tuLuyenSpeed = 48; passiveBuff = {def:45, spp:35, spd:10};
+        specialNote = 'Vạn dặm băng phong, tuyệt đối lãnh độ, đóng băng kinh mạch đối thủ.';
+        elementSynergy = 'Băng Hàn Cực Độ: Dập tắt liệt hỏa, làm chậm lưu chuyển chân nguyên của mục tiêu.';
+        skillAffinity = 'Băng Phách Huyền Công: Tăng 40% uy lực công pháp hệ Băng và tỷ lệ đông cứng kẻ thù.';
+        tribulationResist = 'Huyền Băng Hộ Giáp: Giảm 25% sát thương xung kích từ lôi kiếp.';
+    } else if (sr.includes('Dị Linh Căn') || pur.includes('Biến Dị')) {
+        tuLuyenSpeed = 50; passiveBuff = {atk:45, spd:45, spp:35};
+        specialNote = 'Linh căn biến dị siêu phàm, mang uy năng dị chủng nguyên tố xuất quỷ nhập thần.';
+        elementSynergy = 'Dị Biến Cực Hạn: Bộc phát sát thương dị năng (Băng phong, Lôi chấn, Phong trảm, Ám thực), không theo quy luật thông thường.';
+        skillAffinity = 'Dị Hệ Độc Tôn: Tăng 45% uy lực công pháp biến dị tương ứng, dễ dàng xuyên thấu phòng ngự ngũ hành cơ bản.';
+        tribulationResist = 'Kháng kiếp biến dị: Giảm 30% sát thương từ lôi kiếp và tâm ma kiếp.';
+    } else if (sr.includes('Hỏa Mang Mộc Khí') || sr.includes('Luyện Dược Sư')) {
+        tuLuyenSpeed = 40; passiveBuff = {spp:55, atk:25, def:20};
+        specialNote = 'Trời sinh Đan Đạo Chi Thánh, hỏa trung hàm mộc, tinh thông dược lý thiên địa.';
+        elementSynergy = 'Mộc Trợ Hỏa Liệt: Ngọn lửa luyện đan sinh sôi bất tận, điều phối dược tính đạt cảnh giới hoàn mỹ.';
+        skillAffinity = 'Đan Thần Truyền Thừa: Tăng 50% hiệu suất luyện đan và công pháp Đan Hỏa hộ thể.';
+        tribulationResist = 'Đan Hồn Tự Dưỡng: Hồi phục sinh lực và thần thức siêu tốc khi gặp chấn thương độ kiếp.';
+    } else if (sr.includes('Song Linh Căn') || pur.includes('Thượng Phẩm')) {
+        tuLuyenSpeed = 25; passiveBuff = {atk:20, def:20, spd:10};
+        specialNote = 'Song hệ hòa hợp, bổ khuyết tương trợ trong chiến đấu.';
+        elementSynergy = 'Tương Phụ Tương Thành: Hai thuộc tính hòa quyện tạo thành đòn tấn công kép.';
+        skillAffinity = 'Linh Hoạt Đa Năng: Dễ dàng chuyển đổi giữa hai hệ công pháp theo hoàn cảnh.';
+        tribulationResist = 'Phân Lưu Kiếp Lực: Giảm 15% áp lực thiên kiếp qua cơ chế điều hòa hai luồng nguyên tố.';
+    } else if (sr.includes('Tam') || pur.includes('Trung Phẩm')) {
+        tuLuyenSpeed = 15; passiveBuff = {def:10, atk:5};
+        specialNote = 'Đa nguyên tố tạp giao, cần nỗ lực ngưng tụ căn cơ vững chắc.';
+        elementSynergy = 'Ngũ Hành Điều Hòa: Cân bằng ba luồng thuộc tính, linh hoạt ứng biến.';
+        skillAffinity = 'Bác Học Tạp Dụng: Thi triển được nhiều loại phù lục và trận pháp cơ bản.';
+        tribulationResist = 'Kháng kiếp cơ bản, cần trận pháp hộ thân phụ trợ khi độ kiếp.';
+    } else if (sr.includes('Tứ') || sr.includes('Ngũ') || pur.includes('Kém')) {
+        tuLuyenSpeed = 8; passiveBuff = {def:5};
+        specialNote = 'Tạp linh căn hỗn loạn, hấp thu linh khí chậm chạp.';
+        elementSynergy = 'Dung Hội Gian Nan: Ngũ hành phân tán, cần tẩy tủy đan dược trợ lực.';
+        skillAffinity = 'Tạp Tu Cơ Bản: Khó tinh thông công pháp cao thâm.';
+        tribulationResist = 'Kháng kiếp yếu, cần nhờ ngoại vật bảo hộ.';
+    } else if (pur.includes('Khởi Nguyên') || pur.includes('Tối Thượng') || pur.includes('Hoàn Mỹ') || pur.includes('Chí Tôn') || pur.includes('Thần Phẩm') || pur.includes('Tuyệt Đối') || pur.includes('Độc Nhất')) {
+        tuLuyenSpeed = 75; passiveBuff = {atk:55, def:45, spd:45, spp:55};
+        specialNote = `Linh căn đạt cảnh giới ${pur}, vượt ngoài trật tự thông thường của thế gian.`;
+        elementSynergy = `Bản Nguyên Thuần Khiết (${els}): Hòa hợp trọn vẹn các luồng nguyên tố, uy lực bộc phát gấp bội.`;
+        skillAffinity = 'Vô Thượng Khế Hợp: Tăng 40% uy lực công pháp tương thích với các nguyên tố sở hữu.';
+        tribulationResist = 'Kháng kiếp siêu phàm: Uy áp thiên đạo giảm 30%, tôi rèn linh căn khi vượt kiếp.';
+    } else {
+        tuLuyenSpeed = 10; passiveBuff = {};
+        specialNote = 'Linh căn bình phàm mộc mạc, lấy cần cù bù đắp thiên phú.';
+        elementSynergy = 'Tuân theo quy luật tự nhiên ngũ hành sinh khắc.';
+        skillAffinity = 'Thích hợp công pháp cơ bản không phân định hệ nguyên tố.';
+        tribulationResist = 'Độ kiếp phụ thuộc hoàn toàn vào đan dược hộ mạch và pháp bảo che chắn.';
+    }
+
+    return { tuLuyenSpeed, passiveBuff, specialNote, elementSynergy, skillAffinity, tribulationResist, elements: els, purity: pur };
+};
+
+const getPassiveStats = (traits, spiritualRoot, soulAge = 18, physicalAge = 18, equippedCoreMethod = null, journalSkills = [], stageId = 1, runeCount = 0) => {
+    let pAtk = 0, pDef = 0, pSpd = 0, pSpp = 0;
+    let coreAtk = 0, coreDef = 0, coreSpd = 0, coreSpp = 0;
+    let traitAtk = 0, traitDef = 0, traitSpd = 0, traitSpp = 0;
+    let pMult = 1; // V7.71: Hệ số nhân bạo kích từ Khí Vận
+    const tNames = (Array.isArray(traits) ? traits : []).map(t => t?.name || '');
+
+    // 0. TÂM PHÁP BẢN MỆNH (V11.38 & V1.28 FIX: Chống Bug trùng tên Khí Vận để hack chỉ số Tuyệt Đỉnh)
+    if (equippedCoreMethod && Array.isArray(journalSkills)) {
+        const coreSkill = journalSkills.find(s => s && s.name === equippedCoreMethod);
+        if (coreSkill) {
+            let tierMult = 1.0;
+            const sTier = String(coreSkill?.tier || '').toLowerCase();
+            const sName = String(coreSkill?.name || '').toLowerCase();
+            
+            // V1.28: Nếu kỹ năng mạo danh hoặc trùng tên Khí Vận trong TRAITS_POOL -> Khóa tierMult không cho hack Thần Giai
+            const isCollidedWithTrait = (typeof TRAITS_POOL !== 'undefined') && TRAITS_POOL.some(tp => tp.name && tp.name.toLowerCase() === sName.replace(/\s*\(công pháp\)/i, '').trim());
+            
+            if (isCollidedWithTrait) {
+                tierMult = 1.0; // Bị khóa ở mức cơ bản, cấm ăn gian hệ số Thần Giai
+            } else if (sTier.includes('thần') || /(thần|đại đạo|chí tôn|sáng thế|hỗn độn)/.test(sName)) {
+                tierMult = 3.0; // Chuẩn hóa cân bằng
+            } else if (sTier.includes('tiên') || sTier.includes('thánh') || /(thiên|tiên|thánh)/.test(sName)) {
+                tierMult = 2.0;
+            } else if (sTier.includes('linh') || /(địa|huyền|chân|hồn)/.test(sName)) {
+                tierMult = 1.2;
+            }
+            
+            let lvlMult = 0.2; // Nhập môn
+            const sLvl = String(coreSkill.level || '').toLowerCase();
+            if (sLvl.includes('tiểu thành')) lvlMult = 0.5;
+            else if (sLvl.includes('đại thành')) lvlMult = 1.0;
+            else if (sLvl.includes('viên mãn')) lvlMult = 1.5;
+            else if (sLvl.includes('tuyệt đỉnh')) lvlMult = 2.5; // Chuẩn hóa 2.5 (thay vì 4.0 bạo phát)
+            
+            // Giới hạn trần coreBonus tối đa 50 điểm
+            const coreBonus = Math.min(50, Math.floor(10 * tierMult * lvlMult));
+            coreAtk = coreBonus;
+            coreDef = coreBonus;
+            coreSpd = Math.floor(coreBonus / 2);
+            coreSpp = Math.floor(coreBonus / 2);
+
+            pAtk += coreAtk;
+            pDef += coreDef;
+            pSpd += coreSpd;
+            pSpp += coreSpp;
+        }
+    }
+
+    // 1. LINH CĂN (SPIRITUAL ROOT) - V9.59 FIX: Tước bỏ sức mạnh thô kệch, trả về bản chất Ngũ Hành
+    // V1.73 (KHA PHẢN ÁNH): Đồng bộ chỉ số passive cho Linh Căn Chí Tôn / Chung Yên / Diệt Thế
+    if (spiritualRoot && spiritualRoot.name) {
+        const sr = spiritualRoot.name;
+        const pur = spiritualRoot.purity || '';
+        if (sr.includes('Chung Yên') || sr.includes('Lôi Ma')) {
+            pAtk += 40; pSpd += 30; pSpp += 30;
+        } else if (sr.includes('Diệt Thế') || sr.includes('Hỗn Độn')) {
+            pAtk += 30; pDef += 20; pSpp += 30;
+        } else if (pur.includes('Khởi Nguyên') || pur.includes('Tối Thượng') || pur.includes('Hoàn Mỹ')) {
+            pAtk += 25; pDef += 20; pSpd += 20; pSpp += 25;
+        } else if (sr.includes('Dị Linh Căn')) {
+            pSpd += 10;
+        }
+    }
+
+    // 2. KHÍ VẬN / THỂ CHẤT (TRAITS)
+    tNames.forEach(name => {
+        // Cấp Đỏ (Thần Thể / Thánh Thể)
+        if (name === 'Bàn Cổ Huyết Mạch') { pDef += 50; pAtk += 20; pSpd -= 10; }
+        if (name === 'Trùng Đồng Nhãn') { pSpp += 40; pSpd += 20; }
+        if (name === 'Chí Tôn Cốt') { pAtk += 30; pDef += 30; }
+        if (name === 'Chí Tôn Cốt (Niết Bàn)') { pAtk += 90; pDef += 90; }
+        if (name === 'Phản Tổ Huyết Mạch') { pMult += 0.2; }
+        if (name === 'Tuyệt Thế Kiếm Tu') { pAtk += 60; pDef -= 15; pSpd += 15; }
+        if (name === 'Tuyệt Thế Đao Tu') { pAtk += 70; pDef += 10; pSpd -= 20; }
+        if (name === 'Tuyệt Thế Thương Tu') { pAtk += 50; pDef -= 10; pSpd += 20; }
+        if (name === 'Tuyệt Thế Kích Tu') { pAtk += 80; pDef += 20; pSpd -= 40; }
+        if (name === 'Tuyệt Thế Cung Tu') { pAtk += 40; pDef -= 30; pSpd += 50; }
+        if (name === 'Tuyệt Thế Phủ Tu') { pAtk += 90; pDef += 40; pSpd -= 70; }
+        if (name === 'Tuyệt Thế Chùy Tu') { pAtk += 100; pDef += 50; pSpd -= 90; }
+        if (name === 'Tuyệt Thế Roi Tu') { pAtk += 30; pDef -= 20; pSpd += 50; }
+        if (name === 'Tuyệt Thế Nhạc Tu') { pSpp += 80; pAtk -= 20; pDef -= 30; pSpd += 30; }
+        if (name === 'Ma Tôn Chuyển Thế') { pAtk += 40; pSpd += 20; }
+        if (name === 'Phật Cốt Xá Lợi') { pDef += 30; pSpp += 50; }
+        if (name === 'Thiên Ma Thể') { pAtk += 70; pSpd += 30; pDef -= 20; }
+        if (name === 'Ách Nan Độc Thể') { pDef += 25; pSpp += 25; }
+        if (name === 'Hạn Bạt Viêm Thể') { pAtk += 50; pSpp += 30; }
+        if (name === 'Thủy Băng Hàn Thể') { pDef += 40; pSpp += 40; }
+        if (name === 'Thiên Sát Cô Tinh') { pDef += 80; pAtk += 20; }
+        if (name === 'Thái Âm Táng Thể') { pSpp += 60; pDef += 20; }
+        if (name === 'Hư Không Lậu Thể') { pSpd += 100; pAtk += 30; pDef -= 40; }
+        if (name === 'Tuế Nguyệt Khô Vinh Thể') { pAtk += 60; pSpp += 40; pDef -= 20; }
+        if (name === 'Thôn Kim Phệ Cốt Thể') { pDef += 100; pAtk += 50; }
+        if (name === 'Vạn Ác Tội Thể') { pAtk += 80; pSpd += 50; pDef -= 30; }
+        if (name === 'Hỗn Độn Đạo Thể') { 
+            const hdStages = Math.max(0, stageId - 1);
+            pMult += hdStages * 0.05; 
+        }
+        if (name === 'Hỗn Độn Diệt Thế Ma Căn') { 
+            pAtk += 150; pDef += 50; pSpd += 50; pSpp += 80; pMult += 0.5; 
+        }
+        if (name === 'Thánh Quang Thần Thể') { pSpp += 50; pDef += 30; }
+        if (name === 'Thiên Lôi Thể') { pSpd += 80; pAtk += 40; pDef -= 20; }
+        if (name === 'Địa Thổ Mộc Thể') { pDef += 80; pSpp -= 20; }
+        if (name.startsWith('Đại Đạo Trùng Tu')) { pMult += 0.3; pAtk += 50; pDef += 50; } // Buff mạnh cho kẻ đập nát đan điền tu lại
+        if (name === 'Cơ Khí Chân Lý (Iron Suit)') { pAtk += 20; pDef += 40; }
+        if (name === 'Hắc Quang Bệnh Độc (Blacklight Virus)') { pAtk += 40; pSpd += 20; pDef += 10; pSpp -= 10; }
+        if (name === 'Cơ Giới Bệnh Độc (Technocyte Virus)') { pDef += 50; pAtk += 20; pSpd -= 10; pSpp -= 20; }
+        if (name === 'Cơ Giới Hắc Quang Thể') { pAtk += 60; pDef += 60; pSpd += 30; pSpp -= 30; }
+        if (name === 'Dịch Bệnh Điểm Kỳ Dị (The Singularity Plague)') { pAtk += 100; pDef += 100; pSpp += 100; pMult += 0.5; }
+        
+        // V9.11 NERF: Cân bằng lại các Thể chất sinh Thần Thức 
+        if (name === 'Huyễn Mộng Chân Thể') { pSpp += 80; pDef -= 30; } // Giảm bớt sức mạnh ảo
+        if (name === 'Vô Ngã Vô Tướng Thể') { pSpd += 120; pSpp += 50; pAtk -= 20; }
+        if (name === 'Thuấn Di Bản Năng') { pSpd += 80; pSpp += 20; pDef -= 30; }
+        if (name === 'Tạo Hóa Huyết Nhục') { pAtk += 30; pDef += 30; pSpd += 30; pSpp += 30; }
+        if (name === 'Thái Cổ Ngự Yêu Sư') { pSpp += 40; pAtk += 20; }
+        if (name === 'Mị Cốt Thiên Sương') { pSpp += 50; pSpd += 20; }
+        if (name === 'Ngự Trù Bạo Chúa') { pSpp += 40; pDef += 10; } // V9.11 NERF
+        if (name === 'Khí Vận Chi Tử' || name === 'Khí Vận Chi Nữ' || name === 'Thiên Mệnh Chi Tử') { pMult += 0.2; }
+        if (name === 'Thiên Mệnh Ma Tôn') { pMult += 1.0; pAtk += 100; pDef += 50; } 
+        if (name === 'Thánh Bàn Phím') { pSpp += 60; pSpd += 30; pDef -= 50; } // V9.11 NERF: Đánh đổi phòng thủ đời thực nặng nề
+        if (name === 'Tọa Vong Đạo') { pSpp += 80; pSpd += 40; pDef -= 40; pAtk += 20; } 
+        if (name === 'Người Gặp Ma') { pSpp += 40; pAtk -= 10; pDef -= 10; }
+        
+        if (name === 'Bán Yêu (Huyết Mạch Lai)') { pSpd += 10; pAtk += 5; }
+        if (name === 'Bán Ma (Huyết Mạch Lai)') { pAtk += 15; pSpp += 5; }
+        if (name === 'Bán Tinh Linh (Huyết Mạch Lai)') { pSpp += 15; pDef -= 5; }
+        if (name === 'Bán Long (Huyết Mạch Lai)') { pDef += 20; pAtk += 10; }
+        if (name === 'Bán Mị Ma (Huyết Mạch Lai)') { pSpp += 15; pDef -= 10; }
+        if (name === 'Bán Thần (Huyết Mạch Lai)') { pDef += 15; pSpp += 15; }
+        
+        // V1.22.4: CHỈ SỐ BỊ ĐỘNG CÁC THỂ CHẤT DUNG HỢP TỐI CAO
+        const fusionMatch = MASTER_FUSION_MATRIX.find(r => r.name === name);
+        if (fusionMatch && fusionMatch.statsBonus) {
+            if (fusionMatch.statsBonus.pAtk) pAtk += fusionMatch.statsBonus.pAtk;
+            if (fusionMatch.statsBonus.pDef) pDef += fusionMatch.statsBonus.pDef;
+            if (fusionMatch.statsBonus.pSpd) pSpd += fusionMatch.statsBonus.pSpd;
+            if (fusionMatch.statsBonus.pSpp) pSpp += fusionMatch.statsBonus.pSpp;
+            if (fusionMatch.statsBonus.pMult) pMult += fusionMatch.statsBonus.pMult;
+        }
+        if (name === 'Thiên Quang Thánh Linh Thể' && typeof state !== 'undefined' && state?.thienQuangBuffPercent) {
+            pMult += (Number(state.thienQuangBuffPercent) || 0) / 100;
+        }
+
+        // V9.38 FIX: CHỈ SỐ BỊ ĐỘNG TỪ 20 NẤC NGHỀ NGHIỆP TỐI CAO
+        if (name === 'Hỗn Độn Đan Tổ') { pSpp += 300; pDef += 100; }
+        if (name === 'Đan Hoàng Cửu Châu') { pSpp += 100; pDef += 40; }
+        if (name === 'Đan Vương Hạ Giới') { pSpp += 60; pDef += 20; }
+        if (name === 'Đan Đạo Tông Sư') { pSpp += 40; pDef += 10; }
+        if (name === 'Luyện Đan Đại Sư') { pSpp += 20; }
+        if (name === 'Hỗn Độn Khí Tổ') { pAtk += 300; pDef += 150; }
+        if (name === 'Tiên Khí Tông Sư') { pAtk += 150; pDef += 60; }
+        if (name === 'Khí Hoàng Cửu Châu') { pAtk += 100; pDef += 40; }
+        if (name === 'Thiết Cốt Chi Thể') { pDef += 50; }
+        if (name === 'Khí Vương Hạ Giới') { pAtk += 60; }
+        if (name === 'Khí Đạo Tông Sư') { pAtk += 40; pDef += 20; }
+        if (name === 'Luyện Khí Đại Sư') { pAtk += 20; }
+        
+        // Chỉ số Căn Cơ từ Luyện Phù
+        if (name === 'Hỗn Độn Phù Tổ') { pSpp += 300; pSpd += 150; }
+        if (name === 'Tiên Phù Tông Sư') { pSpp += 150; pSpd += 60; }
+        if (name === 'Phù Hoàng Cửu Châu') { pSpp += 100; pSpd += 40; }
+        if (name === 'Linh Châu Khắc Thể') { pDef += 50; }
+        if (name === 'Phù Vương Hạ Giới') { pSpp += 60; }
+        if (name === 'Phù Đạo Tông Sư') { pSpp += 40; pSpd += 10; }
+        if (name === 'Luyện Phù Đại Sư') { pSpp += 20; }
+        if (name === 'Vạn Họa Phù Tôn') { pSpp += 80; pSpd += 20; }
+        if (name === 'Thiên Sinh Phù Cốt') { pSpp += 20; pSpd += 10; }
+        
+        // Chỉ số Căn Cơ từ Trận Pháp
+        if (name === 'Trận Tổ Chuyển Thế') { pSpp += 300; pDef += 150; }
+        if (name === 'Vạn Vật Giai Trận') { pSpp += 150; pDef += 60; }
+        if (name === 'Luyện Trận Thánh Sư' || name === 'Tiên Trận Tông Sư') { pSpp += 100; pDef += 40; }
+        if (name === 'Trận Hoàng Cửu Châu') { pSpp += 60; pDef += 20; }
+        if (name === 'Phá Vọng Trận Nhãn') { pSpp += 50; }
+        if (name === 'Trận Sư Thiên Tài') { pSpp += 40; pDef += 10; }
+        if (name === 'Trận Đạo Tông Sư') { pSpp += 30; }
+        if (name === 'Bố Trận Đại Sư') { pSpp += 20; }
+        if (name === 'Trận Sư Chính Thức' || name === 'Bố Trận Sơ Cấp') { pSpp += 10; }
+
+        // Cấp Cam / Tím (Bảo Thể / Linh Thể)
+        if (name === 'Phong Ảnh Thể') { pSpd += 40; }
+        if (name === 'Vạn Pháp Bất Xâm') { pDef += 40; pSpp += 20; }
+        if (name === 'Quỷ Đạo Truyền Nhân') { pSpp += 50; pAtk += 15; pDef -= 10; }
+        if (name === 'Tiên Phong Đạo Cốt') { pSpp += 20; pDef += 10; }
+        if (name === 'Học Bá Tu Tiên') { pSpp += 15; }
+        if (name === 'Vạn Thú Thân Hòa') { pSpp += 10; }
+        if (name === 'Thiên Sinh Khí Sư') { pAtk += 10; pDef += 10; }
+        if (name === 'Dược Vương Hóa Thân') { pSpp += 20; }
+        if (name === 'Hắc Khách Thiên Cơ') { pSpp += 60; } 
+        if (name === 'Thánh Nữ Mạng') { pSpp += 40; } 
+
+        // Thể Chất Dị Biệt & Bất Lợi
+        if (name === 'Tuyệt Dục Tàn Khu') { pSpd += 60; pAtk += 20; pDef -= 30; }
+        if (name === 'Đoạn Kinh Mạch') { pAtk -= 20; pSpd -= 20; }
+        if (name === 'Thiên Đạo Áp Chế') { pAtk -= 20; pDef -= 20; pSpd -= 20; pSpp -= 20; pMult -= 0.3; } // V9.11 NERF: Trừ thẳng 30% bạo kích để chống "Buff Chồng"
+    });
+
+    // V9.11 FIX & NERF: KHÓA "LỖ HỔNG HUYỄN MỘNG" (Hack Thần Thức vô hạn)
+    const soulAgeGap = Math.max(0, Math.floor(Number(soulAge)) - Math.floor(Number(physicalAge)));
+    if (soulAgeGap >= 100) {
+        // V11.54 FIX: Giới hạn max Thần Thức nhận được từ Tuổi Linh Hồn dựa trên Cảnh giới (Max = stageId * 50)
+        const maxBonusSpp = stageId * 50;
+        const bonusSpp = Math.min(maxBonusSpp, Math.floor(soulAgeGap / 100));
+        pSpp += bonusSpp;
+        
+        // Hình phạt "Tải Trọng Linh Hồn": Nếu hồn quá già (chênh > 3000 năm) mà xác phàm yếu, nhục thân sẽ bị ép nát.
+        if (soulAgeGap >= 3000) {
+            pDef -= 20;
+            pAtk -= 10;
+        }
+    }
+
+    if (runeCount > 0) {
+        pMult += (runeCount * 0.1);
+    }
+    // Đảm bảo hệ số bạo kích không bị âm quá đáng
+    pMult = Math.max(0.1, pMult);
+
+    // V1.28: Tách bạch rõ ràng Chỉ số từ Thể Chất Thuần Túy để dùng cho Đột Phá, cấm Công Pháp hack stack
+    traitAtk = Math.max(0, pAtk - coreAtk);
+    traitDef = Math.max(0, pDef - coreDef);
+    traitSpd = Math.max(0, pSpd - coreSpd);
+    traitSpp = Math.max(0, pSpp - coreSpp);
+
+    return { 
+        atk: pAtk, def: pDef, spd: pSpd, spp: pSpp, mult: pMult,
+        traitAtk, traitDef, traitSpd, traitSpp,
+        coreAtk, coreDef, coreSpd, coreSpp
+    };
+};
+
+// V9.39: HỆ THỐNG NỘI SUY BÁCH NGHỆ (CHỈ SỐ PHỤ TỪ KHÍ VẬN)
+const getSecondaryStats = (traits, enlightenment, currentState) => {
+    let stats = {
+        dan: 0, khi: 0, tran: 0, phu: 0,
+        thu: 0, thuc: 0, thuong: 0, mi: 0
+    };
+    const baseBonus = Math.floor((Number(enlightenment) || 10) / 10); 
+    Object.keys(stats).forEach(k => stats[k] = baseBonus);
+
+    const tNames = (Array.isArray(traits) ? traits : []).map(t => t?.name || '');
+    const tStr = tNames.join(' | ');
+
+    // Luyện Đan
+    // V1.22.4: KẾ THỪA VÀ NÂNG TẦM BÁCH NGHỆ CHO CÁC THẦN THỂ DUNG HỢP
+    if (tStr.includes('Tiên Thiên Bách Thảo Bất Tử Khu')) stats.dan += 5000;
+    if (tStr.includes('Vạn Trận Quy Tông Thể')) stats.tran += 15000;
+    if (tStr.includes('Thao Thiết Ma Độc Cổ Thể')) stats.thuc += 15000;
+    if (tStr.includes('Vạn Yêu Thánh Hoàng Thể')) stats.thu += 10000;
+    if (tStr.includes('Thái Hư Thần Binh Chi Khu')) stats.khi += 5000;
+    if (tStr.includes('Cửu U Minh Mị Thể')) stats.mi += 10000;
+
+    if (tStr.includes('Dược Phế Thể')) stats.dan = 0;
+    
+    if (tStr.includes('Hỗn Độn Đan Tổ')) stats.dan += 10000;
+    else if (tStr.includes('Đan Hoàng Cửu Châu') || tStr.includes('Tiên Đan Tông Sư') || tStr.includes('Tiên Đan Thánh Sư') || tStr.includes('Hạn Bạt Viêm Thể')) stats.dan += 5000;
+    else if (tStr.includes('Đan Vương Hạ Giới') || tStr.includes('Vạn Dược Chi Thể')) stats.dan += 1000;
+    else if (tStr.includes('Đan Đạo Tông Sư')) stats.dan += 500;
+    else if (tStr.includes('Luyện Đan Đại Sư') || tStr.includes('Dược Vương Hóa Thân')) stats.dan += 100;
+    else if (tStr.includes('Luyện Đan Sơ Cấp') || tStr.includes('Đan Sư Chính Thức')) stats.dan += 50;
+    else if (tStr.includes('Học Đồ Luyện Đan') || tStr.includes('Dược Sư Phàm Trần')) stats.dan += 10;
+
+    // Luyện Khí
+    if (tStr.includes('Cầm Búa Rớt Chân')) stats.khi = 0;
+
+    if (tStr.includes('Hỗn Độn Khí Tổ')) stats.khi += 10000;
+    else if (tStr.includes('Khí Hoàng Cửu Châu') || tStr.includes('Tiên Khí Tông Sư') || tStr.includes('Luyện Khí Thánh Sư') || tStr.includes('Hạn Bạt Viêm Thể')) stats.khi += 5000;
+    else if (tStr.includes('Khí Vương Hạ Giới') || tStr.includes('Thiết Cốt Chi Thể')) stats.khi += 1000;
+    else if (tStr.includes('Khí Đạo Tông Sư')) stats.khi += 500;
+    else if (tStr.includes('Luyện Khí Đại Sư') || tStr.includes('Thiên Sinh Khí Sư')) stats.khi += 100;
+    else if (tStr.includes('Luyện Khí Sơ Cấp') || tStr.includes('Khí Sư Chính Thức')) stats.khi += 50;
+    else if (tStr.includes('Học Đồ Luyện Khí') || tStr.includes('Thợ Đúc Binh Khí')) stats.khi += 10;
+
+    // Trận Pháp
+    if (tStr.includes('Rối Loạn Trận Cơ')) stats.tran = 0;
+
+    if (tStr.includes('Trận Tổ Chuyển Thế')) stats.tran += 10000;
+    else if (tStr.includes('Vạn Vật Giai Trận') || tStr.includes('Luyện Trận Thánh Sư') || tStr.includes('Tiên Trận Tông Sư')) stats.tran += 5000;
+    else if (tStr.includes('Trận Hoàng Cửu Châu') || tStr.includes('Phá Vọng Trận Nhãn')) stats.tran += 1000;
+    else if (tStr.includes('Trận Sư Thiên Tài') || tStr.includes('Trận Đạo Tông Sư')) stats.tran += 500;
+    else if (tStr.includes('Bố Trận Đại Sư')) stats.tran += 100;
+    else if (tStr.includes('Trận Sư Chính Thức') || tStr.includes('Bố Trận Sơ Cấp')) stats.tran += 50;
+    else if (tStr.includes('Cơ Sở Trận Pháp') || tStr.includes('Trận Sư Phàm Trần') || tStr.includes('Tạp Dịch Khắc Trận')) stats.tran += 10;
+
+    // Luyện Phù
+    if (tStr.includes('Vẽ Bùa Rách Giấy')) stats.phu = 0;
+
+    if (tStr.includes('Hỗn Độn Phù Tổ') || tStr.includes('Vạn Họa Phù Tôn')) stats.phu += 10000;
+    else if (tStr.includes('Phù Hoàng Cửu Châu') || tStr.includes('Tiên Phù Tông Sư') || tStr.includes('Luyện Phù Thánh Sư')) stats.phu += 5000;
+    else if (tStr.includes('Phù Vương Hạ Giới') || tStr.includes('Linh Châu Khắc Thể')) stats.phu += 1000;
+    else if (tStr.includes('Phù Đạo Tông Sư') || tStr.includes('Thiên Sinh Phù Cốt')) stats.phu += 500;
+    else if (tStr.includes('Luyện Phù Đại Sư')) stats.phu += 100;
+    else if (tStr.includes('Luyện Phù Sơ Cấp') || tStr.includes('Phù Sư Chính Thức')) stats.phu += 50;
+    else if (tStr.includes('Học Đồ Luyện Phù') || tStr.includes('Phù Sư Phàm Trần')) stats.phu += 10;
+    
+    // Cộng thêm phụ trợ từ Trận Pháp (Liên kết nhẹ)
+    if (tStr.includes('Trận Tổ Chuyển Thế')) stats.phu += 1000;
+    if (tStr.includes('Học Bá Tu Tiên')) stats.phu += 100;
+
+    // Ngự Thú
+    if (tStr.includes('Thái Cổ Ngự Yêu Sư')) stats.thu += 10000;
+    else if (tStr.includes('Vạn Thú Thân Hòa')) stats.thu += 500;
+
+    // Thực Thần
+    if (tStr.includes('Ngự Trù Bạo Chúa')) stats.thuc += 10000;
+
+    // Thương Đạo
+    if (tStr.includes('Tài Thần Giáng Lâm')) stats.thuong += 10000;
+    else if (tStr.includes('Phú Giáp Nhất Phương') || tStr.includes('Vạn Giới Kim Chủ') || tStr.includes('Thạch Sùng Tái Thế')) stats.thuong += 5000;
+    else if (tStr.includes('Kim Ngọc Mãn Đường') || tStr.includes('Cự Phú Hào Môn')) stats.thuong += 1000;
+    else if (tStr.includes('Gia Tài Bạc Vạn') || tStr.includes('Tài Nguyên Cuồn Cuộn')) stats.thuong += 500;
+    else if (tStr.includes('Đại Thương Nhân') || tStr.includes('Chưởng Khống Thương Hội')) stats.thuong += 100;
+    else if (tStr.includes('Tiểu Thương Vỉa Hè') || tStr.includes('Phú Hộ Quê Mùa')) stats.thuong += 20;
+    if (tStr.includes('Kẻ Đổ Nợ') || tStr.includes('Khố Rách Áo Ôm')) stats.thuong = 0;
+
+    // Mị Lực
+    if (tStr.includes('Mị Cốt Thiên Sương') || tStr.includes('Hợp Hoan Mị Cốt')) stats.mi += 10000;
+    else if (tStr.includes('Khuynh Quốc Khuynh Thành')) stats.mi += 1000;
+    else if (tStr.includes('Thuyết Khách') || tStr.includes('Ngôn Xuất Pháp Tùy')) stats.mi += 500;
+    else if (tStr.includes('Khéo Ăn Nói')) stats.mi += 100;
+    if (tStr.includes('Tướng Mạo Xấu Xí')) stats.mi = 0;
+
+    if (currentState) {
+        stats.dan += (Number(currentState.alchemyExp) || 0);
+        stats.khi += (Number(currentState.smithingExp) || 0);
+        stats.tran += (Number(currentState.arrayExp) || 0);
+        stats.phu += (Number(currentState.talismanExp) || 0);
+        stats.thu += (Number(currentState.tamingExp) || 0);
+        stats.thuc += (Number(currentState.cookingExp) || 0);
+        stats.thuong += (Number(currentState.commerceExp) || 0);
+        stats.mi += (Number(currentState.charmExp) || 0);
+    }
+
+    return stats;
+};
+
+// V12.15: KHÍ LINH VÀ PHÁP KHÍ ĐỘC TÔN
+const getKhiLinhEffects = (inventory, equipped) => {
+    let klHpPct = 0, klAtkPct = 0, klDefPct = 0, klSpdPct = 0, klSppPct = 0;
+    let klAllStatPct = 0;
+    let combatTags = [];
+
+    const itemNames = [
+        ...(Array.isArray(inventory) ? inventory : []).filter(Boolean).filter(i => i && (i as any).name).map(i => String((i as any).name).toLowerCase()),
+        ...Object.values(equipped || {}).filter(Boolean).filter(i => i && (i as any).name).map(i => String((i as any).name).toLowerCase())
+    ];
+
+    const hasItem = (name) => itemNames.some(n => n.includes(name.toLowerCase()));
+
+    // A. Vàng
+    if (hasItem("vãn tình - thanh tâm tinh") && hasItem("vãn tình - thanh tâm đái")) klHpPct += 20;
+    if (hasItem("lưu huyền - hàm châu tinh") && hasItem("lưu huyền - hàm châu thúc")) { klAtkPct += 10; combatTags.push("Tăng 10% sát thương bạo kích"); }
+    if (hasItem("nguyệt ảnh - ác châu tinh") && hasItem("nguyệt ảnh - ác châu trượng")) { klAtkPct += 12; }
+    if (hasItem("du thủy - phù cừ tinh") && hasItem("du thủy - phù cừ trượng")) { combatTags.push("Tăng 12% bạo kích"); }
+    if (hasItem("bí ngân - loan vũ tinh") && hasItem("bí ngân - loan vũ thoa")) { combatTags.push("Tăng 12% tỉ lệ né tránh"); }
+    if (hasItem("vẫn thiết - tụ lực tinh") && hasItem("vẫn thiết - tụ lực uyển")) { klHpPct += 24; }
+    if (hasItem("lôi bạo - súc thế thúc") && hasItem("lôi bạo - súc thế tinh")) { combatTags.push("Tăng 12% tỉ lệ bạo kích, sát thương bạo kích và chính xác"); }
+    if (hasItem("hoa ngữ - thanh điệp y") && hasItem("hoa ngữ - thanh điệp tinh")) { klSppPct += 12; }
+
+    // B. Cam
+    if (hasItem("kim la - lưu uyên hồn") && hasItem("kim la - lưu uyên bào")) { combatTags.push("Gây thêm 12% dame chuẩn dựa trên sát thương bản thân"); }
+    if (hasItem("khôn nguyên - càn lôi hồn") && hasItem("khôn nguyên - càn lôi châu")) { combatTags.push("Kháng 15% toàn bộ sát thương (tính dame chuẩn và dựa trên phòng thủ bản thân)"); }
+    if (hasItem("càn nguyên - phá vân hồn") && hasItem("càn nguyên - phá vân thương")) { combatTags.push("Địch mất thêm 15% hp"); }
+    if (hasItem("linh mộng - thanh liên hồn") && hasItem("linh mộng - thanh liên y")) { combatTags.push("Kháng 10% bị bạo kích và sát thương bạo"); }
+
+    // C. Đỏ
+    if (hasItem("chước hoa - phong vũ tôn") && hasItem("chước hoa - phong vũ đao")) { klAllStatPct += 2; klDefPct += 20; combatTags.push("Miễn 2% sát thương phản", "Khi dính sát thương, tăng 50% tốc độ 1 lượt load"); }
+    if (hasItem("lưu kim - xích tâm linh") && hasItem("lưu kim - xích tâm bội")) { klAllStatPct += 2; klAtkPct += 20; combatTags.push("Giảm 2% sát thương bạo kích", "Lần đầu tiên ra chiêu với kẻ thù: tăng 50% bạo kích, 80% chính xác, gây dame chuẩn = 50% tổng sát thương gây ra"); }
+    if (hasItem("hồng liên - kinh hồng linh") && hasItem("hồng liên - kinh hồng đai")) { klAllStatPct += 2; klDefPct += 20; combatTags.push("Giảm 20% sát thương bạo kích", "Miễn phong ấn thần thông"); }
+    if (hasItem("vô tướng - thiên biến tôn") && hasItem("vô tướng - xứng tâm thiết")) { klAllStatPct += 2; combatTags.push("Tăng 20% hút máu, tăng 5% kháng bạo kích", "Ăn cắp 50% hp kẻ thù lần đầu tiên trong 1 lượt load"); }
+    if (hasItem("thần uy - ngự thần tôn") && hasItem("thần uy - ngự thần quyển")) { klAllStatPct += 2; combatTags.push("Tăng miễn phản thương 20%, tăng hồi máu 20%", "Khi có vật triệu hồi/ảo ảnh, sát thương chuyển sang triệu hồi thêm 30%"); }
+    if (hasItem("xích tiêu - phần tâm tôn") && hasItem("xích tiêu - phần tâm vũ")) { klAllStatPct += 2; combatTags.push("Giảm thủ kẻ địch 20%", "Miễn phong ấn đặc kỹ/chiêu thức"); }
+    if (hasItem("long đằng - phong lôi tôn") && hasItem("long đằng - phong lôi dẫn")) { klAllStatPct += 2; klAtkPct += 20; klSpdPct += 20; combatTags.push("Tự động tạo lá chắn bằng 100% HP trong 1 lượt load"); }
+
+    // D. CHƯ THIÊN PHÁP BẢO ĐỘC TÔN (V12.15)
+    if (hasItem("sơn hà xã tắc đồ")) combatTags.push("[Sơn Hà Xã Tắc Đồ] Mỗi lần ăn đòn mất tối đa không quá 30% HP (không tính sát thương chuẩn)");
+    if (hasItem("tam bảo ngọc như ý")) combatTags.push("[Tam Bảo Ngọc Như Ý] Đánh trúng rớt vĩnh viễn 8% Max HP kẻ địch, hồi HP thân bằng 40% sát thương gây ra (xuyên kháng hồi máu)");
+    if (hasItem("thất bảo diệu thụ")) combatTags.push("[Thất Bảo Diệu Thụ] Mỗi nhịp chống đỡ hồi cho phe ta 20% HP; Đồng đội chết thì Bản thân nhận thêm 2 giáp đỡ đòn phản vật lý");
+    if (hasItem("thập nhị phẩm liên đài") || hasItem("thập nhị phảm liên đài")) { klAllStatPct += 8; combatTags.push("[Thập Nhị Phẩm Liên Đài] Thể chất Vô Tướng: Miễn nhiễm 100% Độc, Thiêu Đốt và kháng 50% Huyễn Thuật"); }
+    if (hasItem("hỗn nguyên kim đấu")) combatTags.push("[Hỗn Nguyên Kim Đấu] Khi bị đánh trúng, đòn tấn công tiếp theo sẽ bạo tăng 80% sức mạnh (gây thành Sát Thương Chuẩn)");
+    if (hasItem("thái cực phù ấn")) combatTags.push("[Thái Cực Phù Ấn] Trận pháp vô khuyết: Tự động hấp thu 30% sát thương thường đánh tới, chuyển hoá bù thẳng làm Thể Lực và Tốc Độ");
+    if (hasItem("thông thiên thần hỏa trụ")) combatTags.push("[Thông Thiên Thần Hỏa Trụ] Lửa nghiệp bùng nổ: Gây thêm sát thương Chuẩn (True Damage) bằng 8% tổng lượng Sát thương vừa tạo ra");
+    if (hasItem("bát quái tiên y")) combatTags.push("[Bát Quái Tiên Y] Có khả năng cản được Sát Thương Chuẩn (bù trừ bằng 30% HP hiện hành), đánh trúng Sát Thương Chuẩn lần 2 cản thêm 60%");
+    if (hasItem("thanh tịnh lưu ly bình")) combatTags.push("[Thanh Tịnh Lưu Ly Bình] Lưu Ly Lực: Sau khi bị đập, chắt lọc 25% sinh lực mất đi vĩnh viễn biến thành sức Phòng Thủ cho đồng đội hoặc bản thân");
+    if (hasItem("bàn cổ phiên")) combatTags.push("[Bàn Cổ Phiên] Kháng Khảm Phản Nghịch: Gỡ bỏ Phản Đam. Hủy diệt Tối thượng trong 2 nhịp đầu tiên (Auto Bạo Kích, x100% Sát thương Lượt 1)");
+    if (hasItem("nam minh ly hỏa kiếm")) combatTags.push("[Nam Minh Ly Hỏa Kiếm] Buff 25% Công cường sát. Khi kết liễu 1 kẻ cùng hoặc vượt cấp, Buff tạm thời hóa thành Vĩnh Viễn Tăng 5% ST");
+    if (hasItem("huyền hoàng bảo tháp")) combatTags.push("[Huyền Hoàng Bảo Tháp] Pháo đài Tháp: Giảm 50% uy lực công kích thường. Chảy máu đồng minh (Bật Khiên 12%), đồng minh gục thì Mưa máu phục Hồi mình");
+    if (hasItem("không động long ấn")) combatTags.push("[Không Động Long Ấn] Tổ Long Gầm: Thiết lập vô phương phá giải. Tuyệt đối miễn nhiễm hiệu ứng Nhốt Chỉ Số / Cấm Tuyệt Chiêu");
+    if (hasItem("ngũ hỏa thần diễm phiến")) combatTags.push("[Ngũ Hỏa Thần Diễm Phiến] Quạt Thần Trợ Trận: Cường tráng cho các Đồng Minh xung quanh hưởng 12% theo Mốc sức mạnh chủ tướng");
+    if (hasItem("tử kim hồ lô")) combatTags.push("[Tử Kim Hồ Lô] Tinh Tủy Chế Dược: Tác động vĩ mô, Luyện đan và Chế ma dược Vĩnh Viễn auto nổ Khí Phẩm cấp Đỏ Tiên Đan, giữ tươi nguyên vật liệu");
+    if (hasItem("phi long bảo trượng")) combatTags.push("[Phi Long Bảo Trượng] Tấn Công Tăng 30%, phong bế đặc kỹ quân thù ở lượt Tấn Công. Tước đoạt 5% Thể cốt Công Vĩnh Viễn đánh thẳng lên người mình");
+    if (hasItem("cửu lê luyện yêu hồ")) combatTags.push("[Cửu Lê Luyện Yêu Hồ] Khắc Tinh Yêu Tộc: Gây ST Chuẩn tỷ lệ 10% tính theo HP giáp Yêu kẻ thù. Có thể Luyện Yêu bắt ấn tăng tiềm năng Vĩnh Cửu (Gánh truy nã)");
+    if (hasItem("la sát ba tiêu phiến")) combatTags.push("[La Sát Ba Tiêu Phiến] Lá Phóng Chắn: 40% chỉ số Thủ thành Miễn ST. Giết địch thì Vĩnh Viễn mang 50% Sức mạnh kẻ bại chia đều Tướng sỹ phe ta");
+    if (hasItem("xuyên tâm tỏa")) combatTags.push("[Xuyên Tâm Tỏa] Đánh thấu tâm trí: Dame ta bạo hơn địch sẽ văng Choáng. Cột đòn chấn kích vĩnh viễn tước thủ Tiên Cốt Địch 6% cho bản thân Trọn kiếp");
+    if (hasItem("ngưng u thanh quang giới")) combatTags.push("[Ngưng U Thanh Quang Giới] Bất Tử Khóa Máu: Hãm lại 8% HP nếu ăn đòn Tận Mạng. Xuất chiêu giập ngay Cửa khóa Tắt Thần Thông và Tuyệt Kỹ Địch ở Lượt này");
+    if (hasItem("huyền trượng tì bà")) combatTags.push("[Huyền Trượng Tì Bà] Vô Lượng Phá Không: Tuyệt đối phế bỏ khả thuật Khóa Không Gian của chúng, thay vào đó Xích khóa vĩnh Tọa Độ trốn chạy của quân Thù");
+    if (hasItem("càn thiên hỏa linh châu")) combatTags.push("[Càn Thiên Hỏa Linh Châu] Kháng 100% Cấp Bách Hỏa Diệm. Nếu mang sẵn cốt Băng/Kháng Hỏa từ trước, liền Cường Hóa toàn bộ Pháp Hệ Hỏa của mình ra Chuẩn Damage");
+    if (hasItem("liệp hồn thương")) combatTags.push("[Liệp Hồn Thương] Ác Liềm Dã Quỷ: Gây Đòn Trúng Vĩnh cướp được 30% Sát thương kẻ địch. Đệ tử / Cố nhân gục thì Mượn nạp 15% Chỉ số Tụ Tái vĩnh viễn");
+    if (hasItem("ngọc hư lưu ly đăng")) combatTags.push("[Ngọc Hư Lưu Ly Đăng] Châm Lửa Tróc Độc: Cộng dồn thêm 30% Damage vào thân kẻ địch Đang bám theo Tà/Debuff/Giảm kháng");
+    if (hasItem("tử kim linh")) { klSpdPct += 40; combatTags.push("[Tử Kim Linh] Âm vang Rung Trí: Quật 50% Tốc Độ địch thủ Tê liệt hai nhịp đánh. NVC Đạo gia cường bạo tăng Tốc Độ 40% Vĩnh Hằng"); }
+    if (hasItem("đả thần tiên")) combatTags.push("[Đả Thần Tiên] Gậy Đét Tinh Thần: Ra tay niêm phong 16% Toàn Thuộc Tín Kẻ đánh cùng. Khép Cửa Địch Tử: Trực Tịch nhét vĩnh viễn 16% ấy gộp lên ta");
+    if (hasItem("hỗn nguyên càn khôn dù")) combatTags.push("[Hỗn Nguyên Càn Khôn Dù] Ô Sinh Mạng: Tiêu Biến mọi Màng chắn qua việc Tái Hóa Sát Thương Chuẩn 16% lấy ngay từ Chỉ số gốc tấn kích");
+    if (hasItem("u hồn vạn cốt phiên") || hasItem("vạn hồn phiên")) combatTags.push("[U Hồn Vạn Cốt Phiên] Buff Mãnh Liệt Lượng Sinh Lực Cải Tái. Vô Địch Tẩy Qua Mọi Lớp Màng Đâm Kháng Trị liệu Bất Ngờ Hồi Quy");
+    if (hasItem("cửu tiên tam sinh thạch")) { klAllStatPct += 8; combatTags.push("[Cửu Tiên Tam Sinh Thạch] Bạo kích nhảy Bật lên 16%. Quyền Lực Tạo Sinh: Tôn tạo Hồi Sinh cho NPC là Tức Khắc Nâng Toàn Cấp vĩnh viễn 8% (+/- Báo)"); }
+    if (hasItem("hậu nghệ xạ nhật cung")) combatTags.push("[Hậu Nghệ Xạ Nhật Cung] Lưỡi Kiếm Từ Xa: Bắt xác Đội hình Diệt trừ 1 Kẻ Là Sẵn Cướp Ngay 15% Damage tọng vào Tàn Thần Tu Vi Cổ Mãi");
+    if (hasItem("hỗn độn ngũ linh châu")) combatTags.push("[Hỗn Độn Ngũ Linh Châu] Sát Quả Trấn Linh: Nghiền Bẹp 1 Tấn Thắng Mục Tiêu Thì Cột Định Cướp Gắn Thẳng 33% Tuyệt Đối Phòng Ngự Dâng Nhục Thân");
+    if (hasItem("bát ngục đãng ma phủ")) combatTags.push("[Bát Ngục Đãng Ma Phủ] Trù Chú Đánh Bồi: Cực Phẩm +30% ST Khóa Độc Lửa và Giáng Thần. Quất 2 Lần Dính Ác Chú Là Chết Gục Tuyệt Đối Không Đường Giải");
+    if (hasItem("dao âm phượng vận cầm")) combatTags.push("[Dao Âm Phượng Vận Cầm] Khúc Hồn Tàn Lực: Neft Đè Cổ Sát Thương Chúng 20%. Không Dọn Giải Theo Vòng Là Ăn Liên Hoàn Giáng Khuyết Tụ Tổn Chỉ Số Đời Kế");
+    if (hasItem("nhiếp hồn đoạt phách liêm")) combatTags.push("[Nhiếp Hồn Đoạt Phách Liêm] Áp Lực Tối Thượng: ST Chuẩn Khai 30%. Sát Diệt Gặt Hồn Đoạt Dồn Tụ 30% Toàn Diện Bọn Nó. Bức Dây Truy Nã Sát Thủ Toàn Diệm!");
+    if (hasItem("ám uyên tinh hồng kiếm")) combatTags.push("[Ám Uyên Tinh Hồng Kiếm] Vòng Tỏa Tiên Quyết: Phủ Áo Giáp 5% Trực Tiếp Max Máu Mỗi Vòng. Hủy Màng Khiên Này Nạp Cộng Dồn Lời Nguyền Trừ Cạn Kiệt Cho Địch");
+    if (hasItem("xích hà nhiên vũ phiến")) combatTags.push("[Xích Hà Nhiên Vũ Phiến] Nghịch Phiến Giao Tranh: Phản Giáng Cấu Trúc Bức Ép 16% Tu Vi Phạt Ngược 100% Cắt Qua Đích Tôn Miễn Phản Kể Cả Tà Lực!");
+    if (hasItem("thịnh đức kim thiền chung")) combatTags.push("[Thịnh Đức Kim Thiền Chung] Tôn Chỉ Tối Đỉnh: Miễn Giáng Gồng Băng Lực Che Chở Tuyệt Đối 16% Dành Sang Sát Thương Nặng Nề Phi Vật Bất Bạo Khóa Đội");
+    if (hasItem("quan chiếu vạn tượng kính")) { klAllStatPct += 3; combatTags.push("[Quan Chiếu Vạn Tượng Kính] Kính Thâu Cốt Cách: Kẹp Tắt 30% Bạo Và Kích Choác Yếu Hại Của Kẻ Địch. Cứ Giết Là Auto Lấy 3% Hủy Chặn Các Skill Nấp Ảo Mộng Soi Lõi."); }
+    if (hasItem("phục long trấn thiên đỉnh")) combatTags.push("[Phục Long Trấn Thiên Đỉnh] Đỉnh Cứu Tái Sinh: 50% Đoạt Quyền Từ Chối Ăn Damage Phí Phạm Ở Mỗi Nhịp Lọc Sinh Tử. Độc Tôn Hầm Nấu Đan Chắc Ra Hàng Lớn X2 Lượng Đỏ.");
+
+    return {
+        hpBonusPct: klHpPct + klAllStatPct,
+        atkBonusPct: klAtkPct + klAllStatPct,
+        defBonusPct: klDefPct + klAllStatPct,
+        spdBonusPct: klSpdPct + klAllStatPct,
+        sppBonusPct: klSppPct + klAllStatPct,
+        instruction: combatTags.length > 0 ? `\n[CẢNH BÁO TỐI CAO - KHÍ LINH VÀ PHÁP BẢO ĐỘC TÔN]: NVC ĐANG SỞ HỮU CÁC HIỆU ỨNG PHÁP KHÍ BÁ ĐẠO SAU TRONG TÚI/TRÊN NGƯỜI: ${combatTags.join(' | ')}. BẠN BẮT BUỘC PHẢI TỰ ĐỘNG PHÂN TÍCH VÀ ÁP DỤNG TUYỆT ĐỐI CÁC HIỆU ỨNG NÀY ĐỂ TÍNH TOÁN SÁT THƯƠNG HOẶC QUYẾT ĐỊNH KẾT QUẢ ĐÒN ĐÁNH CỦA TRẬN CHIẾN NÀY!` : ""
+    };
+};
+
+// V1.28: TÍNH LỰC CHIẾN THỰC TẾ (CHỈ SỐ LÀ CHÂN LÝ - XÓA BỎ BỘI SỐ CẢNH GIỚI NHÂN TẠO)
+const getCombatPower = (totalAtk, totalDef, totalSpd, totalSpp, stageId = 1, activeEffects = []) => {
+    let effectBonus = 0;
+    if (Array.isArray(activeEffects)) {
+        activeEffects.forEach(e => {
+            if (e && e.statMods) {
+                effectBonus += (Number(e.statMods.attack) || 0) + (Number(e.statMods.defense) || 0) + (Number(e.statMods.speed) || 0) + (Number(e.statMods.spiritPower) || 0);
+            }
+        });
+    }
+    // Lực chiến phản ánh trung thực năng lực chiến đấu thực tế sau mọi buff Đan Dược / Trận Pháp / Khí Vận
+    const realPower = Math.max(1, Math.floor(totalAtk + totalDef + totalSpd + totalSpp + effectBonus));
+    return realPower;
+};
+
+// V12.15: ĐỊNH DANH CẢNH GIỚI THẦN HỒN VÀ HIỆU ỨNG TƯƠNG ĐỐI
+const getSoulRealmInfo = (spp, soulAgeGap) => {
+    let realm = "Phàm Hồn";
+    let color = "text-[var(--text-muted)]";
+    let atkPct = 0, defPct = 0, spdPct = 0, mpPct = 0, talentBonus = 0, engBonus = 0;
+
+    if (spp >= 1000000000) { realm = "Chí Cao Thần Hồn"; color = "text-yellow-400"; atkPct = 50; defPct = -20; spdPct = 30; mpPct = 100; talentBonus = 500; engBonus = 1000; }
+    else if (spp >= 50000000) { realm = "Sáng Thế Thần Hồn"; color = "text-orange-500"; atkPct = 40; defPct = -15; spdPct = 25; mpPct = 80; talentBonus = 200; engBonus = 500; }
+    else if (spp >= 2000000) { realm = "Bất Diệt Thiên Hồn"; color = "text-red-500"; atkPct = 30; defPct = -10; spdPct = 20; mpPct = 60; talentBonus = 100; engBonus = 200; }
+    else if (spp >= 100000) { realm = "Thái Hư Nguyên Thần"; color = "text-rose-400"; atkPct = 20; defPct = -5; spdPct = 15; mpPct = 40; talentBonus = 50; engBonus = 100; }
+    else if (spp >= 10000) { realm = "Đại Thừa Dương Thần"; color = "text-fuchsia-400"; atkPct = 15; defPct = 0; spdPct = 10; mpPct = 30; talentBonus = 20; engBonus = 50; }
+    else if (spp >= 2000) { realm = "Hóa Hình Âm Thần"; color = "text-purple-500"; atkPct = 10; defPct = 0; spdPct = 5; mpPct = 20; talentBonus = 10; engBonus = 20; }
+    else if (spp >= 500) { realm = "Tam Muội Chân Hồn"; color = "text-blue-400"; atkPct = 5; defPct = 0; spdPct = 0; mpPct = 10; talentBonus = 5; engBonus = 10; }
+    else if (spp >= 100) { realm = "Dịch Bách Ngưng Hồn"; color = "text-emerald-400"; atkPct = 0; defPct = 0; spdPct = 0; mpPct = 5; talentBonus = 2; engBonus = 5; }
+    else if (spp >= 30) { realm = "Tinh Trần Tụ Hồn"; color = "text-teal-400"; atkPct = 0; defPct = 0; spdPct = 0; mpPct = 0; talentBonus = 0; engBonus = 2; }
+    
+    if (soulAgeGap >= 500) {
+        let gapPenalty = Math.min(50, Math.floor(soulAgeGap / 200));
+        defPct -= gapPenalty;
+        engBonus += Math.floor(soulAgeGap / 100);
+    }
+
+    let detail = `CẢNH GIỚI THẦN HỒN: ${realm}\n\nChỉ số Thần Thức (Cảm Quan) của bạn đã đạt mốc ${formatLargeNumber(spp)}, ngưng tựu thành cảnh giới Hồn Tu [${realm}]. Cảnh giới linh hồn càng cao, khả năng thao túng vạn vật càng đáng sợ, bổ trợ mạnh mẽ cho thể phách:\n\n- Thiên Phú: +${talentBonus}\n- Ngộ Đạo: +${engBonus}\n- Áp lực lên thân xác: Phòng thủ ${defPct > 0 ? '+'+defPct : defPct}%\n\nKhuyếch đại sức mạnh toàn diện:\n- Tấn Công: ${atkPct > 0 ? '+'+atkPct : atkPct}%\n- Năng Lượng (MP): ${mpPct > 0 ? '+'+mpPct : mpPct}%\n- Tốc Độ: ${spdPct > 0 ? '+'+spdPct : spdPct}%\n\n*Lưu ý: Nếu Tuổi Linh Hồn già hơn Tuổi Thể Xác quá xa, Thể Cốt sẽ bị Thần Hồn đè ép dẫn đến giảm mạnh Phòng Thủ, nhưng bù lại Ngộ Tính bạo tăng!`;
+
+    return { realm, color, atkPct, defPct, spdPct, mpPct, talentBonus, engBonus, detail };
+};
+
+// V1.23: Cơ chế Độ Kiếp đã KHÔI PHỤC và BỎ HẾT NÚT — AI tự đọc câu chat mà phán.
+// Xem khối TRIB_QUALITY / getTribulationTier / gradeTribulationQuality.
+
+const RARITY_COLORS: Record<string, { text: string; border: string; bg: string; shadow: string; iconColor: string }> = {
+  'Đỏ': { text: 'text-red-500', border: 'border-red-500/50', bg: 'bg-red-500/10', shadow: 'shadow-red-900/50', iconColor: 'text-red-500' },
+  'Cam': { text: 'text-orange-500', border: 'border-orange-500/50', bg: 'bg-orange-500/10', shadow: 'shadow-orange-900/50', iconColor: 'text-orange-500' },
+  'Vàng': { text: 'text-yellow-400', border: 'border-yellow-500/50', bg: 'bg-yellow-500/10', shadow: 'shadow-yellow-900/50', iconColor: 'text-yellow-400' },
+  'Tím': { text: 'text-purple-400', border: 'border-purple-500/50', bg: 'bg-purple-500/10', shadow: 'shadow-purple-900/50', iconColor: 'text-purple-400' },
+  'Xanh lam': { text: 'text-sky-400', border: 'border-sky-500/50', bg: 'bg-sky-500/10', shadow: 'shadow-sky-900/50', iconColor: 'text-sky-400' },
+  'Xanh lá': { text: 'text-emerald-400', border: 'border-emerald-500/50', bg: 'bg-emerald-500/10', shadow: 'shadow-emerald-900/50', iconColor: 'text-emerald-400' },
+  'Xanh': { text: 'text-sky-400', border: 'border-sky-500/50', bg: 'bg-sky-500/10', shadow: 'shadow-sky-900/50', iconColor: 'text-sky-400' },
+  'Trắng': { text: 'text-gray-200', border: 'border-gray-600/40', bg: 'bg-gray-800/20', shadow: 'shadow-none', iconColor: 'text-gray-300' },
+  'Đen': { text: 'text-[var(--text-bold)]', border: 'border-[var(--border-focus)]', bg: 'bg-[var(--bg-item)]', shadow: 'shadow-none', iconColor: 'text-emerald-500' },
+  'Xám': { text: 'text-slate-400', border: 'border-slate-700/50', bg: 'bg-slate-800/30', shadow: 'shadow-none', iconColor: 'text-slate-400' },
+  'Thất Thải': { text: 'text-pink-400 font-extrabold', border: 'border-pink-500/60', bg: 'bg-pink-500/10', shadow: 'shadow-pink-500/30', iconColor: 'text-pink-400' },
+  'Hỗn Độn': { text: 'text-amber-400 font-extrabold', border: 'border-amber-500/60', bg: 'bg-amber-500/10', shadow: 'shadow-amber-500/30', iconColor: 'text-amber-400' }
+};
+
+const resolveItemRarity = (item: any): string => {
+  if (!item) return 'Trắng';
+  const rawRarity = String(item.rarity || '').trim();
+  if (rawRarity && rawRarity !== 'Trắng' && RARITY_COLORS[rawRarity]) return rawRarity;
+
+  const tier = String(item.tier || '').toLowerCase();
+  const name = String(item.name || '').toLowerCase();
+
+  if (tier.includes('hỗn độn') || tier.includes('thần khí') || tier.includes('sáng thế') || name.includes('hỗn độn') || name.includes('chén thánh') || name.includes('behelit') || name.includes('tụ bảo bồn')) {
+    return 'Đỏ';
+  }
+  if (tier.includes('tiên khí') || tier.includes('thông thiên linh bảo') || tier.includes('thánh khí') || tier.includes('thần giai') || name.includes('tiên khí')) {
+    return 'Cam';
+  }
+  if (tier.includes('pháp bảo') || tier.includes('cổ bảo') || tier.includes('chân khí') || tier.includes('tiên giai') || tier.includes('yêu hoàng')) {
+    return 'Vàng';
+  }
+  if (tier.includes('bảo khí') || tier.includes('linh khí') || tier.includes('địa giai') || tier.includes('huyền giai') || tier.includes('linh đan') || tier.includes('yêu vương')) {
+    return 'Tím';
+  }
+  if (tier.includes('pháp khí') || tier.includes('yêu khí') || tier.includes('linh giai') || tier.includes('yêu thú')) {
+    return 'Xanh lam';
+  }
+  if (tier.includes('tinh lương') || tier.includes('hạ phẩm') || tier.includes('tài nguyên') || name.includes('linh thảo') || name.includes('thảo dược')) {
+    return 'Xanh lá';
+  }
+  if (/(rách|mẻ|gãy|cùn|rỉ sét|phế phẩm|hỏng|vỡ)/.test(name) || tier.includes('phế phẩm')) {
+    return 'Xám';
+  }
+  return rawRarity || 'Trắng';
+};
+
+const getItemColor = (item: any) => {
+  const r = resolveItemRarity(item);
+  return RARITY_COLORS[r] || RARITY_COLORS['Trắng'];
+};
+
+const getItemTypeIcon = (item: any, size = 14, className = '') => {
+  if (!item) return <Package size={size} className={className}/>;
+  if (item.type === 'sealed_spatial') return <Lock size={size} className="text-orange-400 shrink-0"/>;
+  if (['spatial', 'soul_spatial'].includes(item.type)) return <Package size={size} className={className}/>;
+  if (item.type === 'equip') {
+    const n = String(item.name || '').toLowerCase();
+    if (/(giáp|y|bào|khải|sam|đai|mũ|nón|ủng|hài|ngoa)/.test(n)) return <Shield size={size} className={className}/>;
+    return <Swords size={size} className={className}/>;
+  }
+  if (item.type === 'food') return <FlaskRound size={size} className={className}/>;
+  if (item.type === 'demon_soul') return <Flame size={size} className={className}/>;
+  if (item.type === 'mount') return <PawPrint size={size} className={className}/>;
+  if (item.type === 'misc') {
+    const n = String(item.name || '').toLowerCase();
+    if (/(ngọc giản|bí kíp|tàn quyển|thư|phù)/.test(n)) return <ScrollText size={size} className={className}/>;
+    if (/(quặng|khoáng|ngọc|tinh thạch|châu|thạch)/.test(n)) return <Gem size={size} className={className}/>;
+    return <Sparkles size={size} className={className}/>;
+  }
+  return <Package size={size} className={className}/>;
+};
+
+

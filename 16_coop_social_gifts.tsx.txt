@@ -1,0 +1,188 @@
+ const [viewingPlayerInfo, setViewingPlayerInfo] = useState(null); 
+  const [viewingSkill, setViewingSkill] = useState(null);
+  const [isRefreshingCoop, setIsRefreshingCoop] = useState(false);
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState(0); // V5.29: Tự động làm mới Liên Giới Ký
+  
+    // V4.96 & V5.18: Biến trạng thái cho Liên Giới (Co-op)
+  const [coopTab, setCoopTab] = useState('select'); // select, host, join, lobby
+  const [coopConfig, setCoopConfig] = useState({ maxPlayers: 4, customCode: '', password: '' }); 
+  const [coopJoinCode, setCoopJoinCode] = useState('');
+  const [coopNickname, setCoopNickname] = useState(localStorage.getItem('tuTienCoopNickname') || ''); 
+  const [currentCoopRoom, setCurrentCoopRoom] = useState(null);
+  // V1.77 CO-OP LIÊN GIỚI (Góp ý Hào Vip Pro)
+  const [coopDeathModal, setCoopDeathModal] = useState(null);
+  const [coopGiftModal, setCoopGiftModal] = useState(null);
+  const [selectedGiftItem, setSelectedGiftItem] = useState(null);
+  const [giftQuantity, setGiftQuantity] = useState(1);
+  const [isGameOverDismissed, setIsGameOverDismissed] = useState(false);
+  
+  // V5.18: Quản lý danh sách Phòng của bản thân
+  const [myCoopRooms, setMyCoopRooms] = useState(() => {
+      try { return JSON.parse(localStorage.getItem('tuTienMyRooms')) || []; } catch(e) { return []; }
+  });
+  const addMyRoom = (id) => {
+      setMyCoopRooms(prev => {
+          if (prev.includes(id)) return prev;
+          const next = [id, ...prev];
+          localStorage.setItem('tuTienMyRooms', JSON.stringify(next));
+          return next;
+      });
+  };
+  const removeMyRoom = (id) => {
+      setMyCoopRooms(prev => {
+          const next = prev.filter(x => x !== id);
+          localStorage.setItem('tuTienMyRooms', JSON.stringify(next));
+          return next;
+      });
+  };
+
+  // ================= V1.77: CO-OP LIÊN GIỚI HANDLERS (Góp ý Hào Vip Pro) =================
+  const handleCoopRebirth = () => {
+      const hasLuanHoiChiTon = (gameState.traits || []).some(t => t && (t.name === 'Luân Hồi Chí Tôn' || t.name === 'Luân Hồi Chi Tôn' || t.id === 702));
+      const roll = Math.random();
+      const retainSuccess = hasLuanHoiChiTon && roll < 0.70;
+
+      setGameState(prev => {
+          const currentLevel = prev.cultivationLevel || 'Phàm Nhân';
+          const curMaxHp = 100 * (getStageConfig(retainSuccess ? currentLevel : 'Phàm Nhân').statMult || 1);
+          const curMaxMp = 50 * (getStageConfig(retainSuccess ? currentLevel : 'Phàm Nhân').statMult || 1);
+          
+          const newLogs = [...(prev.deathHistory || []), {
+              time: `Năm thứ ${Math.floor(prev.age || 18)}`,
+              reason: prev.deathReason || 'Vẫn lạc nơi chiến trường liên giới',
+              surviveReason: retainSuccess ? `[Luân Hồi Chí Tôn] 70% đại thành công! Giữ nguyên cảnh giới [${currentLevel}]` : 'Luân hồi chuyển sinh về Phàm Nhân'
+          }];
+
+          return {
+              ...prev,
+              health: curMaxHp,
+              spiritualEnergy: curMaxMp,
+              stamina: 100,
+              cultivationLevel: retainSuccess ? currentLevel : 'Phàm Nhân',
+              minorLevel: retainSuccess ? (prev.minorLevel || 1) : 1,
+              cultivationProgress: retainSuccess ? (prev.cultivationProgress || 0) : 0,
+              rebirthCount: (Number(prev.rebirthCount) || 0) + 1,
+              deathHistory: newLogs,
+              deathReason: null
+          };
+      });
+
+      setCoopDeathModal(null);
+      setIsGameOverDismissed(false);
+      if (retainSuccess) {
+          showAlert(`🎉 [LUÂN HỒI CHÍ TÔN ĐẠI ĐẠO]\nThần thông Luân Hồi bộc phát tỷ lệ 70% thành công mỹ mãn!\nNgươi giữ nguyên trọn vẹn cảnh giới [${gameState.cultivationLevel}] và toàn bộ thực lực, phá kén trùng sinh!`);
+      } else {
+          showAlert(`🌀 [LUÂN HỒI CHUYỂN SINH]\nĐạo thể đã hoàn sinh, bắt đầu lại hành trình từ cảnh giới Phàm Nhân!`);
+      }
+  };
+
+  const handleCoopPermanentDeath = async () => {
+      if (!window.confirm("CẢNH BÁO: Ngươi có chắc chắn muốn VĨNH VIỄN CHẾT, tan biến khỏi Liên Giới và xóa bỏ nhân vật này không?")) return;
+      
+      if (currentCoopRoom && user) {
+          try {
+              const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+              const snap = await getDoc(roomRef);
+              if (snap.exists()) {
+                  const rData = snap.data();
+                  const cleanPlayers = (rData.players || []).filter(p => p.uid !== user?.uid);
+                  const deathLog = {
+                      uid: user?.uid,
+                      name: gameState.name,
+                      location: gameState.currentLocation || 'Liên Giới',
+                      text: `[Vẫn Lạc Vĩnh Hằng] Tiên hữu [${gameState.name}] đã tan biến khỏi Liên Giới, hồn phi phách tán không trở lại!`,
+                      chapter: gameState.chapterCount || 1,
+                      timestamp: Date.now()
+                  };
+                  await setDoc(roomRef, { players: cleanPlayers, worldLog: [...(rData.worldLog || []), deathLog] }, { merge: true });
+              }
+          } catch(e) {}
+      }
+      
+      setCoopDeathModal(null);
+      setCurrentCoopRoom(null);
+      setCoopTab('select');
+      setIsGameOverDismissed(false);
+      showAlert("Ngươi đã tan biến khỏi Liên Giới! Hãy khởi tạo sinh mệnh mới.");
+  };
+
+  const handleOpenCoopGift = (playerNpc) => {
+      const targetPlayer = currentCoopRoom?.players?.find(p => p.uid === playerNpc.id.replace('player_', '') || p.characterName === playerNpc.name || p.name === playerNpc.name);
+      if (!targetPlayer) {
+          return showAlert("Không tìm thấy thông tin Tiên Hữu trong phòng!");
+      }
+      setCoopGiftModal({ player: targetPlayer, npc: playerNpc });
+  };
+
+  const handleSendCoopGift = async () => {
+      if (!coopGiftModal || !selectedGiftItem || !currentCoopRoom || !user) return;
+      const targetPlayer = coopGiftModal.player;
+      const qty = Math.max(1, Math.min(Number(giftQuantity) || 1, selectedGiftItem.quantity || 1));
+      
+      setGameState(prev => {
+          const newInv = [...prev.inventory];
+          const itIdx = newInv.findIndex(i => i.name === selectedGiftItem.name && (i.containerId === selectedGiftItem.containerId || !selectedGiftItem.containerId));
+          if (itIdx >= 0) {
+              if (newInv[itIdx].quantity <= qty) {
+                  newInv.splice(itIdx, 1);
+              } else {
+                  newInv[itIdx] = { ...newInv[itIdx], quantity: newInv[itIdx].quantity - qty };
+              }
+          }
+          return { ...prev, inventory: newInv };
+      });
+
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+          const snap = await getDoc(roomRef);
+          if (snap.exists()) {
+              const rData = snap.data();
+              const transfers = rData.itemTransfers || [];
+              const newTransfer = {
+                  id: `tf_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                  fromUid: user?.uid,
+                  toUid: targetPlayer.uid,
+                  fromName: gameState.name,
+                  toName: targetPlayer.characterName || targetPlayer.name,
+                  item: { ...selectedGiftItem, quantity: qty },
+                  claimed: false,
+                  timestamp: Date.now()
+              };
+              const shareLog = {
+                  uid: user?.uid,
+                  name: gameState.name,
+                  location: gameState.currentLocation || 'Liên Giới',
+                  text: `[Liên Giới Tương Trợ] Đã trao tặng bảo vật [${selectedGiftItem.name}] x${qty} cho đạo hữu [${targetPlayer.characterName || targetPlayer.name}]!`,
+                  chapter: gameState.chapterCount || 1,
+                  timestamp: Date.now()
+              };
+              await setDoc(roomRef, { 
+                  itemTransfers: [...transfers, newTransfer],
+                  worldLog: [...(rData.worldLog || []), shareLog]
+              }, { merge: true });
+          }
+      } catch(e) {
+          console.error("Lỗi gửi quà:", e);
+      }
+
+      showAlert(`Đã trao tặng thành công [${selectedGiftItem.name}] x${qty} cho đạo hữu ${targetPlayer.characterName || targetPlayer.name}!`);
+      setCoopGiftModal(null);
+      setSelectedGiftItem(null);
+  };
+
+  const handleChallengeCoopNpc = (playerNpc) => {
+      if (gameState.coopSyncEnabled === false) {
+          return showAlert("Chế độ Tương Tác của ngươi đang TẮT. Hãy bật lại để tham gia tỉ thí/tương tác!");
+      }
+      const targetPlayer = currentCoopRoom?.players?.find(p => p.uid === playerNpc.id.replace('player_', '') || p.characterName === playerNpc.name || p.name === playerNpc.name);
+      if (!targetPlayer) return showAlert("Không tìm thấy Tiên Hữu!");
+      if (targetPlayer.interactionEnabled === false) {
+          return showAlert(`Tiên hữu ${playerNpc.name} đang ở trạng thái Độc Tu Ẩn Thân, không thể PK!`);
+      }
+      
+      sendPvpRequest(targetPlayer.uid);
+      showAlert(`Đã phát chiến thư PK tới đạo hữu ${playerNpc.name}! Nếu đối phương tiếp nhận sẽ kích hoạt tỉ thí.`);
+  };
+  
+  // V5.6: Đã loại bỏ quản lý API Key thủ công
+

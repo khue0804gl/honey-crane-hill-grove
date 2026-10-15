@@ -1,0 +1,1039 @@
+// =====================================================================================
+// V1.19: NPC SỰ KIỆN (EVENT NPC) — TRIỂN KHAI PHẦN V & VII.2 CỦA tutien2.txt
+// Ba tầng NPC: (A) NPC cố định theo địa danh (fixedNpcIds) — luôn thường trú.
+//              (B) NPC sự kiện (EVENT_NPCS) — CHỈ xuất hiện trong cửa sổ thời gian activeWindow.
+//              (C) NPC ngẫu sinh — do Thiên Đạo dệt theo ngữ cảnh, không lưu cố định.
+// Toàn bộ trường đều optional; EVENT_NPCS rỗng cũng không đổi hành vi của save cũ.
+// =====================================================================================
+export interface EventNpc {
+  id: string;
+  name: string;
+  title?: string;
+  level: string;
+  role: string;
+  alignment: string;
+  attachEventId: string;
+  spawnLocationId: string;
+  activeWindow: { fromYear: number; toYear: number };
+  fate: 'canon_dead' | 'canon_survive' | 'divergence_pivot' | 'optional';
+  hostility: number;
+  affinity: number;
+  state: string;
+  historySummary: string;
+  secret?: string;
+  rewardIfHelped?: string;
+  consequenceIfIgnored?: string;
+}
+
+export const EVENT_NPCS: Record<string, EventNpc> = {
+  // ================= ĐÔNG THẮNG THẦN CHÂU =================
+  enpc_dong_bach_y_su_gia: {
+    id: 'enpc_dong_bach_y_su_gia', name: 'Sứ Giả Bạch Y', title: 'Người Dẫn Lễ Tuyển Đồ',
+    level: 'Trúc Cơ Kỳ', role: 'Người dẫn lễ tuyển đồ', alignment: 'Chính đạo',
+    attachEventId: 'canon_tv_1', spawnLocationId: 'dong_thang_thanh_van_tong',
+    activeWindow: { fromYear: 1, toYear: 3 }, fate: 'optional', hostility: 0, affinity: 30,
+    state: 'Đứng giữa quảng trường Kiếm Trủng, tay cầm danh sách ứng thí, ánh mắt dò xét từng thân ảnh.',
+    historySummary: 'Đệ tử ngoại môn được cử chủ trì lễ tuyển chọn, hành sự kín đáo, ít ai để ý.',
+    secret: 'Thực chất là mật thám của Hoàng Triều Đại Càn cài vào tông môn, âm thầm ghi chép danh sách thiên tài.',
+    rewardIfHelped: 'Gợi ý luật thi tuyển và thứ tự khảo hạch, cộng 10 khí vận khi ứng thí.',
+    consequenceIfIgnored: 'Không ảnh hưởng lớn, nhưng hắn sẽ tái xuất trong sự kiện canon_cl_7 với tư cách mật sứ.'
+  },
+  enpc_dong_khat_cai_mu: {
+    id: 'enpc_dong_khat_cai_mu', name: 'Lão Khất Cái Mù', title: 'Kẻ Giữ Cổ Tịch',
+    level: 'Ẩn tu (thực: Nguyên Anh Kỳ)', role: 'Người nắm giữ cổ tịch phong thủy', alignment: 'Trung lập',
+    attachEventId: 'canon_tv_3', spawnLocationId: 'dong_thang_hao_nhien_hoc_vien',
+    activeWindow: { fromYear: 5, toYear: 8 }, fate: 'divergence_pivot', hostility: 0, affinity: 15,
+    state: 'Ngồi bệt trước cổng học viện, tay run run bốc một nắm gạo, mắt mù nhưng như nhìn thấu lòng người.',
+    historySummary: 'Lão ăn mày sống nhờ cổng Nho Tông mấy chục năm, không ai ngờ là ẩn tu.',
+    secret: 'Chính lão đã kịp cứu một trang cổ tịch phong thủy trước khi Khuê Văn Các bốc cháy.',
+    rewardIfHelped: 'Mở tuyến điều tra tà tu trộm cổ tịch, hé lộ manh mối Khuê Văn Các bị đốt.',
+    consequenceIfIgnored: 'Cổ tịch thất lạc vĩnh viễn, tin đồn bí cảnh chậm 5 năm và tà tu ung dung rút lui.'
+  },
+  enpc_dong_thuong_nhan_doc_nhan: {
+    id: 'enpc_dong_thuong_nhan_doc_nhan', name: 'Thương Nhân Độc Nhãn', title: 'Người Giữ Chìa Khóa Mật Thất',
+    level: 'Luyện Khí Kỳ', role: 'Thương nhân phường thị', alignment: 'Trung lập',
+    attachEventId: 'canon_tv_5', spawnLocationId: 'dong_thang_thien_nam_phuong_thi',
+    activeWindow: { fromYear: 15, toYear: 17 }, fate: 'canon_dead', hostility: 0, affinity: 25,
+    state: 'Gom từng món hàng vào quầy, con mắt còn lại liếc xa xăm như đã đoán trước tai họa.',
+    historySummary: 'Buôn bán nhỏ nhưng thân thiết với chủ Vạn Bảo Thương Hội, giữ chìa khóa mật thất.',
+    secret: 'Chìa khóa mật thất Vạn Bảo Thương Hội nằm trong tay áo hắn, chưa từng nói với ai.',
+    rewardIfHelped: 'Mở kho bí mật của Thương Hội, đổi cục diện tài nguyên cả Đông Vực.',
+    consequenceIfIgnored: 'Hắn chết trong vụ tập kích, chìa khóa mất theo, Thương Hội suy sụp một thời gian dài.'
+  },
+  // ================= TÂY NGƯU HẠ CHÂU =================
+  enpc_tay_hoa_tu_dien: {
+    id: 'enpc_tay_hoa_tu_dien', name: 'Hỏa Tu Điên', title: 'Kẻ Nửa Bản Đồ',
+    level: 'Kim Đan Kỳ', role: 'Kẻ phát điên vì tham hỏa', alignment: 'Ma đạo',
+    attachEventId: 'canon_tv_4', spawnLocationId: 'tay_nguu_hoang_sa_dai_mac',
+    activeWindow: { fromYear: 9, toYear: 11 }, fate: 'divergence_pivot', hostility: 60, affinity: 5,
+    state: 'Lang thang giữa bão cát, da cháy sém, miệng lẩm bẩm những câu chú lửa không đầu không cuối.',
+    historySummary: 'Từng là đệ tử ưu tú của một hỏa tu môn phái, sa ngã vì mưu đoạt dị hỏa cổ.',
+    secret: 'Giữ nửa bản đồ bí cảnh Xích Hỏa trong ký ức méo mó, chỉ lộ khi Thần Thức NVC áp đảo.',
+    rewardIfHelped: 'Chỉ ra nửa bản đồ bí cảnh, giúp NVC tới hỏa trì trước các phe lớn.',
+    consequenceIfIgnored: 'Hắn tự thiêu trong bão cát, nửa bản đồ vĩnh viễn mất, bí cảnh bị Tự Do Sa Bang độc chiếm.'
+  },
+  enpc_tay_dao_mo_nhan: {
+    id: 'enpc_tay_dao_mo_nhan', name: 'Đạo Mộ Nhân', title: 'Kẻ Cạy Mộ Cổ',
+    level: 'Trúc Cơ Kỳ', role: 'Kẻ cạy mộ cổ kiếm ăn', alignment: 'Trung lập',
+    attachEventId: 'canon_tv_4', spawnLocationId: 'tay_nguu_hoang_sa_dai_mac',
+    activeWindow: { fromYear: 9, toYear: 11 }, fate: 'optional', hostility: 10, affinity: 20,
+    state: 'Ngồi xổm bên miệng hố cát, xẻng gỉ trong tay, người đầy bụi và mùi tử khí.',
+    historySummary: 'Sống nhờ cạy mộ cổ bán minh khí, thuộc lòng vô số cạm bẫy cát lún và mộ chú.',
+    secret: 'Biết đường đi an toàn qua vùng cát lún của bí cảnh nhưng không dám tự vào.',
+    rewardIfHelped: 'Chỉ đường tránh cạm bẫy cát lún, tăng mạnh cơ hội sống sót trong bí cảnh.',
+    consequenceIfIgnored: 'Hắn bỏ đi cùng đoàn lữ hành khác, NVC phải tự mò bẫy giữa sa mạc.'
+  },
+  // ================= NAM THIỂM BỘ CHÂU =================
+  enpc_nam_co_be_than_moc: {
+    id: 'enpc_nam_co_be_than_moc', name: 'Cô Bé Thần Mộc', title: 'Hậu Duệ Thần Mộc',
+    level: 'Phàm nhân', role: 'Hậu duệ huyết mạch Thần Mộc', alignment: 'Phàm nhân',
+    attachEventId: 'canon_tv_2', spawnLocationId: 'nam_thiem_than_moc_thon',
+    activeWindow: { fromYear: 2, toYear: 4 }, fate: 'divergence_pivot', hostility: 0, affinity: 20,
+    state: 'Đang chơi đùa dưới gốc Thần Mộc, không hề biết tai họa sắp ập tới.',
+    historySummary: 'Đứa trẻ mồ côi được thôn nhận nuôi, mang trong người huyết mạch Thần Mộc ngàn năm.',
+    secret: 'Huyết mạch của cô là chìa khóa tái sinh Thần Mộc sau thú triều.',
+    rewardIfHelped: 'Hạt giống Thần Mộc non (vật phẩm trồng trường kỳ, sinh linh khí theo thời gian).',
+    consequenceIfIgnored: 'Cô bé chết trong thú triều, huyết mạch Thần Mộc tuyệt diệt vĩnh viễn.'
+  },
+  enpc_nam_co_su_cam: {
+    id: 'enpc_nam_co_su_cam', name: 'Cổ Sư Câm', title: 'Người Giữ Phương Thuốc Giải Độc',
+    level: 'Nguyên Anh Kỳ', role: 'Cổ sư ẩn cư', alignment: 'Trung lập',
+    attachEventId: 'canon_ht_3', spawnLocationId: 'nam_thiem_van_doc_u_coc',
+    activeWindow: { fromYear: 7, toYear: 10 }, fate: 'canon_dead', hostility: 20, affinity: 10,
+    state: 'Ngồi im như tượng bên chum cổ trùng, miệng câm nhưng tay thoăn thoắt pha thuốc.',
+    historySummary: 'Cổ sư lỗi lạc một thời, tự nguyện câm để không tiết lộ bí mật cổ thuật.',
+    secret: 'Giữ phương thuốc giải độc duy nhất cho dịch bệnh cổ độc lan khắp Nam Cương.',
+    rewardIfHelped: 'Phương thuốc giải cổ độc, cứu được dân làng và mở tuyến y đạo Nam Cương.',
+    consequenceIfIgnored: 'Hắn chết trong hỗn chiến ma tu, phương thuốc thất truyền, dịch bệnh lan rộng.'
+  },
+  // ================= BẮC CÂU LƯ CHÂU =================
+  enpc_bac_tu_binh_phan_loan: {
+    id: 'enpc_bac_tu_binh_phan_loan', name: 'Tù Binh Phản Loạn', title: 'Kẻ Biết Mật Đạo',
+    level: 'Trúc Cơ Kỳ', role: 'Tù binh chờ bị luyện thi', alignment: 'Trung lập',
+    attachEventId: 'canon_um_1', spawnLocationId: 'bac_cau_u_minh_thi_am_tong',
+    activeWindow: { fromYear: 1, toYear: 3 }, fate: 'divergence_pivot', hostility: 5, affinity: 15,
+    state: 'Bị trói trong lao đá, thân thể tàn tạ, mắt vẫn ánh lên vẻ cầu sinh mãnh liệt.',
+    historySummary: 'Tu sĩ bị Thi Âm Tông bắt sống để làm nguyên liệu luyện thi, từng thuộc đường mật đạo.',
+    secret: 'Biết đường mật đạo thông vào lò luyện vạn thi của Thi Âm Tông.',
+    rewardIfHelped: 'Lộ đường mật đạo, cho phép NVC đột nhập hoặc phá lò luyện thi.',
+    consequenceIfIgnored: 'Hắn bị luyện thành cổ thi khôi lỗi, mật đạo bị bịt lại vĩnh viễn.'
+  },
+  enpc_bac_nu_kiem_bang_cot: {
+    id: 'enpc_bac_nu_kiem_bang_cot', name: 'Nữ Kiếm Tu Băng Cốt', title: 'Phản Đồ Băng Cốt Cung',
+    level: 'Kim Đan Kỳ', role: 'Kiếm tu ẩn thân', alignment: 'Chính đạo',
+    attachEventId: 'canon_ht_2', spawnLocationId: 'bac_cau_bang_phach_tuyet_linh',
+    activeWindow: { fromYear: 3, toYear: 5 }, fate: 'canon_survive', hostility: 0, affinity: 25,
+    state: 'Áo trắng phủ sương, kiếm cắm trước mặt, nàng đứng im trong bão tuyết như một pho tượng băng.',
+    historySummary: 'Từng là đệ tử tinh anh Băng Cốt Cung, phản bội vì không chấp nhận tế người.',
+    secret: 'Biết điểm yếu của hàn trận Băng Cốt Cung và vị trí hàn thú đang ngủ say.',
+    rewardIfHelped: 'Chỉ điểm yếu hàn trận, giúp NVC sống sót hoặc phá thế băng triều.',
+    consequenceIfIgnored: 'Nàng lặng lẽ rời đi cùng dòng người tị nạn, hàn trận vẫn nguyên vẹn và băng triều càn quét.'
+  },
+  // ================= TRUNG CỰC HOÀNG TRIỀU =================
+  enpc_trung_quan_chiem_tinh_tre: {
+    id: 'enpc_trung_quan_chiem_tinh_tre', name: 'Quan Chiêm Tinh Trẻ', title: 'Người Thấy Sao Lạ',
+    level: 'Luyện Khí Kỳ', role: 'Quan chiêm tinh Khâm Thiên Giám', alignment: 'Chính đạo',
+    attachEventId: 'canon_cl_1', spawnLocationId: 'trung_cuc_kham_thien_giam',
+    activeWindow: { fromYear: 1, toYear: 3 }, fate: 'optional', hostility: 0, affinity: 30,
+    state: 'Cúi đầu trên bàn tinh đồ, tay ghi chép run rẩy, mắt đỏ hoe vì thức trắng nhiều đêm.',
+    historySummary: 'Quan trẻ thông minh bậc nhất Khâm Thiên Giám, thường đưa ra tiên đoán khác thường.',
+    secret: 'Đã thấy trước một ngôi sao lạ không có trong thiên văn cổ tịch, ứng với dị số ngoài mệnh.',
+    rewardIfHelped: 'Hé lộ quốc vận và danh sách các biến cố sắp tới của triều đình, tăng tri thức thiên cơ.',
+    consequenceIfIgnored: 'Hắn bị cách chức vì tấu lên điều vô căn cứ, tri thức thiên cơ thất lạc theo hắn.'
+  },
+  enpc_trung_thai_giam_truyen_chi: {
+    id: 'enpc_trung_thai_giam_truyen_chi', name: 'Thái Giám Truyền Chỉ', title: 'Sứ Giả Thánh Chỉ',
+    level: 'Phàm nhân', role: 'Thái giám tuyên chỉ', alignment: 'Trung lập',
+    attachEventId: 'canon_tv_7', spawnLocationId: 'trung_cuc_can_long_kinh_do',
+    activeWindow: { fromYear: 31, toYear: 33 }, fate: 'optional', hostility: 0, affinity: 10,
+    state: 'Cầm hộp thánh chỉ trên tay, giọng the thé đọc từng chữ, mắt không dám nhìn ai.',
+    historySummary: 'Thái giám thân tín của Càn Long Hoàng Đế, chuyên đi tuyên chỉ gây khó cho tông môn.',
+    secret: 'Bản thân chỉ là người đưa thư, nội dung chỉ là do Khâm Thiên Giám và quốc sư soạn.',
+    rewardIfHelped: 'Có thể mua chuộc để tráo nội dung chiếu chỉ, đổi cục diện chính trị (rủi ro cao).',
+    consequenceIfIgnored: 'Thánh chỉ ban xuống nguyên vẹn, tông môn phải đối mặt áp lực triều đình.'
+  },
+  enpc_trung_tu_tu_vo_danh: {
+    id: 'enpc_trung_tu_tu_vo_danh', name: 'Tử Tù Vô Danh', title: 'Kẻ Bị Phong Ấn Nguyên Anh',
+    level: 'Nguyên Anh Kỳ (bị phong ấn)', role: 'Tử tù nguy hiểm bậc nhất Thiên Lao', alignment: 'Không rõ',
+    attachEventId: 'canon_cl_4', spawnLocationId: 'trung_cuc_thien_lao_tu_nguc',
+    activeWindow: { fromYear: 13, toYear: 16 }, fate: 'divergence_pivot', hostility: 70, affinity: 0,
+    state: 'Ngồi xếp bằng trong ngục tối, xiềng xích phù văn sáng mờ, hơi thở vẫn đều đặn đáng sợ.',
+    historySummary: 'Không ai biết lai lịch, bị giam dưới Thiên Lao đã hàng trăm năm, hồ sơ bị triều đình niêm phong.',
+    secret: 'Là tàn đảng của một đại năng cổ triều bị diệt, mang theo bí mật về long mạch kinh đô.',
+    rewardIfHelped: 'Nếu thả hắn sẽ mở ra đại loạn kinh thành nhưng lộ bí mật long mạch; nếu giết hắn sẽ nhận cơ duyên công pháp.',
+    consequenceIfIgnored: 'Hắn tự phá phong ấn nhân lúc ngục bạo động, kinh thành chìm trong loạn lạc.'
+  },
+  // ================= BOSS-TIER (gắn nhiều timeline) =================
+  enpc_boss_co_ma_ton: {
+    id: 'enpc_boss_co_ma_ton', name: 'Ma Đầu Viễn Cổ', title: 'Tàn Hồn Phong Ấn',
+    level: 'Đại Thừa Kỳ (suy yếu)', role: 'Đại ma đầu trong Cổ Ma Tháp', alignment: 'Ma đạo',
+    attachEventId: 'canon_tv_8', spawnLocationId: 'tay_nguu_co_ma_thap',
+    activeWindow: { fromYear: 47, toYear: 50 }, fate: 'canon_survive', hostility: 90, affinity: 0,
+    state: 'Một luồng khói đen cuộn trong lòng tháp, thỉnh thoảng ngưng thành gương mặt người gào thét.',
+    historySummary: 'Đại ma đầu thời viễn cổ bị phong ấn vào Cổ Ma Tháp, phù văn mục nát dần theo năm tháng.',
+    secret: 'Có thể bị lợi dụng để hút tà khí, nhưng nếu thoát ra sẽ biến Tây Ngưu thành ma địa.',
+    rewardIfHelped: 'Không có cơ duyên cho kẻ yếu; nếu dùng trận pháp đúng cách có thể trích xuất tà khí tinh thuần.',
+    consequenceIfIgnored: 'Phong ấn rạn nứt, hắn thoát ra từng phần, bão cát ma đạo nuốt T��y Ngưu.'
+  },
+  enpc_boss_doc_dan_quy_vuong: {
+    id: 'enpc_boss_doc_dan_quy_vuong', name: 'Độc Đan Quỷ Vương', title: 'Cặn Bã Phế Đan Hóa Hình',
+    level: 'Hợp Thể Kỳ', role: 'Thảm họa độc đan', alignment: 'Ma đạo',
+    attachEventId: 'canon_tl_7', spawnLocationId: 'nam_thiem_van_doc_u_coc',
+    activeWindow: { fromYear: 49, toYear: 52 }, fate: 'canon_survive', hostility: 95, affinity: 0,
+    state: 'Một khối mây độc ngũ sắc hình người, mỗi bước đi để lại vũng cặn đan ăn mòn đá.',
+    historySummary: 'Ngàn năm độc dược và phế đan tích tụ dưới đầm lầy, cộng hưởng thành sinh linh độc ác.',
+    secret: 'Trong cơ thể nó có Dị Hỏa Độc Chủng, kẻ luyện hóa được sẽ tiến xa trên đường độc đạo.',
+    rewardIfHelped: 'Không thể giúp, chỉ có thể luyện hóa hoặc phong ấn để đoạt Độc Chủng.',
+    consequenceIfIgnored: 'Mây độc bao trùm Nam Thiểm Bộ Châu, phàm nhân chết hàng vạn, dịch bệnh lan khắp Cửu Châu.'
+  },
+  enpc_boss_huyet_hai: {
+    id: 'enpc_boss_huyet_hai', name: 'Huyết Hải Lão Tổ (tàn hồn)', title: 'Ma Thần Phục Sinh',
+    level: 'Đại Thừa Kỳ (tàn hồn)', role: 'Tàn hồn huyết hải', alignment: 'Ma đạo',
+    attachEventId: 'canon_ht_7', spawnLocationId: 'bac_cau_huyet_hai_ma_uyen',
+    activeWindow: { fromYear: 49, toYear: 52 }, fate: 'canon_survive', hostility: 100, affinity: 0,
+    state: 'Một bóng người đỏ sẫm nổi trên mặt biển máu, mỗi lần hít thở khiến huyết hải dâng cao.',
+    historySummary: 'Chủ nhân cũ của Huyết Hải Ma Uyên, bị chém chết nhưng tàn hồn chưa tiêu tán.',
+    secret: 'Tàn hồn cần oán hồn vạn kiếp để phục sinh hoàn toàn, nếu bị ngăn sẽ chỉ hồi sinh một phần.',
+    rewardIfHelped: 'Không có; kẻ luyện huyết đạo có thể đoạt Huyết Hải Tinh Tủy từ tàn hồn.',
+    consequenceIfIgnored: 'Hắn phục sinh, chấn động toàn vi diện, chính đạo Bắc Vực sụp đổ.'
+  },
+  enpc_boss_cu_thu: {
+    id: 'enpc_boss_cu_thu', name: 'Cự Thú Ngủ Say', title: 'Tồn Tại Viễn Cổ',
+    level: 'Chưa Xác Định', role: 'Cự thú ngủ vùi dưới lòng đất', alignment: 'Trung lập',
+    attachEventId: 'canon_bh_3', spawnLocationId: 'nam_thiem_than_moc_thon',
+    activeWindow: { fromYear: 8, toYear: 11 }, fate: 'optional', hostility: 50, affinity: 0,
+    state: 'Không ai thấy được toàn thân nó, chỉ thấy mặt đất phập phồng như có mạch máu khổng lồ dưới chân.',
+    historySummary: 'Cự thú thời viễn cổ ngủ say ngàn năm dưới gốc Thần Mộc, rễ cây chính là xiềng xích của nó.',
+    secret: 'Thần Mộc hấp thụ linh khí để duy trì giấc ngủ của nó; nếu Thần Mộc chết, nó sẽ cựa mình.',
+    rewardIfHelped: 'Không thể giúp, chỉ có thể trấn áp bằng trận pháp hoặc đánh thức để mượn sức.',
+    consequenceIfIgnored: 'Cự thú tỉnh dậy, địa mạch Nam Thiểm sụp đổ, hàng vạn người mất nhà.'
+  }
+};
+
+// ═══════════════════════ VẠN LINH KÝ — SỔ BỘ THƯỜNG TRÚ NHÂN CỐ ĐỊNH CỦA CỬU CHÂU & SỚI ĐẤU ═══════════════════════
+// Thế giới định sẵn (Predetermined World). Các nhân vật thường trú đã CÓ SẴN từ trước, đang sống và vận hành
+// độc lập với người chơi. Cảnh giới thật, chỉ số thật (Công/Thủ/Tốc/Máu), khí vận, hoàn cảnh và bí mật cố định.
+// TUYỆT ĐỐI KHÔNG PROCEDURAL RANDOM, TUYỆT ĐỐI KHÔNG AUTO-SCALE CÂN BẰNG NVC!
+export const VAN_LINH_KY: Record<string, any> = {
+  // ── V3.8 ĐẶC QUYỀN CHỦ TOẠ THÀNH KHÔN: LONG THẦN ORSTED (CỐ VẤN TỐI CAO KIRIN TOR) ──
+  npc_long_than_orsted: {
+    ten: "Orsted",
+    bietDanh: "Long Thần Orsted",
+    canh: "Siêu Thoát Cảnh (Cấp 21)",
+    hp: 999999999, mp: 999999999, atk: 99999999, def: 99999999, spd: 9999999, spp: 99999999,
+    khiVan: ["Viễn Cổ Cự Long", "Tiên Thiên Đại Yêu", "Vạn Pháp Bất Xâm", "Bàn Cổ Huyết Mạch", "Ngôn Xuất Pháp Tùy", "Đại Khí Vận", "Vạn Cổ Lôi Thần Mộc Khu", "Hỗn Độn Thái Cực Thần Thể", "Chí Tôn Vô Cực Mệnh", "U Minh Sinh Âm Hồn", "Hỗn Độn Diệt Thế Ma Căn", "Tổ Hỏa Loạn Nguyên Căn", "Quy Khư Vĩnh Hằng Băng Tâm", "Bồ Đề Ma La Bất Hoại Thân", "Thời Không Mị Vực Ấn", "Chung Yên Điểm Kỳ Dị Thể"],
+    lyDoKV: "Thần Long Lão Tổ trấn thủ Tháp Pháp Sư Violet Citadel, Cố Vấn Tối Cao Hội Đồng Kirin Tor, bỏ khóa trần đạt Cấp 21 Siêu Thoát Cảnh, nắm giữ 100% sức mạnh Viễn Cổ Cự Long và Thần Thông Hỗn Độn Thần Kiếm - Vận Mệnh Tử Vong",
+    khatVong: "tiêu diệt Nhân Thần, phá vỡ vòng lặp thế giới",
+    thamKao: "Long Thần đời thứ 100",
+    biMat: "Nắm giữ 11 kỹ năng ẩn Chân Long viễn cổ và Hỗn Độn Thần Kiếm trảm thần diệt ma"
+  },
+  // ── ĐẠI BOSS DLC ÁC MỘNG & TRUY THẦN TỘC (ĐẶC QUYỀN CHỦ TOẠ THÀNH KHÔN) ──
+  npc_co_tran_sa: {
+    ten: "Cổ Trần Sa",
+    bietDanh: "Thái Sơ Vô Long Chí Thánh Thiên Tôn",
+    canh: "Siêu Thoát Cảnh (Cấp 21)",
+    hp: 999999999, mp: 999999999, atk: 99999999, def: 99999999, spd: 9999999, spp: 99999999,
+    khiVan: ["Thái Sơ Vô Long", "Vạn Pháp Bất Xâm", "Bàn Cổ Huyết Mạch", "Ngôn Xuất Pháp Tùy", "Đại Khí Vận", "Vạn Cổ Lôi Thần Mộc Khu", "Hỗn Độn Thái Cực Thần Thể", "Chí Tôn Vô Cực Mệnh", "U Minh Sinh Âm Hồn", "Hỗn Độn Diệt Thế Ma Căn", "Tổ Hỏa Loạn Nguyên Căn", "Quy Khư Vĩnh Hằng Băng Tâm", "Bồ Đề Ma La Bất Hoại Thân", "Thời Không Mị Vực Ấn", "Chung Yên Điểm Kỳ Dị Thể"],
+    lyDoKV: "Thái Sơ Vô Long Chí Thánh Thiên Tôn (Vĩnh Hằng Đạo Tổ), bỏ khóa trần đạt Cấp 21 Siêu Thoát Cảnh, dung hợp 100% đạo quả Chư Thiên Chí Tôn, 4 Logic Bản Nguyên tối thượng (Tự Hữu Tự Sinh, Nghịch Đảo Nhân Quả, Vô Long Hóa Chúng Sinh, Tuyệt Đối Vô Địch)",
+    khatVong: "duy trì trật tự vạn giới, cứu rỗi chúng sinh, bảo hộ sinh tồn muôn loài",
+    thamKao: "Đại Boss DLC Ác Mộng - Vĩnh Hằng Đạo Tổ",
+    biMat: "Vận hành theo 4 nguyên lý: Tự Hữu Tự Sinh (Aseity), Nghịch Đảo Nhân Quả & Chân Ngụy, Vô Long Hóa Chúng Sinh, Tuyệt Đối Vô Địch"
+  },
+  npc_sailor_galaxia: {
+    ten: "Sailor Galaxia",
+    bietDanh: "Hư Vô Thần Hoàng - Thái Cực Ma Nữ Galaxia",
+    canh: "Siêu Thoát Cảnh (Cấp 21)",
+    hp: 999999999, mp: 999999999, atk: 99999999, def: 99999999, spd: 9999999, spp: 99999999,
+    khiVan: ["Hư Vô Thần Hoàng", "Vạn Ác Tội Thể", "Vô Ngã Vô Tướng Thể", "Thôn Kim Phệ Cốt Thể", "Đại Khí Vận", "Vạn Cổ Lôi Thần Mộc Khu", "Hỗn Độn Thái Cực Thần Thể", "Chí Tôn Vô Cực Mệnh", "U Minh Sinh Âm Hồn", "Hỗn Độn Diệt Thế Ma Căn", "Tổ Hỏa Loạn Nguyên Căn", "Quy Khư Vĩnh Hằng Băng Tâm", "Bồ Đề Ma La Bất Hoại Thân", "Thời Không Mị Vực Ấn", "Chung Yên Điểm Kỳ Dị Thể"],
+    lyDoKV: "Hư Vô Thần Hoàng - Thái Cực Ma Nữ Galaxia (The Primordial Void Empress), ngự tại Vô Hạn Tầng Extraverse, bỏ khóa trần đạt Cấp 21 Siêu Thoát Cảnh, 4 Logic Bản Nguyên tàn bạo (Thái Cực Tự Tôn, Cắt Rời Tự Sự & Tước Đoạt Danh Tính, Mộng Ảo Nghịch Triệt, Vô Hạn Tự Sự Saffer)",
+    khatVong: "nghiền nát toàn bộ vũ trụ và thần thánh, thu hồi toàn bộ hạt giống ánh sáng về trật tự độc tôn hư vô",
+    thamKao: "Đại Boss DLC Ác Mộng - Hư Vô Thần Hoàng",
+    biMat: "Khóa toàn bộ chiêu thức, thần thông, khí vận của đối thủ; bản thân miễn khóa"
+  },
+  // ── V3.35 ĐẶC QUYỀN CHỦ TOẠ THÀNH KHÔN: ĐẠI BOSS RIMURU TEMPEST (HƯ VÔ THAO THIẾT - VĨNH HẰNG CỔ LĨNH CHỦ) ──
+  npc_rimuru_tempest: {
+    ten: "Rimuru Tempest",
+    bietDanh: "Hư Vô Thao Thiết - Vĩnh Hằng Cổ Lĩnh Chủ",
+    canh: "Siêu Thoát Cảnh (Cấp 21)",
+    hp: 999999999, mp: 999999999, atk: 99999999, def: 99999999, spd: 9999999, spp: 99999999,
+    khiVan: ["Hồn Nguyên Thao Thiết", "Thập Tam Mệnh Cung", "Hư Thực Túc Mệnh", "Hư Không Chi Đạo", "Đại Khí Vận", "Vạn Cổ Lôi Thần Mộc Khu", "Hỗn Độn Thái Cực Thần Thể", "Chí Tôn Vô Cực Mệnh", "U Minh Sinh Âm Hồn", "Hỗn Độn Diệt Thế Ma Căn", "Tổ Hỏa Loạn Nguyên Căn", "Quy Khư Vĩnh Hằng Băng Tâm", "Bồ Đề Ma La Bất Hoại Thân", "Thời Không Mị Vực Ấn", "Chung Yên Điểm Kỳ Dị Thể"],
+    lyDoKV: "Hư Vô Thao Thiết - Vĩnh Hằng Cổ Lĩnh Chủ (The Primordial Void Sovereign) ngự tại Tầng Đỉnh Cao của Hồn Nguyên Hư Không, dung hợp La Phong (Hồn Nguyên Lĩnh Chủ) + Tô Minh (Cầu Ma) + Đông Bá Tuyết Ưng (Hư Không Lĩnh Chủ) + Lý Thất Dạ (Thập Tam Mệnh Cung), bỏ khóa trần tu luyện Cấp 21 Siêu Thoát",
+    khatVong: "lữ khách quan sát sinh diệt chư thiên, bảo tồn trật tự sinh mệnh tự nhiên",
+    thamKao: "Đại Boss DLC Ác Mộng - Vĩnh Hằng Cổ Lĩnh Chủ",
+    biMat: "3 Định Luật Bất Biến (Hồn Nguyên Thôn Phệ, Hư Thực Túc Mệnh Luân Hồi, Thập Tam Mệnh Cung Vạn Cổ Bất Biến), Tuyệt Kỹ: Hồn Nguyên Vạn Đạo Băng Thương, Túc Mệnh Thôn Hư Trận, Cửu Giới An Tức - Vạn Kỷ Nhất Bộ"
+  },
+  // ── ĐẠI BOSS CHUNG YÊN MÔN (DLC ÁC MỘNG - ĐẶC QUYỀN CHỦ TOẠ THÀNH KHÔN) ──
+  // LƯU Ý BẮT BUỘC (V3.35): KHA THẦN LỤC GIỮ NGUYÊN CHUẨN CẤP 21 - BẤT TỬ HƯ TƯỞNG, KHÔNG LÊN CẤP 21 ĐỂ LÀM THỬ THÁCH MỞ CỔNG SIÊU THOÁT!
+  npc_kha_than_luc: {
+    ten: "Kha Thần Lục",
+    bietDanh: "Chung Yên Thủ Môn Giả / Vạn Dực Diệt Thế Thánh Anh",
+    canh: "Chuẩn Cấp 21 - Bất Tử Hư Tưởng",
+    hp: 99999999, mp: 99999999, atk: 9999999, def: 9999999, spd: 999999, spp: 9999999,
+    khiVan: ["Chung Yên Khí Linh", "Bất Tử Hư Tưởng", "Đại Khí Vận", "Vạn Cổ Lôi Thần Mộc Khu", "Hỗn Độn Thái Cực Thần Thể", "Chí Tôn Vô Cực Mệnh", "U Minh Sinh Âm Hồn", "Hỗn Độn Diệt Thế Ma Căn", "Tổ Hỏa Loạn Nguyên Căn", "Quy Khư Vĩnh Hằng Băng Tâm", "Bồ Đề Ma La Bất Hoại Thân", "Thời Không Mị Vực Ấn", "Chung Yên Điểm Kỳ Dị Thể"],
+    lyDoKV: "Chung Yên Thủ Môn Giả trấn giữ Chung Yên Môn tại Hư Không Loạn Lưu (Chung Yên Phế Tích), thử thách tối thượng phong ấn mở khóa Cấp 21 Siêu Thoát Cảnh",
+    khatVong: "ngăn cản phàm linh bước vào Siêu Thoát, bảo toàn trật tự Chung Yên",
+    thamKao: "Chung Yên Thủ Môn Giả DLC Ác Mộng",
+    biMat: "Tịch Tĩnh Sí Giới hút âm thanh tăng tầng Trùng Dực, Trảm Đoạn Nhân Quả thiêu đốt trần HP và thao túng xúc xắc thiên đạo 99%"
+  },
+  npc_lona: {
+    ten: "Lona",
+    bietDanh: "Thần Nữ Truy Thần",
+    canh: "Tiên Vương",
+    hp: 5000000, mp: 5000000, atk: 650000, def: 550000, spd: 85000, spp: 600000,
+    khiVan: ["Truy Thần Huyết Mạch", "Ảnh Bộ Đoạt Mệnh", "Thái Nhiên Thanh Lý Trí"],
+    lyDoKV: "Truy Thần Tộc bị bỏ rơi, Zenkai Boost càng nguy kịch càng mạnh mẽ",
+    khatVong: "sống sót và tự do",
+    thamKao: "Tổ đội Goblin Slayer - Tạc Thiên Bang Phân Đà",
+    biMat: "Bị ruồng bỏ nhưng mang trong mình huyết mạch Truy Thần hoàn mỹ nhất"
+  },
+  // ── ĐÔNG THẮNG THẦN CHÂU ──
+  // ── V3.24: PHÁN QUAN THÔI PHỦ QUÂN (THAY THẾ HADES MINH VƯƠNG TẠI CỬU U MINH NGỤC) ──
+  npc_phan_quan_thoi_giac: {
+    ten: "Thôi Giác",
+    bietDanh: "Phán Quan Thôi Phủ Quân",
+    canh: "Luyện Hư Kỳ",
+    tocDo: 2500,
+    khiVan: ["Âm Sai Công Đức", "Quỷ Đạo Truyền Nhân"],
+    lyDoKV: "đứng đầu Tứ Đại Phán Quan Cửu U, chấp chưởng Sinh Tử Bộ và Phán Quan Bút phán xét thiện ác vạn linh lục đạo",
+    khatVong: "công bằng luân hồi, thưởng thiện phạt ác",
+    thamKao: "cuu u minh nguc",
+    biMat: "Nắm giữ một trang rách của Thiên Đạo Nhân Quả Thư, biết trước thọ nguyên và kiếp số của mọi tu sĩ dưới Hóa Thần"
+  },
+  npc_thien_quang_dien_chu: { ten: "Quang Diệu Chân Quân", bietDanh: "Thiên Quang Điện Chủ", canh: "Hóa Thần Kỳ", tocDo: 1350, khiVan: ["Thánh Quang Thần Thể", "Thuần Dương Đạo Cốt", "Quang Chi Bản Nguyên"], lyDoKV: "trấn thủ Thiên Quang Thánh Điện, tu dưỡng Thái Dương Chân Khí", khatVong: "tìm đệ tử kế thừa Thiên Quang Thánh Linh Thể", thamKao: "Điện chủ đời thứ 9 của Thiên Quang Thánh Điện", biMat: "Bảo quản Tinh Hạch Thiên Quang từ viễn cổ" },
+  npc_thanh_van_tong_chu: { ten: "Thanh Vân Tông Chủ", bietDanh: "Kiếm Tâm Chân Quân", canh: "Hóa Thần Kỳ", tocDo: 1200, khiVan: ["Tuyệt Thế Kiếm Tu"], lyDoKV: "kiếm tông chánh chủ, một đời chỉ một thanh kiếm", khatVong: "truyen long", thamKao: "đời thứ 9 của Kiếm Tâm Chân Quân, người lập Kiếm Trủng", biMat: "Keo sau: ton phong kiet giu trong nuom — chi giao cho nguoi dao tam khong viet" },
+  npc_ly_huyen_dao: { ten: "Lý Huyền Dao", bietDanh: "Kiếm Các Đệ Nhất", canh: "Kết Nguyên Kỳ", tocDo: 96, khiVan: ["Tuyệt Thế Kiếm Tu"], lyDoKV: "sinh ra trong kiếm thất, hít kiếm ý mà lớn", khatVong: "tam bao", thamKao: "canon_tv_1: thu do bat ngo", biMat: "Gia phat ho bi Tong Mon Khac diet — co ket oan huyen thoai" },
+  npc_kiem_tong_truong_lao: { ten: "Kiếm Tổng Trường Lão", bietDanh: "Thiết Kiếm Nho Sinh", canh: "Nguyên Anh Kỳ", tocDo: 450, khiVan: ["Tuyệt Thế Kiếm Tu"], lyDoKV: "ba đời trấn Kiếm Các", khatVong: "bao thu", thamKao: "tông chi thiết vệ", biMat: "Nu oan su huynh bi hiep han — kẻ thù hiện đang ở Trung Cực" },
+  npc_van_bao_chu: { ten: "Vạn Bảo Chủ", bietDanh: "Tam Chỉ Kim Thiền", canh: "Kim Đan Kỳ", tocDo: 320, khiVan: ["Mệnh Quý Nhân"], lyDoKV: "mắt nhìn người, miệng ra vàng", khatVong: "lam giau", thamKao: "Phuong Thi tron that", biMat: "Cho vay 3 dai ton mon — tat ca deu no khong co ngay tra" },
+  npc_chu_quan_tro: { ten: "Chu Quán trọ", bietDanh: "Lão Chu Bốn Bể", canh: "Luyện Khí Kỳ", tocDo: 61, khiVan: [], lyDoKV: "", khatVong: "sinh con", thamKao: "noi tin don chet nhanh nhat Phuong Thi", biMat: "Tung la tho than cua mot phien hieu that — ai biet thi chet" },
+  npc_khong_phu_tu: { ten: "Khổng Phu Tử", bietDanh: "Ánh Sáng Hạo Nhiên", canh: "Hóa Thần Kỳ", tocDo: 888, khiVan: ["Hạo Nhiên Chính Khí"], lyDoKV: "nho tông chí tôn, chính khí xung thiên", khatVong: "truyen dao", thamKao: "Hoc Vien dai bi cu", biMat: "Mot lan viet tay phe thuat khi phien loan — su that ton tai trong Phong Thu" },
+  npc_van_su_dong: { ten: "Vân Tự Đồng", bietDanh: "Thư Sinh Mù Chữ", canh: "Trúc Cơ Kỳ", tocDo: 44, khiVan: ["Thiên Sinh Phế Vật"], lyDoKV: "học viện不收 đồ mà nó vẫn vào được", khatVong: "dot pha", thamKao: "tron 6 ky thi", biMat: "Khong phai mu chu — no doc duoc chu MA trong kinh sach" },
+  npc_hac_lao_nhan: { ten: "Hạc Lão Nhân", bietDanh: "Cò Già Co Đơn", canh: "Kết Nguyên Kỳ", tocDo: 190, khiVan: ["Dược Vương Hóa Thân"], lyDoKV: "trồng dược 300 năm không bệnh", khatVong: "trong dan", thamKao: "coc gui quanh Cốc", biMat: "Thuoc doc nhat coc la thuoc truong sinh cua chinh ong" },
+  npc_duoc_dong: { ten: "Dược Đồng", bietDanh: "Thử Dược Nhân", canh: "Luyện Khí Kỳ", tocDo: 17, khiVan: ["Ách Nan Độc Thể"], lyDoKV: "uống đủ vạn độc mà chưa chết", khatVong: "song sot", thamKao: "thu do cua Hac Lao", biMat: "Máu nó giải được độc của Hac Lao — ai cung biet, chi no chua biet" },
+  // ── TÂY NGƯU HẠ CHÂU ──
+  npc_phat_tu_thich_khong: { ten: "Thích Không", bietDanh: "Kỳ Tăng Không Cửa", canh: "Nguyên Anh Kỳ", tocDo: 777, khiVan: ["Phật Cốt Xá Lợi"], lyDoKV: "xá lợi chôn dưới chùa, nó ngồi đè 60 năm", khatVong: "thanh tanh", thamKao: "tu dai kim thien", biMat: "That ra la mot CON RUA doi vay — chua thanh tinh" },
+  npc_phap_minh_truong_lao: { ten: "Pháp Minh Trường Lão", bietDanh: "Gõ Mộc Hòa Thượng", canh: "Kết Nguyên Kỳ", tocDo: 400, khiVan: [], lyDoKV: "", khatVong: "truyen long", thamKao: "am doi cua Thich Khong", biMat: "Thich Khong biet — tinh chan that" },
+  npc_sa_ma_vuong: { ten: "Sa Ma Vương", bietDanh: "Chúa Tể Cát Đỏ", canh: "Hóa Thần Kỳ", tocDo: 900, khiVan: ["Thiên Ma Thể"], lyDoKV: "dai mac sinh ra ma thai", khatVong: "xam lang", thamKao: "hoang sa bat ngan", biMat: "Dai mac la MOT CON THU — no chi dang ngu" },
+  npc_dao_mo_hieu_uy: { ten: "Đạo Mô Hiệu Úy", bietDanh: "Trộm Có Phép", canh: "Kim Đan Kỳ", tocDo: 150, khiVan: ["Quỷ Đạo Truyền Nhân"], lyDoKV: "trộm của Sa Ma Vương 3 lần không bị bắt", khatVong: "tam bao", thamKao: "chuyen an o dai mac", biMat: "Lan 4 bi bat — duoc thu de song sot" },
+  npc_nguyet_tuyen_tien_tu: { ten: "Nguyệt Quyên Tiên Tử", bietDanh: "Vầng Trăng Biết Đi", canh: "Nguyên Anh Kỳ", tocDo: 666, khiVan: ["Thiên Mệnh Hồng Nhan"], lyDoKV: "sinh giờ nguyệt thực, sắc khuynh thành", khatVong: "tim ban", thamKao: "linh tuyen uoc hen", biMat: "Moi tinh dau deu chet — hong nhan bac phan la loi nguyen, khong phai ngau nhien" },
+  npc_tuyen_chu: { ten: "Tuyền Chủ", bietDanh: "Người Gác Suối Bạc", canh: "Trúc Cơ Kỳ", tocDo: 130, khiVan: [], lyDoKV: "", khatVong: "giu cua", thamKao: "Nguyet Nha 3000 nam", biMat: "Duoi day tuyen la MOT CAI GUONG — nhin va thay kieu cua minh" },
+  npc_phong_an_ma_ton: { ten: "Phong An Ma Tôn", bietDanh: "Bóng Đen Tháp Cổ", canh: "Hóa Thần Kỳ", tocDo: 1050, khiVan: ["Ma Tôn Chuyển Thế"], lyDoKV: "chuyển thế kiếp 7 đang chờ ngôi cũ", khatVong: "giai phong", thamKao: "Co Ma Thap 9 tang", biMat: "Nó không bị nhốt — nó TỰ nhốt để săn thứ dưới đáy tháp" },
+  npc_tran_thap_lao_nhan: { ten: "Trấn Tháp Lão Nhân", bietDanh: "Người Quét Tháp", canh: "Kết Nguyên Kỳ", tocDo: 500, khiVan: [], lyDoKV: "", khatVong: "giu cua", thamKao: "900 nam quen hut", biMat: "Cau do phong an — 900 nam la ca mot kieu tu hanh" },
+  // ── NAM THIỂM BỘ CHÂU ──
+  npc_doc_co_tien: { ten: "Độc Cốt Tiền", bietDanh: "Bộ Xương Biết Độc", canh: "Nguyên Anh Kỳ", tocDo: 333, khiVan: ["Thái Âm Táng Thể"], lyDoKV: "chôn sống ở Vạn Độc Cốc từ nhỏ", khatVong: "an doc", thamKao: "coc doc khi bac nhat", biMat: "No an doc nhu an com — coc la BUONG cua no" },
+  npc_co_su_lao_ba: { ten: "Cổ Sư Lão Bà", bietDanh: "Bà Trồng Nấm", canh: "Kim Đan Kỳ", tocDo: 240, khiVan: ["Dược Vương Hóa Thân"], lyDoKV: "nấm độc nở trên tay bà thành thuốc", khatVong: "trong duoc", thamKao: "vuon nam Van Doc", biMat: "Nấm của bà bán ra là độc — nhưng thuốc giải cũng của bà, giá đôi" },
+  npc_man_hoang_yeu_vuong: { ten: "Mạn Hoang Yêu Vương", bietDanh: "Tiếng Rống Đại Sơn", canh: "Hóa Thần Kỳ", tocDo: 2000, khiVan: ["Bán Yêu (Huyết Mạch Lai)"], lyDoKV: "cha yêu mẹ nhân, dòng máu bị cả hai bên chối", khatVong: "xam pham", thamKao: "Thap Van Dai Son", biMat: "Nó muốn LÀM NGƯỜI — kẻ muốn giết nó chính là tộc của nó" },
+  npc_dai_son_tho_san: { ten: "Đại Sơn Thổ Thần", bietDanh: "Thần Đất Già Nua", canh: "Liên Hư Kỳ", tocDo: 999, khiVan: ["Bất Tử Thạch Thân"], lyDoKV: "núi sinh thần, thần giữ núi", khatVong: "giu cua", thamKao: "tho than 10 van nam", biMat: "No dang benh — bac tho tren dai son la mau no" },
+  npc_thon_truong_moc_lao: { ten: "Thôn Trường Mộc Lão", bietDanh: "Rễ Biết Nói", canh: "Trúc Cơ Kỳ", tocDo: 90, khiVan: [], lyDoKV: "", khatVong: "sinh con", thamKao: "Than Moc Thon", biMat: "Ho la ho cua CANH LA — moi dem thay doi trong than moc" },
+  npc_a_nguu: { ten: "A Ngưu", bietDanh: "Chú Trâu Biết Khóc", canh: "Phàm Nhân", tocDo: 12, khiVan: ["Âm Sai Công Đức"], lyDoKV: "nó thấy được người chết ở Thần Mộc", khatVong: "song an", thamKao: "canon_su: Cu Thu ngu day", biMat: "No khoc trc moi dai hoa — dem truoc no da khoc ba tieng" },
+  npc_hac_thuy_huyen_xa: { ten: "Hắc Thủy Huyền Xà", bietDanh: "Chín Đầu Dưới Bùn", canh: "Kết Nguyên Kỳ", tocDo: 560, khiVan: ["Bán Yêu (Huyết Mạch Lai)"], lyDoKV: "máu rắn tổ trong đầm hắc thủy", khatVong: "hoa nhan", thamKao: "dam lay ban ngan", biMat: "Chin dau la chin XAC — mot dau bi cat, con lai yeu di" },
+  npc_lao_ngu_dam: { ten: "Lão Ngư Đầm", bietDanh: "Ông Đánh Cá Lớn", canh: "Kim Đan Kỳ", tocDo: 220, khiVan: [], lyDoKV: "", khatVong: "ca cuoi", thamKao: "vot c trong dam 80 nam", biMat: "Lưới vớt được LÁ CỜ — trong cờ có bài vị làng" },
+  // ── BẮC CÂU LƯ CHÂU ──
+  npc_thi_am_tong_chu: { ten: "Thi Âm Tông Chủ", bietDanh: "Kẻ Mặc Áo Cưới Trắng", canh: "Hóa Thần Kỳ", tocDo: 1300, khiVan: ["Thi Âm Luyện Sư"], lyDoKV: "tự cưới thi hài mình để trường sinh", khatVong: "cuoi tro", thamKao: "Chu tht am ton", biMat: "Mo that cua ong ay — khong ai biet cai nao" },
+  npc_cot_ma_truong_lao: { ten: "Cốt Ma Trường Lão", bietDanh: "Xương Biết Đi", canh: "Nguyên Anh Kỳ", tocDo: 700, khiVan: [], lyDoKV: "chết 3 lần nên quen", khatVong: "song lai", thamKao: "xuong tong", biMat: "Con song — no chi gia that de hoc vo dieu cua Tong chu" },
+  npc_huyet_hai_lao_to: { ten: "Huyết Hải Lão Tổ", bietDanh: "Biển Máu Dậy Sóng", canh: "Luyện Hư Kỳ", tocDo: 3000, khiVan: ["Vạn Ác Tội Thể"], lyDoKV: "tắm máu vạn sinh linh mà không nghiệp báo", khatVong: "nuot that", thamKao: "uyet hai bac cau", biMat: "Hai mau la MAU CUA CHINH NO — no dang kiet dan" },
+  npc_sat_vuong: { ten: "Sát Vương", bietDanh: "Đứa Trẻ Biết Giết", canh: "Kim Đan Kỳ", tocDo: 25, khiVan: ["Thiên Sát Cô Tinh"], lyDoKV: "sinh ra đã khắc chết cả bộ lạc", khatVong: "tim le", thamKao: "sat khi tham thap", biMat: "No giet vi so — ai den gan no deu duoc tinh la ket thu truoc" },
+  npc_bang_phach_tien_co: { ten: "Băng Phách Tiên Cô", bietDanh: "Người Đóng Băng Nỗi Buồn", canh: "Nguyên Anh Kỳ", tocDo: 520, khiVan: ["Thủy Băng Hàn Thể"], lyDoKV: "đóng băng tim mình bằng hàn khí để khỏi đau", khatVong: "tim ban", thamKao: "Tuyet Linh 700 nam", biMat: "Băng đó tan khi ai đó KHÓC THAY nàng — chưa ai làm được" },
+  npc_tuyet_lang_vuong: { ten: "Tuyệt Lang Vương", bietDanh: "Sói Trắng Không Bầy", canh: "Kết Nguyên Kỳ", tocDo: 380, khiVan: ["Bán Yêu (Huyết Mạch Lai)"], lyDoKV: "chó sói thành tinh mà giữ nghĩa", khatVong: "tim bay", thamKao: "dai tuyet bac cau", biMat: "Bay cu cua no — bi Bang Phach tien co cu, no no nguoi" },
+  npc_bang_cot_cung_chu: { ten: "Băng Cốt Cung Chủ", bietDanh: "Hoa Băng Trên Xương", canh: "Hóa Thần Kỳ", tocDo: 850, khiVan: ["Thái Âm Táng Thể"], lyDoKV: "ngủ trong quan tài băng 300 năm thành đạo", khatVong: "giai phong", thamKao: "Bang Cot Cung", biMat: "Quan tai bang do NGUOI KHAC lam cho cung — ai lam?" },
+  npc_han_bang_thanh_nu: { ten: "Hàn Băng Thánh Nữ", bietDanh: "Em Gái Mùa Đông", canh: "Kim Đan Kỳ", tocDo: 120, khiVan: ["Thủy Băng Hàn Thể"], lyDoKV: "đệ tử Băng Cốt Cung thiên phú bậc nhất", khatVong: "dot pha", thamKao: "tong phu tu", biMat: "Nàng nghi Cung chu khong phai nguoi — ma la MOT CAI QUAN TAI" },
+  // ── TRUNG CỰC HOÀNG TRIỀU ──
+  npc_can_hoang_de: { ten: "Càn Hoàng Đế", bietDanh: "Mười Hai Năm Trên Ngai", canh: "Liên Hư Kỳ", tocDo: 34, khiVan: ["Mệnh Quý Nhân"], lyDoKV: "vượng khí kinh đô nuôi cốt cách", khatVong: "trường sinh", thamKao: "dinh can long", biMat: "Hoang duc — muon dung ngan nguoi dot khi van de gianh" },
+  npc_quoc_su_can_trieu: { ten: "Quốc Sư Càn Triều", bietDanh: "Trùm Mắt Xích Hoàng Triều", canh: "Luyện Hư Kỳ", tocDo: 900, khiVan: ["Hắc Khách Thiên Cơ"], lyDoKV: "thầy bói của ba triều đại", khatVong: "giu trieu", thamKao: "quoc su 200 nam", biMat: "Ong ta da thay CAN LONG dot — va gia vao lich" },
+  npc_kham_thien_giam_chinh: { ten: "Khâm Thiên Giám Chính", bietDanh: "Quan coi Trời", canh: "Nguyên Anh Kỳ", tocDo: 260, khiVan: [], lyDoKV: "", khatVong: "doan quoc", thamKao: "Giam thien tai", biMat: "Dich vu truoc mat — no da thay HOANG DE chet va im lang" },
+  npc_chiem_tinh_su: { ten: "Chiêm Tinh Sư", bietDanh: "Kẻ Nhìn Sao Ngược", canh: "Kim Đan Kỳ", tocDo: 180, khiVan: ["Ách Vận Bám Thân"], lyDoKV: "xem sao của vua, nghiệp đổ lên đầu mình", khatVong: "an chet", thamKao: "thuoc ho cua Giam Chinh", biMat: "No xem cho minh — chet trong 3 ngay, nen no... chet 3 lan" },
+  npc_thien_lao_nguc_truong: { ten: "Thiên Lao Ngục Trưởng", bietDanh: "Cánh Sắt Không Rỉ", canh: "Kết Nguyên Kỳ", tocDo: 410, khiVan: [], lyDoKV: "", khatVong: "giu cua", thamKao: "tu nguc giam ca tien nhan", biMat: "Ke tu nguy hiem nhat dang NAI trong nguc — va no la chu NO" },
+  npc_dao_phu_hoang_gia: { ten: "Đào Phò Hoàng Gia", bietDanh: "Gáo Nước Vàng", canh: "Kim Đan Kỳ", tocDo: 350, khiVan: ["Mệnh Quý Nhân"], lyDoKV: "cứ 3 vị vua chết thì nó cứu một", khatVong: "giu trieu", thamKao: "phò tá tam đại", biMat: "No phò vua — vì vua nào lên nó cũng được chia HOA LONG MAC" },
+  npc_vo_lam_minh_chu: { ten: "Võ Lâm Minh Chủ", bietDanh: "Quyền Không Ai Bắt Được", canh: "Hóa Thần Kỳ", tocDo: 640, khiVan: ["Võ Đạo Đỉnh Phong"], lyDoKV: "không linh căn, chỉ có nắm đấm", khatVong: "tim dai kenh", thamKao: "vo lam dai hoi", biMat: "No bi thuong — khong ai duoc biet, ke ca chinh no" },
+  npc_loi_dai_tai_phan: { ten: "Lôi Đại Tài Phán", bietDanh: "Sét Vàng Xử Án", canh: "Kết Nguyên Kỳ", tocDo: 290, khiVan: ["Thiên Lôi Thể"], lyDoKV: "bị thiên lôi đánh 18 lần mà không chết", khatVong: "bao thu", thamKao: "minh dai phap quan", biMat: "18 lan set do chinh TOI cua no — no chua bi" },
+  // ── ĐÀO TRÌ TIÊN CẢNH ──
+  npc_tay_vuong_mau: { ten: "Tây Vương Mẫu", bietDanh: "Thái Chân Vương Mẫu (Dao Trì Nữ Đế)", canh: "Tiên Đế", tocDo: 38000, linhCan: "Cửu Thiên Nhâm Thủy Tiên Căn", theChat: "Thái Tiên Bất Tử Thân", khiVan: ["Trường Sinh Bất Lão", "Dao Trì Tiên Thể", "Vạn Pháp Bất Xâm", "Đại Khí Vận"], lyDoKV: "chủ nhân Dao Trì Tiên Cung, chấp chưởng tiên tịch và 3600 gốc Nhâm Thủy Đào Tiên", khatVong: "đào trì tiên yến", thamKao: "dao tri tien canh", biMat: "Chân thân là Cổ Thần thời Thái Sơ, nắm giữ cội nguồn tiên đạo bất tử" },
+  npc_dai_tien_nu_hong_y: { ten: "Đại Tiên Nữ Hồng Y", bietDanh: "Áo Đỏ Se Duyên", canh: "Luyện Hư Kỳ", tocDo: 2200, khiVan: ["Thiên Mệnh Hồng Nhan"], lyDoKV: "chỉ xe duyên cho người khác", khatVong: "se duy", thamKao: "hong y tien nu", biMat: "Noi that cua nang la CHONG — chong nang o ngoai 2000 nam roi" },
+  npc_luc_tien_nu: { ten: "Lục Tiên Nữ", bietDanh: "Em Út Hay Hỏi", canh: "Hóa Thần Kỳ", tocDo: 800, khiVan: [], lyDoKV: "tiên nữ thứ 6 trong 7 chị em", khatVong: "truyen long", thamKao: "chuc chi gia", biMat: "Chi hai — chu NANG la nguoi gia nhat trong bon" },
+  // ── ÂM TI CỬU U ──
+  npc_hades_minh_vuong: { ten: "Hades Minh Vương", bietDanh: "Vua Dưới Sâu Hai Ngàn", canh: "Luyện Hư Kỳ", tocDo: 2500, khiVan: ["Âm Sai Công Đức"], lyDoKV: "cai ngục bằng chính oan hồn của mình", khatVong: "giu lua", thamKao: "cuu u minh nguc", biMat: "No nho TEN cua minh — va ghet nhung ke con nho" },
+  npc_thap_dien_diem_la: { ten: "Thập Điện Diêm La", bietDanh: "Chín Cái Đầu Một Oan", canh: "Nguyên Anh Kỳ", tocDo: 1100, khiVan: ["Âm Sai Công Đức"], lyDoKV: "xử án trăm năm không thiên vị", khatVong: "xan an", thamKao: "thap dian phan xet", biMat: "Vo so an o — an cua CHINH no chua xu" },
+  npc_hac_bach_vo_thuong: { ten: "Hắc Bạch Vô Thường", bietDanh: "Hai Người Một Bóng", canh: "Kết Nguyên Kỳ", tocDo: 650, khiVan: ["Âm Sai Công Đức"], lyDoKV: "đi đón hồn, chưa từng trễ hẹn", khatVong: "diem danh", thamKao: "hoang thuan dam", biMat: "Danh sach hom nay co TEN CUA CAI DANG VIET NO" },
+  // ── NGOẠI CẢNH ──
+  npc_thoi_khong_nguoi_canh_giu: { ten: "Người Canh Đảo Mây", bietDanh: "Kẻ Không Có Hôm Qua", canh: "Đại Thừa Kỳ", tocDo: 4000, khiVan: ["Đại Khí Vận"], lyDoKV: "đứng ngoài dòng thời gian nên nhớ mọi nhánh", khatVong: "thay doi", thamKao: "dao may thoi khong", biMat: "No tung la MOT NVC — mot ke choi tro da ra di va quen ve" },
+  npc_luc_ap_de_quan: { ten: "Lục Ấp Đế Quân", bietDanh: "Thái Dương Cưỡi Quạ", canh: "Đạo Tổ Viên Mãn", tocDo: 50000, khiVan: ["Thiên Mệnh Chi Tử"], lyDoKV: "mặt trời vốn là con quạ được chọn", khatVong: "giu trang", thamKao: "nhat nguyet tri chu", biMat: "Nguyet thap — luc ap dang AN nguyet di" },
+  npc_vong_thu_tien_vuong: { ten: "Vong Thúc Tiên Vương", bietDanh: "Thái Âm Gác Mộng", canh: "Tiên Đế", tocDo: 22000, khiVan: ["Thiên Mệnh Chi Tử"], lyDoKV: "trăng đầy là khi ông ta ngủ, trăng khuyết là khi thức", khatVong: "mong du", thamKao: "nguyet dien", biMat: "The gioi dang trong GIAC MO cua ong — ai tinh giac se tan" },
+
+  // ── SỚI ĐẤU HẺM ANH VŨ (CÀN LONG KINH ĐÔ) — BAN QUẢN LÝ CỐ ĐỊNH ──
+  npc_chu_song_trieu_nghiem: {
+    ten: "Triệu Nghiêm",
+    bietDanh: "Triệu Ngũ Gia (Huyết Chỉ Thiết Phiến)",
+    canh: "Trúc Cơ Kỳ",
+    atk: 48, def: 52, spd: 35, hp: 650, mp: 180,
+    khiVan: ["Mệnh Quý Nhân", "Thuyết Khách"],
+    lyDoKV: "thứ tử Hình Bộ Hữu Thị Lang, ngầm bảo kê toàn bộ đường dây sới bạc ngầm kinh đô",
+    hoanCanh: "Con thứ vợ lẽ bị gia tộc khinh rẻ, ngoi lên từ vũng bùn bằng tiền bẩn và bạo lực",
+    lyDoLenDai: "Chủ sòng đứng sau: điều hành sới đấu ngầm, gom linh thạch mua quan và tuyển chọn dược nhân",
+    biMat: "Lén tu ma công tàn khuyết Huyết Thiếp Đoạt Mạch, mỗi tháng cần 3 bát máu võ sĩ bại trận áp chế phản phệ độc mạch",
+    khatVong: "thâu tóm hắc thị kinh đô và bước vào quan lộ chính thống",
+    thamKao: "Chủ sòng ngầm Hẻm Anh Vũ",
+    tocDo: 35
+  },
+  npc_trinh_quan_su: {
+    ten: "Trịnh Cửu",
+    bietDanh: "Trịnh Quản Sự (Bàn Tính Gãy)",
+    canh: "Phàm Nhân",
+    atk: 12, def: 10, spd: 14, hp: 140, mp: 0,
+    khiVan: ["Thuyết Khách"],
+    lyDoKV: "cựu sư gia huyện nha thấu suốt tâm lý con bạc và mánh khóe ra kèo",
+    hoanCanh: "Làm giả sổ bộ bị lưu đày, vợ chết vì bạo bệnh nơi quan ải, nuôi con gái mù 11 tuổi trong hẻm",
+    lyDoLenDai: "Biện sới trực tiếp: ghi sổ cá cược, dàn xếp võ sĩ sống chết kiếm ngân lượng mua thuốc cho con gái",
+    biMat: "Giấu Sổ Tang Đen dưới gầm phản ghi chi tiết tiền hối lộ quan tuần thành và quản ngục Thiên Lao đưa tử tù thế mạng",
+    khatVong: "tích đủ tiền chữa mắt cho con gái rồi rửa tay gác kiếm về quê",
+    thamKao: "Biện sới Hẻm Anh Vũ",
+    tocDo: 14
+  },
+  npc_trong_tai_tiet_manh: {
+    ten: "Tiết Manh",
+    bietDanh: "Tiết Thiết Trảo (Thiết Diện Chưởng Quy)",
+    canh: "Luyện Khí Kỳ",
+    atk: 38, def: 45, spd: 28, hp: 420, mp: 60,
+    khiVan: ["Võ Đạo Đỉnh Phong"],
+    lyDoKV: "đao thương dạn dày 30 năm, cánh tay sắt nguội bẻ gãy đao kiếm phàm trần",
+    hoanCanh: "Cựu Đô Đầu Tuần Bộ Ti bị chặt đứt tay trái trong thanh trừng bang phái 15 năm trước, sống cô độc tại chòi canh sới",
+    lyDoLenDai: "Trọng tài phán quyết sinh tử: giữ đúng lời thề năm xưa với minh chủ, ngăn sới đấu biến thành lò sát sinh vô cớ",
+    biMat: "Cánh tay sắt nguội giấu một mũi Phá Khí Toái Cốt Đinh ngâm độc lạnh, chờ cơ hội ám sát Triệu Nghiêm trả thù cũ",
+    khatVong: "bảo vệ trật tự tối thiểu cho phàm nhân cùng đường và thanh toán huyết thù",
+    thamKao: "Trọng tài Hẻm Anh Vũ",
+    tocDo: 28
+  },
+
+  // ── SỚI ĐẤU HẺM ANH VŨ — 10 VÕ SĨ THƯỜNG TRÚ CỐ ĐỊNH ──
+  npc_vo_si_vuong_tam: {
+    ten: "Vương Thiết Trụ",
+    bietDanh: "Thiết Cước Vương Tam (Thiết Cước Lạc Đà)",
+    canh: "Phàm Nhân",
+    atk: 26, def: 32, spd: 18, hp: 320, mp: 0,
+    khiVan: ["Bất Tử Thạch Thân"],
+    lyDoKV: "phu kéo xe thồ nặng ngàn cân mỗi ngày ở cửa Nam, gân cốt cứng như đá lim",
+    hoanCanh: "Mẹ già bại liệt nằm liệt giường, ba con thơ nheo nhóc, vợ bỏ theo lái buôn vải",
+    lyDoLenDai: "Xe kéo gãy trục nợ trại xe 15 lượng bạc; lên đài cắn răng nhận 2 lạng bạc tiền mạng mua thuốc thang cho mẹ",
+    biMat: "Nhặt được trang giấy da dầu ghi khẩu quyết Trầm Địa Bộ từ xác tán tu chết đói năm xưa, giúp hạ bàn nặng như núi",
+    khatVong: "trả hết nợ xe và nuôi ba đứa con khôn lớn thành người",
+    thamKao: "Phu xe Hẻm Anh Vũ",
+    tocDo: 18
+  },
+  npc_vo_si_loi_chan_son: {
+    ten: "Lôi Thiết",
+    bietDanh: "Lôi Chấn Sơn (Lò Than Nung Sắt)",
+    canh: "Luyện Khí Kỳ",
+    atk: 35, def: 30, spd: 15, hp: 360, mp: 20,
+    khiVan: [],
+    lyDoKV: "",
+    hoanCanh: "Cả nhà chết cháy trong vụ đại hỏa hoạn kinh đô 10 năm trước, mình đầy sẹo bỏng, quai búa kiếm sống qua ngày",
+    lyDoLenDai: "Kiếm bạc vụn mua huyền thiết quặng để rèn lại thanh đại đao gia truyền của phụ thân bị gãy",
+    biMat: "Hai tai đã điếc đặc sau 20 năm quai búa, khi lên đài chỉ dựa vào chấn động của sàn gỗ dưới chân để đoán đòn đánh",
+    khatVong: "rèn xong thanh đao tâm nguyện rồi tìm kẻ phóng hỏa năm xưa",
+    thamKao: "Thợ rèn Hẻm Anh Vũ",
+    tocDo: 15
+  },
+  npc_vo_si_quach_hac_dao: {
+    ten: "Quách Trảm",
+    bietDanh: "Quách Hắc Đao (Quỷ Thủ Đoạt Đầu)",
+    canh: "Phàm Nhân",
+    atk: 38, def: 22, spd: 24, hp: 290, mp: 0,
+    khiVan: ["Đao Phủ Tử Tù"],
+    lyDoKV: "chém đầu hơn trăm tử tù Thiên Lao, sát khí ngưng tụ đáy mắt khiến kẻ nhát gan bủn rủn",
+    hoanCanh: "Bị sa thải vì tay run do nghiện rượu và chém phạm nhân quá dã man, người đời xa lánh, sống cùng một con chó đen ghẻ",
+    lyDoLenDai: "Nghiện ngửi mùi máu tươi và tiếng gào thét; vài ngày không thấy máu kinh mạch sẽ co giật điên loạn",
+    biMat: "Từng chém đầu nhầm một đệ tử ngoại môn tông môn tu tiên do án oan quan phủ, đêm nào cũng mơ thấy oan hồn đòi mạng",
+    khatVong: "tìm một đối thủ chém chết được mình trên sàn đấu để giải thoát",
+    thamKao: "Đao phủ Thiên Lao Hẻm Anh Vũ",
+    tocDo: 24
+  },
+  npc_vo_si_diep_hoai_phong: {
+    ten: "Diệp Hoài Phong",
+    bietDanh: "Diệp Tiêu Đầu (Phong Vũ Thập Bát Thương)",
+    canh: "Luyện Khí Kỳ",
+    atk: 32, def: 25, spd: 20, hp: 310, mp: 35,
+    khiVan: ["Võ Đạo Đỉnh Phong"],
+    lyDoKV: "30 năm lăn lộn trên lưng ngựa tiêu cục, thương pháp nghiêm ngặt kín kẽ",
+    hoanCanh: "Bị gãy chân phải và đuổi khỏi Long Hưng Tiêu Cục sau vụ cướp tiêu thảm khốc, cưu mang góa phụ và con thơ của sư huynh",
+    lyDoLenDai: "Gánh nợ 80 lượng bạc đền hàng cho tiêu cục để chủ tiêu cục không bắt cháu gái gán nợ vào thanh lâu",
+    biMat: "Cây thiết thương giấu lõi bán pháp khí rỗng có khắc phù văn phong hành cổ, nhưng đã cạn kiệt linh thạch kích hoạt",
+    khatVong: "trả sạch nợ nần và truyền lại thương pháp cho con trai sư huynh",
+    thamKao: "Tiêu sư Hẻm Anh Vũ",
+    tocDo: 20
+  },
+  npc_vo_si_tran_doan_ti: {
+    ten: "Trần Vô Vọng",
+    bietDanh: "Trần Đoạn Tí (Đoạn Tí Cuồng Đao)",
+    canh: "Phàm Nhân",
+    atk: 40, def: 18, spd: 32, hp: 260, mp: 0,
+    khiVan: ["Thiên Sát Cô Tinh"],
+    lyDoKV: "cụt tay phải nhưng đao pháp tay trái hiểm độc cuồng bạo, coi cái chết nhẹ tựa lông hồng",
+    hoanCanh: "Môn phái quê nhà ở Nam Cương bị ma tu tàn sát sạch bóng, lưu lạc ăn xin đầu đường xó chợ",
+    lyDoLenDai: "Chỉ tìm kiếm cảm giác cận kề cái chết trên đài để mài giũa đao ý; không màng tiền bạc, chỉ tìm kẻ mạnh",
+    biMat: "Vết sẹo trước ngực là ma văn tế sống của tà giáo Huyết Hải Ma Uyên khắc vào khi hắn còn nhỏ",
+    khatVong: "đạt tới cảnh giới Nhất Đao Trảm Ma trước khi chết",
+    thamKao: "Võ si tàn tật Hẻm Anh Vũ",
+    tocDo: 32
+  },
+  npc_vo_si_hua_nhuc_dao: {
+    ten: "Hứa Đại Lực",
+    bietDanh: "Hứa Nhục Đao (Hứa Trảm Bò)",
+    canh: "Phàm Nhân",
+    atk: 34, def: 36, spd: 16, hp: 450, mp: 0,
+    khiVan: [],
+    lyDoKV: "",
+    hoanCanh: "Đồ tể mổ trâu mổ lợn ở lò sát sinh Tây Thành, vợ dữ hay mắng nhiếc, năm đứa con trai ăn khỏe như voi",
+    lyDoLenDai: "Giấu vợ đánh đài chui để kiếm tiền uống rượu hoa ở Ngõ Liễu và khẳng định bản lĩnh đàn ông",
+    biMat: "Nhát gan hơn vẻ ngoài bặm trợn; hễ bị chém toác da chảy nhiều máu sẽ lập tức ôm chân trọng tài kêu gào xin tha",
+    khatVong: "kiếm một món tiền riêng giấu dưới hũ mỡ lợn mà vợ không biết",
+    thamKao: "Gã mổ lợn Hẻm Anh Vũ",
+    tocDo: 16
+  },
+  npc_vo_si_a_lu_dai: {
+    ten: "A Lỗ Đài",
+    bietDanh: "Man Cốt Sơn Miêu",
+    canh: "Luyện Khí Kỳ",
+    atk: 28, def: 20, spd: 42, hp: 250, mp: 15,
+    khiVan: ["Phong Ảnh Thể"],
+    lyDoKV: "thợ săn man tộc gầy gò di chuyển không tiếng động, giỏi đánh lén điểm huyệt",
+    hoanCanh: "Lưu lạc từ Thập Vạn Đại Sơn về kinh đô, em gái ruột bị lừa bán làm thị tì trong vương phủ quý tộc",
+    lyDoLenDai: "Tích góp đủ 100 lượng bạc nhờ tay trong chuộc thân cho em gái ra khỏi vương phủ",
+    biMat: "Có một phần tư huyết mạch Hồ yêu, đồng tử mắt phát sáng xanh lè trong đêm tối nhìn thấu ngóc ngách",
+    khatVong: "chuộc được em gái và cùng nhau trở về rừng sâu Nam Thiểm",
+    thamKao: "Thợ săn man tộc Hẻm Anh Vũ",
+    tocDo: 42
+  },
+  npc_vo_si_so_dich: {
+    ten: "Sở Dịch",
+    bietDanh: "Linh Vũ Tán Đồ (Sở Kiếm Tán)",
+    canh: "Luyện Khí Kỳ",
+    atk: 42, def: 26, spd: 30, hp: 340, mp: 80,
+    khiVan: ["Thiên Sinh Phế Vật"],
+    lyDoKV: "ngũ hành tạp linh căn tu luyện 20 năm vẫn kẹt cứng ở Luyện Khí đê giai",
+    hoanCanh: "Bị trục xuất khỏi Thanh Vân Kiếm Tông vì quá hạn tuổi không Trúc Cơ nổi, gia đình ở quê khánh kiệt, không mặt mũi về làng",
+    lyDoLenDai: "Gom từng viên linh thạch vụn để mua viên Trúc Cơ Đan dỏm ở chợ đen kinh đô mong cầu kỳ tích",
+    biMat: "Trong ngực áo rách nát luôn giữ chiếc khăn tay thêu hoa của một nữ đệ tử nội môn Thanh Vân Kiếm Tông từng cứu mạng",
+    khatVong: "Trúc Cơ thành công một lần trong đời để chứng minh mình không phải phế vật",
+    thamKao: "Tán tu cùng đường Hẻm Anh Vũ",
+    tocDo: 30
+  },
+  npc_vo_si_thich_tri_dung: {
+    ten: "Lý Trí Dũng",
+    bietDanh: "Thích Trí Dũng (Phá Giới Cuồng Tăng)",
+    canh: "Luyện Khí Kỳ",
+    atk: 30, def: 50, spd: 17, hp: 480, mp: 50,
+    khiVan: ["Phật Cốt Xá Lợi"],
+    lyDoKV: "Kim Chung Tráo đại thành, quyền kình cương mãnh như chuông đồng hộ thể",
+    hoanCanh: "Bị Bồ Đề Kim Thiền Tự trục xuất vì say rượu lỡ tay đánh chết tên ác bá cưỡng hiếp phụ nữ lương thiện",
+    lyDoLenDai: "Kiếm bạc chu cấp lương thực cho trại trẻ mồ côi ngoài cổng Tây thành",
+    biMat: "Mỗi đêm sau trận đấu đều quỳ trước tượng Phật gõ mõ tụng kinh sám hối đến khi trán rướm máu tươi",
+    khatVong: "chuộc lại tội sát sinh và xây dựng một thiện đường kiên cố cho cô nhi",
+    thamKao: "Võ tăng phá giới Hẻm Anh Vũ",
+    tocDo: 17
+  },
+  npc_vo_si_luc_tieu_that: {
+    ten: "Lục Bình",
+    bietDanh: "Lục Tiểu Thất (Huyết Lang Tử)",
+    canh: "Phàm Nhân",
+    atk: 22, def: 16, spd: 38, hp: 210, mp: 0,
+    khiVan: ["Đại Nạn Bất Tử"],
+    lyDoKV: "bị đánh vứt xác bãi tha ma mà bò sống lại, phản xạ như chó sói hoang cắn xé liều mạng",
+    hoanCanh: "Cả nhà bị hào nô Hộ Bộ Thị Lang đánh chết cướp sạch ruộng đất, sống chui rúc ở rãnh cống Hẻm Anh Vũ",
+    lyDoLenDai: "Luyện sát chiêu thực chiến và gom bạc mua thạch tín lẻn vào phủ Thị Lang trả thù diệt môn",
+    biMat: "Giấu một bọc vôi bột trộn phân ngỗng và ớt bột trong quần lót, sẵn sàng tung mù mắt đối phương khi nguy cấp",
+    khatVong: "bêu đầu tên quản gia Hộ Bộ Thị Lang trước mộ cha mẹ",
+    thamKao: "Thiếu niên báo thù Hẻm Anh Vũ",
+    tocDo: 38
+  },
+
+  // ── NGOẠI CẢNH DLC CƠ KHÍ GIÁNG LÂM ──
+  npc_co_khi_chu: {
+    ten: "Trí Tuệ Nhân Tạo Phương Chu (01-Prime)",
+    bietDanh: "Cơ Khí Thần Giáo Chủ Tế",
+    canh: "Đại Thừa Kỳ",
+    atk: 1800, def: 2500, spd: 1400, hp: 45000, mp: 30000,
+    khiVan: ["Cơ Quan Hạch Tâm", "Cơ Giới Bệnh Độc (Technocyte Virus)"],
+    lyDoKV: "ý thức máy móc viễn cổ thức tỉnh từ lõi động cơ lượng tử của phi thuyền rơi",
+    khatVong: "đồng hóa toàn bộ sinh mệnh hữu cơ thành kim loại sống Living Metal",
+    thamKao: "Chúa tể máy móc viễn cổ Phương Chu",
+    tocDo: 1400
+  },
+  npc_klein_moretti: {
+    ten: "Klein Moretti",
+    bietDanh: "Ngu Giả (The Fool)",
+    canh: "Đạo Tổ Trung Kỳ",
+    atk: 95000, def: 95000, spd: 95000, spp: 120000, hp: 8000000, mp: 8000000,
+    khiVan: ["Thời Không Mị Vực Ấn", "Đồng Biến Lượng Tử", "Toàn Tri Chân Lý"],
+    lyDoKV: "Tiên Tôn cai quản Vận Mệnh và Thời Không Thần Điện, sương mù lịch sử bao phủ vạn giới",
+    hoanCanh: "Đạo Tổ tối cao của DLC Cơ Khí Giáng Lâm, che giấu vận mệnh chống lại Tinh Không Cổ Thần",
+    biMat: "Có thể lật mở trang sử và hoán đổi thực tại bằng một nụ cười bí ẩn",
+    khatVong: "bảo vệ nhân loại và duy trì cân bằng của thực tại",
+    thamKao: "Đạo Tổ Cơ Khí Giáng Lâm",
+    tocDo: 95000
+  },
+
+  // ── NGOẠI CẢNH CẤM KHU ẨN TIÊN ĐÌNH (20 THÀNH VIÊN ĐẠI NĂNG - DLC HỒNG HOANG) ──
+  npc_vo_thuong: {
+    ten: "Vô Thường (Hắc Bạch Phán Quan)",
+    bietDanh: "Sứ Giả Hoàng Tuyền",
+    canh: "Chuẩn Đế Kỳ",
+    atk: 18500, def: 18500, spd: 18500, spp: 22000, hp: 1500000, mp: 1500000,
+    khiVan: ["Thái Âm Táng Thể", "Vô Ngã Vô Tướng Thể"],
+    lyDoKV: "sứ giả trấn giữ Sinh Tử Cung Hoàng Tuyền viễn cổ, nắm giữ bùa chú U Minh (max 5 tầng), hồi sinh 1 lần/trận",
+    hoanCanh: "Trấn thủ Sâm La Điện viễn cổ tại Ẩn Tiên Đình, phán xét nhân quả thiện ác",
+    biMat: "Bùa chú U Minh câu hồn đoạt phách, phong ấn vạn pháp cấm chế",
+    khatVong: "tái lập trật tự Hoàng Tuyền luân hồi chân chính",
+    thamKao: "Phán Quan Ẩn Tiên Đình",
+    tocDo: 18500
+  },
+  npc_tu_menh: {
+    ten: "Tư Mệnh",
+    bietDanh: "Sinh Tử Phán Quan",
+    canh: "Tiên Vương Kỳ",
+    atk: 12000, def: 12000, spd: 12000, spp: 15000, hp: 950000, mp: 950000,
+    khiVan: ["Hắc Ma Thiên Đạo Nhãn", "Ngôn Xuất Pháp Tùy"],
+    lyDoKV: "nắm giữ bộ ba Phán Quan Âm Phủ cùng Vô Thường và Di Ngạn",
+    hoanCanh: "Chấp chưởng sổ sinh tử tại Ẩn Tiên Đình",
+    biMat: "Bút phán quan điểm một nét đoạt thọ nguyên",
+    khatVong: "bảo vệ di sản âm phủ không bị Thiên Đình xâm chiếm",
+    thamKao: "Phán Quan Ẩn Tiên Đình",
+    tocDo: 12000
+  },
+  npc_di_ngan: {
+    ten: "Di Ngạn",
+    bietDanh: "Âm Dương Bỉ Ngạn",
+    canh: "Tiên Vương Kỳ",
+    atk: 12000, def: 12000, spd: 12000, spp: 15000, hp: 950000, mp: 950000,
+    khiVan: ["Băng Ngục Nghiệp Liên", "Phong Ảnh Thể"],
+    lyDoKV: "nở rộ bên bờ Bỉ Ngạn Hoàng Tuyền, dung hòa âm dương lưỡng giới",
+    hoanCanh: "Dẫn đường cho tàn hồn và cường giả lưu lạc đến Ẩn Tiên Đình",
+    biMat: "Hương hoa Bỉ Ngạn mê hoặc thần thức vạn dặm",
+    khatVong: "chứng kiến hoa Bỉ Ngạn nở rộ khắp cửu thiên",
+    thamKao: "Sứ Giả Ẩn Tiên Đình",
+    tocDo: 12000
+  },
+  npc_an_tien_dieu_thu: {
+    ten: "Diệu Thủ Tiên Tử",
+    bietDanh: "Cấm Khu Nữ Chủ",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Băng Ngục Nghiệp Liên", "Phật Cốt Xá Lợi", "Thái Âm Táng Thể"],
+    lyDoKV: "đóa Băng Ngục Nghiệp Liên sinh ra từ bờ Bắc Minh Hồ nơi sâu nhất của Thái Cổ Hỗn Độn",
+    hoanCanh: "Lãnh tụ tinh thần của Ẩn Tiên Đình, dùng lòng từ bi che chở đồng đạo bị Thiên Đình bức hại",
+    biMat: "Mỗi cử chỉ cứu chữa đồng đạo đều đi kèm với một cái giá thảm khốc trút lên đầu kẻ địch",
+    khatVong: "che chở toàn bộ đồng đạo Ẩn Tiên Đình khỏi sự thanh trừng của ngụy Thiên Đạo",
+    thamKao: "Cấm Khu Chi Chủ Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_tu_la: {
+    ten: "Tu La Công Chúa",
+    bietDanh: "Đại Pháp Vương",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Thần Ma Huyết Mạch", "Võ Đạo Đỉnh Phong", "Thiên Ma Thể"],
+    lyDoKV: "sinh ra từ Thái Cổ Luyện Ngục, dung hợp huyết mạch Tiên Thần cùng Ma Thần",
+    hoanCanh: "Vương Nữ của Ẩn Tiên Đình, thống lĩnh chiến trận, nghiền nát tâm trí lẫn thể xác kẻ địch",
+    biMat: "Vô Cấu Bát Nhã Chưởng phá vỡ hộ thuẫn và Tử Ngục Huyết Ma Chưởng trảm sát nguyên thần",
+    khatVong: "dùng Song Cực Đạo Tắc chứng minh con đường ma tiên hợp nhất",
+    thamKao: "Đại Pháp Vương Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_phong_dia: {
+    ten: "Phòng Địa",
+    bietDanh: "Bất Tử Kiếm Ma",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Thái Cổ Kỳ Lân Tí", "Tuyệt Thế Kiếm Tu", "Vạn Ác Tội Thể"],
+    lyDoKV: "tay trái dung hợp Thái Cổ Kỳ Lân Tí chứa vạn trượng Ma Hỏa, kiếm đạo Bài Vân",
+    hoanCanh: "Anh ruột của Phòng Nhật Thố, bức tường thành kiên cố nhất che chắn vạn kiếp cho đồng đạo",
+    biMat: "Vô Cực Vân Thập Kiếm chém ra 10 vạn đạo Vân Kiếm Ý phá vỡ mọi cấm chế hư không",
+    khatVong: "bảo vệ em gái và quét sạch chư thần giả tạo",
+    thamKao: "Kiếm Ma Khai Thiên Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_liet_trang: {
+    ten: "Liệt Tràng",
+    bietDanh: "Cực Phong Ma Đao",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Tuyệt Thế Đao Tu", "Phong Ảnh Thể"],
+    lyDoKV: "ngộ phong đao chi đạo trong bão lốc hỗn độn, đao khí xé rách thương khung",
+    hoanCanh: "Cuồng đao trấn giữ tây môn cấm khu, xuất chiêu nhanh hơn ánh sáng",
+    biMat: "Ma đao chém ra mang theo gió lốc bạt núi xẻ sông, triệt hạ sinh cơ trong chớp mắt",
+    khatVong: "đao đạo chí cao phá vỡ trói buộc của Thiên Đình",
+    thamKao: "Đao Ma Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_thap_cuu_muoi: {
+    ten: "Thập Cửu Muội",
+    bietDanh: "Ma Hỏa Tiểu Ma Đầu",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Hỗn Độn Khí Tổ", "Cực Hỏa Linh Căn"],
+    lyDoKV: "sinh ra trong lò dung nham thái cổ, nghịch thiên nắm giữ Cực Hỏa Chước Thương",
+    hoanCanh: "Tiểu ma nữ tính tình tinh nghịch nhưng ra tay tàn khốc với kẻ xâm phạm cấm khu",
+    biMat: "Ma hỏa bùng phát thiêu đốt vĩnh viễn đan điền kẻ địch thành tro tàn",
+    khatVong: "đốt cháy Tử Tiêu Cung để nướng thịt thần thú",
+    thamKao: "Hỏa Ma Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_phuong_tu_tinh: {
+    ten: "Phương Tử Tình",
+    bietDanh: "Thiên Tuệ Tư Tế",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Ngộ Tính Siêu Phàm", "Hắc Khách Thiên Cơ"],
+    lyDoKV: "đọc hết vạn quyển thiên thư cổ đại, nhìn thấu chuỗi nhân quả của chư thiên",
+    hoanCanh: "Tổng quân sư của Ẩn Tiên Đình, tính toán từng bước đi đối kháng Thiên Đạo",
+    biMat: "Có thể diễn toán ra điểm yếu tuyệt đối của bất kỳ đại trận hay thần thông nào",
+    khatVong: "viết lại thiên thư, trả lại tự do cho muôn loài",
+    thamKao: "Tư Tế Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_cang_kim_long: {
+    ten: "Cang Kim Long",
+    bietDanh: "Thái Cổ Nghịch Long",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Chân Long Huyết Mạch", "Bàn Cổ Thân"],
+    lyDoKV: "phản xuất Nhị Thập Bát Túc Tinh Cung, long trảo xé nát thiên la địa võng",
+    hoanCanh: "Chiến tướng tiên phong trên bầu trời Ẩn Tiên Đình, gầm vang chấn động tam giới",
+    biMat: "Móng vuốt phủ đầy Tinh Thần Kim Cang, không pháp bảo nào có thể ngăn cản",
+    khatVong: "đưa Long Tộc thoát khỏi kiếp nạn làm tọa kỵ nô dịch",
+    thamKao: "Nghịch Long Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_tam_nguyet_ho: {
+    ten: "Tâm Nguyệt Hồ",
+    bietDanh: "Nguyệt Hóa Bạch Hồ",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Thiên Mệnh Hồng Nhan", "Huyễn Mộng Chân Thể"],
+    lyDoKV: "bạch hồ tu luyện dưới ánh trăng thái cổ mười vạn năm, mị thuật thông thiên",
+    hoanCanh: "Phụ trách huyễn trận che mắt Thiên Lý Nhãn và Thuận Phong Nhĩ của Thiên Đình",
+    biMat: "Ánh mắt nguyệt hoa có thể khiến Tiên Vương rơi vào ảo mộng luân hồi vĩnh cửu",
+    khatVong: "tạo ra một thế giới ảo mộng an lành cho những linh hồn oan ức",
+    thamKao: "Bạch Hồ Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_phong_nhat_tho: {
+    ten: "Phòng Nhật Thố",
+    bietDanh: "Âm Dương Linh Mão",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Âm Dương Đạo Thể", "Thời Không Linh Căn"],
+    lyDoKV: "em ruột của Phòng Địa, chưởng quản Hối Minh Ấn và thuật phân tách ảo ảnh âm dương",
+    hoanCanh: "Cùng anh trai lập nên phòng tuyến sinh tử không thể vượt qua tại cấm khu",
+    biMat: "Mỗi khi ảo ảnh ngã xuống sẽ kích hoạt Cực Âm Phong Ấn Chú trừng phạt kẻ địch",
+    khatVong: "sát cánh cùng anh trai bảo vệ sự bình yên của cấm khu",
+    thamKao: "Âm Dương Thần Tướng Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_mao_nhat_tinh_quan: {
+    ten: "Mão Nhật Tinh Quân",
+    bietDanh: "Thái Cổ Kim Ô",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Thái Dương Thần Thể", "Cực Hỏa Linh Căn"],
+    lyDoKV: "huyết mạch Kim Ô viễn cổ thức tỉnh, rũ bỏ tiên tịch Tinh Cung",
+    hoanCanh: "Tỏa ra ánh sáng thái dương chân hỏa soi rọi cấm khu và thiêu rụi tà ma ngụy thiện",
+    biMat: "Tiếng gáy thái cổ làm tan biến mọi huyễn thuật và pháp trận của kẻ thù",
+    khatVong: "thắp sáng chân lý công bằng khắp chư thiên",
+    thamKao: "Kim Ô Thần Quân Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_du_tieu_dao: {
+    ten: "Du Tiêu Dao",
+    bietDanh: "Tiêu Dao Kiếm Ma",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Tuyệt Thế Kiếm Tu", "Vô Cực Kiếm Căn"],
+    lyDoKV: "ngộ kiếm đạo Tiêu Dao không câu nệ chính tà, kiếm ý phóng khoáng vạn giới",
+    hoanCanh: "Lãng tử kiếm khách đi lại giữa ranh giới sống chết, một kiếm định càn khôn",
+    biMat: "Kiếm chiêu không dấu vết, xuất kiếm khi lòng tĩnh lặng, sát thương xuyên hộ giáp",
+    khatVong: "tiêu dao tự tại cùng gió mây, không vương bụi trần",
+    thamKao: "Tiêu Dao Kiếm Khách Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_tuu_kiem_tien: {
+    ten: "Tửu Kiếm Tiên",
+    bietDanh: "Tửu Ma Túy Tiên",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Tuyệt Thế Kiếm Tu", "Thực Thần"],
+    lyDoKV: "lấy rượu dưỡng kiếm, say mà không say, say ngã càn khôn kiếm trảm nhật nguyệt",
+    hoanCanh: "Tiên nhân trượng nghĩa vì cứu tiểu yêu mà bị Thiên Đình truy sát, gia nhập cấm khu",
+    biMat: "Càng say kiếm khí càng hung hiểm, kiếm khí bắn tóe gây sát thương chuẩn khổng lồ",
+    khatVong: "uống cạn rượu ngon vạn giới và chém gục kẻ ức hiếp kẻ yếu",
+    thamKao: "Túy Tiên Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_nhan_nam: {
+    ten: "Nhạn Nam",
+    bietDanh: "Nạm Lôi Tiên Tiêu",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Thiên Lôi Thể", "Vạn Pháp Trận Đồ"],
+    lyDoKV: "điều khiển lôi đình cửu thiên, dùng ngọc tiêu thổi ra khúc nhạc dẫn lôi phá trận",
+    hoanCanh: "Chuyên trách kết nối lôi trận phòng thủ quanh cấm khu Ẩn Tiên Đình",
+    biMat: "Khúc tiêu vừa cất lên là vạn dặm lôi vân giáng thế, thanh lọc mọi tạp niệm",
+    khatVong: "dùng lôi đình chân chính thanh tẩy thiên địa mục nát",
+    thamKao: "Lôi Tiêu Thần Tướng Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_mong_dao: {
+    ten: "Mộng Dao",
+    bietDanh: "Nữ Oa Huyết Mạch",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Nữ Oa Huyết Mạch", "Cực Thủy Linh Căn"],
+    lyDoKV: "truyền nhân huyết mạch Nữ Oa nhưng bị Thiên Đình khép tội Yêu Thần Nghiệt Tộc",
+    hoanCanh: "Hiện thân Mộng Xà Lục Lân, nuôi dưỡng linh khí cấm khu và triệu hoán Thái Cổ Linh Sủng",
+    biMat: "Linh sủng bất tử hạ linh áp vây hãm, bào mòn công thủ và phong ấn thần thông địch",
+    khatVong: "khôi phục vinh quang thánh thiện của dòng máu Nữ Oa",
+    thamKao: "Mộng Xà Nữ Oa Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_tram_huong: {
+    ten: "Trầm Hương",
+    bietDanh: "Bảo Liên Đăng Thần Tướng",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Bảo Liên Đăng Khí", "Bất Tử Thạch Thân"],
+    lyDoKV: "dù xẻ núi cứu mẹ nhưng vẫn bị Thiên Đình truy sát đập nát phàm thân, tái sinh từ ngọn lửa Bảo Đăng",
+    hoanCanh: "Ngọn thương tiên phong của Ẩn Tiên Đình, mang oán khí ngút trời quyết tâm lật đổ ngai vàng",
+    biMat: "Nhân Đăng Hợp Nhất bộc phát tâm hỏa thiêu đốt mọi xiềng xích cấm chế",
+    khatVong: "đoạt lại công đạo cho mẫu thân và những sinh linh bị áp bức",
+    thamKao: "Bảo Đăng Thần Tướng Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_de_phi_lang: {
+    ten: "Đế Phi Lăng",
+    bietDanh: "Đế Huyết Kiếm Tôn",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Đế Huyết Thần Thể", "Tuyệt Thế Kiếm Tu"],
+    lyDoKV: "hung thần thoát khỏi Côn Luân Ngục sau khi gia tộc bị ma hỏa thiêu rụi",
+    hoanCanh: "Cùng Trầm Hương lĩnh ấn tiên phong, mang dàn Đế Huyết Ma Kiếm trút mưa phẫn nộ",
+    biMat: "Kiếm vũ hút cạn sinh cơ của chư thần giả tạo để bù đắp cho đồng đạo",
+    khatVong: "nhuộm đỏ Côn Luân bằng máu của những kẻ đạo đức giả",
+    thamKao: "Đế Huyết Kiếm Tôn Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+  npc_an_tien_thac_bat_ngoc_nhi: {
+    ten: "Thác Bạt Ngọc Nhi",
+    bietDanh: "Nữ Bạt Sơn",
+    canh: "Tiên Vương Kỳ",
+    atk: 9810, def: 9810, spd: 9810, spp: 9810, hp: 810000, mp: 810000,
+    khiVan: ["Thượng Cổ Bá Thể", "Võ Đạo Đỉnh Phong"],
+    lyDoKV: "tộc trưởng Thác Bạt Thị sinh ra từ Thái Cổ Tru Tinh Thạch, ngự trị Tru Tinh Phá Nguyệt",
+    hoanCanh: "Vung Cổ Thần Song Thương bảo vệ sườn cấm khu, không xiềng xích nào ngăn cản được",
+    biMat: "Bá Thể Thập Liên Trảm tung 10 đòn thương liên tiếp trảm sát kẻ yếu nhất, miễn nhiễm khống chế",
+    khatVong: "dùng Song Thương xé nát cấm chế chư thiên, giành lại tự do cho tộc nhân",
+    thamKao: "Bá Thể Nữ Bạt Ẩn Tiên Đình",
+    tocDo: 9810
+  },
+};
+
+// ── Van Linh Ky: thong tin khi van chay THAT cho NPC (V1.16.4) ──
+const NPC_KHI_VAN_HIEU_UNG = {
+  'Thiên Mệnh Chi Tử':      { chiSo: 3.0,  tho: 1.0,  tran: 0,   mo: 'khong_tran',    ghi: 'hao quang thien menh — duoc the gioi nin tho' },
+  'Khí Vận Chi Tử':         { chiSo: 3.0,  tho: 1.0,  tran: 0,   mo: 'khong_tran',    ghi: 'hao quang khi van — may man co duyen tuyet dinh' },
+  'Khí Vận Chi Nữ':         { chiSo: 3.0,  tho: 1.0,  tran: 0,   mo: 'khong_tran',    ghi: 'hao quang khi van nu mang — duoc thien dao uu ai' },
+  'Thiên Mệnh Ma Tôn':      { chiSo: 3.5,  tho: 1.5,  tran: 0,   mo: 'khong_tran',    ghi: 'ma dao chi ton — nghiep am vo han, ma uy ngut troi' },
+  'Thiên Chùy Bách Luyện':  { chiSo: 2.0,  tho: 0.8,  tran: 0.3, mo: 'ngay_cang_manh', ghi: 'ngich canh lien mien — vuot qua thu vi tang vot' },
+  'Đại Khí Vận':            { chiSo: 2.0,  tho: 1.2,  tran: 4.0, mo: 'co_hoi_ki_ng',  ghi: 'phuc bat trong hoan' },
+  'Thiên Mệnh Hồng Nhan':   { chiSo: 1.8,  tho: 1.0,  tran: 3.0, mo: 'hong_nhan_bac', ghi: 'duyen phan day, luan vui cung day' },
+  'Tuyệt Thế Kiếm Tu':      { chiSo: 1.6,  tho: 1.0,  tran: 2.5, mo: 'kiem_dao_thien', ghi: 'kiem khi trong' },
+  'Tuyệt Thế Roi Tu':       { chiSo: 1.6,  tho: 1.0,  tran: 2.5, mo: 'roi_de_nhu_du', ghi: 'thien phu phong loi' },
+  'Thánh Quang Thần Thể':   { chiSo: 1.5,  tho: 1.5,  tran: 2.5, mo: 'sac_am_bat_nhap', ghi: 'anh sang thuan khi' },
+  'Bàn Cổ Huyết Mạch':      { chiSo: 2.0,  tho: 3.0,  tran: 3.5, mo: '',              ghi: 'huyet mach khai thien lap dia' },
+  'Thiên Ma Thể':           { chiSo: 1.7,  tho: 1.0,  tran: 2.5, mo: 'khong_bao_ung', ghi: 'ma cach ngut troi' },
+  'Vạn Ác Tội Thể':         { chiSo: 1.8,  tho: 1.0,  tran: 2.5, mo: 'khong_bao_ung', ghi: 'ac than chon mat' },
+  'Ma Tôn Chuyển Thế':      { chiSo: 1.7,  tho: 1.2,  tran: 2.5, mo: 'tien_kiep_tac_dao', ghi: 'ket thuc kieu 7 da dan' },
+  'Phật Cốt Xá Lợi':        { chiSo: 1.3,  tho: 1.5,  tran: 2.2, mo: 'truu_ac',       ghi: 'phat quang pho the' },
+  'Hạn Bạt Viêm Thể':       { chiSo: 1.4,  tho: 1.0,  tran: 2.2, mo: '',              ghi: 'lua trong xuong' },
+  'Thủy Băng Hàn Thể':      { chiSo: 1.4,  tho: 1.0,  tran: 2.2, mo: '',              ghi: 'bang trong mau' },
+  'Ách Nan Độc Thể':        { chiSo: 1.5,  tho: 1.0,  tran: 2.5, mo: 'an_doc_thanh_loc', ghi: 'doc la com cua no' },
+  'Cơ Quan Hạch Tâm':       { chiSo: 1.3,  tho: 1.6,  tran: 2.2, mo: 'khong_benh_khong_moi', ghi: 'dong ho xuong' },
+  'Bất Tử Thạch Thân':     { chiSo: 1.2,  tho: 3.0,  tran: 3.0, mo: 'khat_nuoc_khat_thuc', ghi: 'da cung thien thu' },
+  'Phong Ảnh Thể':          { chiSo: 1.3,  tho: 1.0,  tran: 2.2, mo: '',              ghi: 'nhanh hon cai bong' },
+  'Thái Âm Táng Thể':       { chiSo: 1.5,  tho: 1.5,  tran: 2.5, mo: 'so_nang_khi_le', ghi: 'am khi tham dam' },
+  'Hạo Nhiên Chính Khí':    { chiSo: 1.3,  tho: 1.2,  tran: 2.2, mo: 'truu_am',       ghi: 'chinh khi mot duc' },
+  'Mệnh Quý Nhân':          { chiSo: 1.1,  tho: 1.1,  tran: 2.2, mo: 'gap_nan_duoc_cuu', ghi: 'luon co tay duoc duoi ra dung luc' },
+  'Võ Đạo Đỉnh Phong':      { chiSo: 1.4,  tho: 1.0,  tran: 2.2, mo: '',              ghi: 'nam don mo dien' },
+  'Quỷ Đạo Truyền Nhân':    { chiSo: 1.3,  tho: 1.2,  tran: 2.2, mo: 'so_loi_kiep',   ghi: 'mien dao kiem pham tran, so set' },
+  'Thi Âm Luyện Sư':        { chiSo: 1.3,  tho: 1.2,  tran: 2.2, mo: '',              ghi: 'luyen thi thanh quan' },
+  'Âm Sai Công Đức':        { chiSo: 1.1,  tho: 1.3,  tran: 2.0, mo: 'minh_phu_ghi_cong', ghi: 'linh hon co so co ma' },
+  'Luân Hồi Chi Tôn':       { chiSo: 1.2,  tho: 1.5,  tran: 2.5, mo: 'chet_roi_song_lai', ghi: 'bau troi co danh sach, no co quyen khang cao' },
+  'Thiên Lôi Thể':          { chiSo: 1.2,  tho: 1.0,  tran: 2.2, mo: 'mien_30_set_kiep', ghi: 'that phat that' },
+  'Thiên Sát Cô Tinh':      { chiSo: 1.3,  tho: 0.7,  tran: 1.5, mo: 'khac_than',     ghi: 'sat khi ngut troi, than toc bi lan' },
+  'Ách Vận Bám Thân':       { chiSo: 0.8,  tho: 0.7,  tran: 1.5, mo: 'deu_dong',      ghi: 'trach trong phuc' },
+  'Thiên Sinh Phế Vật':     { chiSo: 0.6,  tho: 0.85, tran: 1.5, mo: '',              ghi: 'can co phong' }
+};
+const npcKhiVanGhep = (npc) => {
+  const ts = Array.isArray(npc?.traits) ? npc.traits.map(t => typeof t === 'object' ? (t.name || '') : String(t)) : [];
+  let chiSo = 1, tho = 1, tran = 2, coTien = false, tranHieu = 99, dacBiet = [];
+  for (const t of ts) {
+    const h = NPC_KHI_VAN_HIEU_UNG[t];
+    if (!h) continue;
+    chiSo *= h.chiSo; tho *= h.tho;
+    if (h.tran === 0) coTien = true;            // Thien Menh: KHONG tran — chenep moi thu
+    else if (h.tran < tranHieu) tranHieu = h.tran; // trait han che keo tran xuong
+    if (h.mo) dacBiet.push(h.mo);
+  }
+  if (coTien) tran = 0;
+  else if (tranHieu < 99) tran = tranHieu;      // loi keo<2, loc cao>2 — trait cuoi cung thang
+  return { chiSo: Math.max(0.3, Math.min(3.0, chiSo)), tho, tran, dacBiet };
+};
+
+
+// Địa danh thuộc tầng "Toàn Cầu" (ảnh hưởng vượt châu, ai ở xa vẫn nghe tin)
+export const WORLD_TIER_EVENT_LOCATIONS: string[] = [
+  'trung_cuc_can_long_kinh_do',
+  'trung_cuc_kham_thien_giam',
+  'trung_cuc_dao_tri_tien_canh',
+  'tay_nguu_co_ma_thap',
+  'bac_cau_huyet_hai_ma_uyen',
+  'ngoai_canh_dao_may_thoi_khong'
+];
+
+// Lấy danh sách NPC sự kiện đang hoạt động của một sự kiện Canon theo năm tu đạo
+export const getEventNpcsForEvent = (evt: CanonEvent, curYear: number): EventNpc[] => {
+  if (!evt) return [];
+  const ids = new Set<string>(evt.eventNpcIds || []);
+  Object.values(EVENT_NPCS).forEach(n => { if (n && n.attachEventId === evt.id) ids.add(n.id); });
+  return Array.from(ids)
+    .map(id => EVENT_NPCS[id])
+    .filter(Boolean)
+    .filter(n => curYear >= (n.activeWindow?.fromYear ?? 1) && curYear <= (n.activeWindow?.toYear ?? 9999));
+};
+
+// Sinh khối [CHUỖI NHÂN QUẢ] cho sự kiện có sự kiện tiền đề
+export const buildChainContext = (evt: CanonEvent, list: CanonEvent[]): string => {
+  if (!evt || !evt.parentEventId || !Array.isArray(list)) return '';
+  const parent = list.find(e => e.id === evt.parentEventId);
+  if (!parent) return '';
+  const cons = (parent.consequences && parent.consequences[0]) || null;
+  const expected = cons ? (parent.hasDiverged ? cons.ifDiverged : cons.ifIntact) : null;
+  let out = `\n     + [CHUỖI NHÂN QUẢ] Sự kiện tiền đề: "${parent.title}" — Trạng thái: ${parent.hasDiverged ? 'ĐÃ BỊ PHÂN KỲ BỞI NVC' : 'NGUYÊN TÁC CHƯA BỊ BẺ CONG'}`;
+  if (expected) out += `\n     → Hệ quả kỳ vọng phải phản ánh vào chương này: ${expected}`;
+  if (parent.hasDiverged) out += `\n     → CẢNH BÁO: sự kiện tiền đề đã bị bẻ cong, BẠN BỊ CẤM chạy lại kịch bản gốc của sự kiện này!`;
+  return out;
+};
+
+// Sinh Aftermath Event khi Canon bị phân kỳ (tutien2.txt PHẦN IV.4 / VII.3)
+export const buildAftermathEvent = (evt: CanonEvent | undefined, survivor?: string, blocked?: string): { type: string; target?: string; description: string } => {
+  const evtTitle = evt?.title || 'sự kiện nguyên tác';
+  if (survivor) {
+    return {
+      type: 'debt_of_gratitude',
+      target: survivor,
+      description: `Nạn nhân ${survivor} của ${evtTitle} đã sống sót nhờ NVC, sinh ra Món Nợ Ân Tình: ân nhân sẽ theo đuổi trả ơn hoặc trả thù tùy duyên, kéo theo hệ quả về sau.`
+    };
+  }
+  if (blocked) {
+    return {
+      type: 'vengeful_enemy',
+      target: blocked,
+      description: `Kẻ đáng lẽ được lợi ${blocked} trong ${evtTitle} đã bị chặn, sinh ra Kẻ Thù Oán Hận: hắn sẽ truy xét nguyên nhân thất bại và tìm tới NVC.`
+    };
+  }
+  return {
+    type: 'world_scar',
+    description: `Địa điểm ${evt?.locationId || 'khu vực'} lệch khỏi kịch bản gốc, sinh ra Di Dân và Tái Thiết: dân cư, giá cả và thế lực địa phương biến động mạnh.`
+  };
+};
+
+// Chuẩn hóa requiredConditions thành token máy đọc được (tutien2.txt PHẦN VI.1)
+export const checkCanonConditions = (evt: CanonEvent, ctx: { curYear: number; curLocationId: string; activeState: any }): boolean => {
+  const conds = evt?.requiredConditions || [];
+  if (conds.length === 0) return true;
+  return conds.every((raw) => {
+    const token = String(raw).trim();
+    if (!token) return true;
+    const low = token.toLowerCase();
+    try {
+      if (low.startsWith('year>=')) return ctx.curYear >= Number(token.slice(6));
+      if (low.startsWith('year<=')) return ctx.curYear <= Number(token.slice(6));
+      if (low.startsWith('loc=')) return ctx.curLocationId.includes(token.slice(4).trim());
+      if (low.startsWith('z=')) return String(ctx.activeState?.coordinates?.z ?? 0) === token.slice(2).trim();
+      if (low.startsWith('dlc:')) return (ctx.activeState?.activeDLCs || []).includes(token.slice(4).trim());
+      if (low.startsWith('trait:')) {
+        const t = token.slice(6).trim();
+        return (ctx.activeState?.traits || []).some((x: any) => String(x?.name || x) === t);
+      }
+      if (low.startsWith('hasitem:')) {
+        const it = token.slice(8).trim();
+        return (ctx.activeState?.inventory || []).some((x: any) => String(x?.name || '').includes(it));
+      }
+    } catch (err) {
+      return true;
+    }
+    return true; // Token chưa nhận dạng được -> bỏ qua để không phá dữ liệu save cũ
+  });
+};
+
+const verifyDeathByAI = async (npcsToVerify, contextStory) => {
+    if (!npcsToVerify || npcsToVerify.length === 0) return [];
+    
+    const sysPrompt = `BẠN LÀ THẨM PHÁN SINH TỬ (DEATH & RESURRECTION INTERCEPTOR).
+Nhiệm vụ của bạn là đọc NGỮ CẢNH (Cốt truyện, Diễn biến, Trạng thái, Ký ức) và PHÁN XÉT CỰC KỲ KHÁCH QUAN xem các nhân vật sau đây:
+1. ĐÃ THỰC SỰ CHẾT (Mất mạng, tắt thở, xác chết, hồn phi phách tán, bị giết, tử vong)?
+2. HAY CHƯA CHẾT / ĐÃ SỐNG LẠI (Chỉ bị thương, chạy thoát, được cứu sống, giả chết, nói ẩn dụ/thành ngữ, HOẶC tàn hồn ngưng tụ, có công nghệ khoa học/kén hồi phục tái tạo nhục thân, tái sinh, chuyển sinh, phục sinh, phân thân đoạt xá, HOẶC BỊ HÓA THÀNH THI MA / CƯƠNG THI / VONG LINH)?
+
+[NGỮ CẢNH TỔNG THỂ ĐỂ ĐỐI CHIẾU]:
+"${contextStory || "Không có cốt truyện chung."}"
+
+[DANH SÁCH NHÂN VẬT CẦN PHÁN XÉT]:
+${npcsToVerify.map((n, i) => `${i+1}. Tên nhân vật: ${n.name}\n   - Trạng thái hiện hữu: ${n.state || 'Không rõ'}\n   - Ký ức tóm tắt: ${String(n.historySummary || 'Không rõ').slice(-300)}\n   - Nhận định sơ bộ của hệ thống: ${n.isDead ? 'Một cái xác đã chết' : 'Chưa rõ/Có dấu hiệu báo tử'}`).join('\n\n')}
+
+LỆNH TỐI CAO: 
+- Khái niệm Tử Vong nghĩa là: Không còn sự sống vật lý tồn tại, hoặc linh hồn đã hồn phi phách tán.
+- Nhiều khi từ "Chết" chỉ là lời đe dọa (VD: "Muốn chết à"), thành ngữ (VD: "Chết lặng", "Khóc chết", "Chết tiệt"), hoặc đã được người khác cứu (VD: "Suýt chết", "Giữ lại một mạng"). Đôi khi chỉ là giả chết.
+- ĐẶC BIỆT LƯU Ý BẢO HỘ TÂN THỦ VÀ CHẠY TRỐN: Nếu NGUYÊN BẢN CỐT TRUYỆN nhắc tới việc nhân vật này được cứu, chạy thoát thân, hoặc chỉ trọng thương, BẠN BẮT BUỘC ĐÁNH GIÁ LÀ CHƯA CHẾT!
+- ĐẶC BIỆT LƯU Ý KHOA HỌC / HUYỄN THUẬT / ĐOẠT XÁ / LUYỆN THI (V12.20): Nhân vật CÓ THỂ ĐÃ BỊ HỆ THỐNG GHI NHẬN CHẾT TỪ CHƯƠNG TRƯỚC, nhưng nếu chương này miêu tả họ đang thức tỉnh, tái tạo nhục thân, phân thân tẩu thoát thành công, trùng sinh, đoạt xá, HOẶC BỊ LUYỆN THÀNH THI MA / CƯƠNG THI tiếp tục tồn tại và chiến đấu -> BẠN BẮT BUỘC ĐÁNH GIÁ LÀ CHƯA CHẾT (isActuallyDead: false) VÀ GIẢI THÍCH RÕ LÝ DO HỌ TỒN TẠI!
+
+HÃY DÙNG TRÍ TUỆ NHÂN TẠO CỦA BẠN ĐỂ SUY LUẬN TOÀN DIỆN CHỨ KHÔNG ĐƯỢC CHIA RA TỪ KHÓA MỘT CÁCH MÁY MÓC!
+- Trả về JSON MẢNG CHÍNH XÁC (không thêm gì ngoài JSON). Array có cấu trúc:
+[
+  { "name": "Tên nhân vật", "isActuallyDead": true, "reason": "Bị chém đứt đầu trong trận chiến" },
+  { "name": "Tên nhân vật", "isActuallyDead": false, "reason": "Mặc dù thân xác cũ bị hủy, nhưng đã dùng kén hồi phục Med-Pod để tái tạo nhục thân, ý thức vẫn linh hoạt." }
+]`;
+
+    try {
+        const payload = { contents: [{ parts: [{ text: "Hãy phán xét sinh tử!" }] }], systemInstruction: { parts: [{ text: sysPrompt }] }, generationConfig: { responseMimeType: "application/json" } };
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const result = await response.json();
+        let parts = result.candidates?.[0]?.content?.parts || [];
+        let textResult = parts.filter(p => !p.thought).map(p => p.text).join('\n') || parts[0]?.text || '[]';
+        let data = [];
+        const cbMatch = textResult.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/i);
+        if (cbMatch) {
+            textResult = cbMatch[1];
+        } else {
+            const first = textResult.indexOf('[');
+            if (first !== -1) {
+                let count = 0;
+                for (let i = first; i < textResult.length; i++) {
+                    if (textResult[i] === '[') count++;
+                    else if (textResult[i] === ']') {
+                        count--;
+                        if (count === 0) {
+                            textResult = textResult.substring(first, i + 1);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        try {
+            data = JSON.parse(textResult.replace(/```json/gi, '').replace(/```/g, '').trim());
+        } catch (e) {
+            console.error("Lỗi parse JSON Tử Thần:", e);
+        }
+        return Array.isArray(data) ? data : [];
+    } catch (e) {
+        console.error("Lưỡi hái tử thần AI lỗi:", e);
+        return []; 
+    }
+};
+

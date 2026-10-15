@@ -1,0 +1,209 @@
+  useEffect(() => {
+      if (isMapOpen) {
+          setTimeout(() => centerMapOnPlayer(), 50); // Chờ DOM render kích thước
+      }
+  }, [isMapOpen]);
+
+  const [selectedMapNode, setSelectedMapNode] = useState(null); // V3.99: Lưu điểm nút đang chọn để xem thông tin
+  const [encSearch, setEncSearch] = useState('');
+  const [encFilter, setEncFilter] = useState('all');
+  const [encSort, setEncSort] = useState('newest');
+  const [encVisibleCount, setEncVisibleCount] = useState(1000);
+  
+  // V2.33 HOÀNG ĐẠT: State cho Mỏ Neo Nguyên Tác & Mỏ Neo Sự Kiện Hẹn Giờ
+  const [isLoreAnchorModalOpen, setIsLoreAnchorModalOpen] = useState(false);
+  const [anchorTab, setAnchorTab] = useState('npc');
+  const [newAnchorNpcName, setNewAnchorNpcName] = useState('');
+  const [newAnchorNpcRole, setNewAnchorNpcRole] = useState('');
+  const [newAnchorNpcGender, setNewAnchorNpcGender] = useState('Nữ');
+  const [newAnchorNpcLevel, setNewAnchorNpcLevel] = useState('Luyện Khí Tầng 1');
+  const [anchorStoryText, setAnchorStoryText] = useState('');
+  const [newAnchorNpcAppearance, setNewAnchorNpcAppearance] = useState(''); // V2.63: Ngoại hình NPC mỏ neo (Hoàng Đạt)
+  const [newAnchorNpcAddressing, setNewAnchorNpcAddressing] = useState(''); // V2.71: Cách xưng hô bắt buộc (Dark góp ý)
+  const [eventTitle, setEventTitle] = useState('');
+  const [eventLocation, setEventLocation] = useState('');
+  const [eventDesc, setEventDesc] = useState('');
+  const [eventDuration, setEventDuration] = useState(3);
+
+  const [immersionMode, setImmersionMode] = useState(false); 
+  const [isReconstructionModalOpen, setIsReconstructionModalOpen] = useState(false);
+  const [reconstructionData, setReconstructionData] = useState(null);
+  const [importCode, setImportCode] = useState('');
+  const importCodeRef = useRef(''); 
+  const scrollContainerRef = useRef(null); 
+  const abortExpansionRef = useRef(null); // V5.81: Phanh khẩn cấp cắt đứt Sáng thế ngầm
+  const isProcessingRef = useRef(false);
+  const lastActionRef = useRef(""); 
+  const longPressTimerRef = useRef(null); // V4.41: Ref đếm thời gian cho thao tác nhấn giữ
+
+  const lastCoopResultRef = useRef(null); // V5.0: Lưu dấu kết quả Co-op mới nhất để tránh spam hiển thị
+
+  const [skillFilter, setSkillFilter] = useState('all'); // V4.74: Bộ lọc công pháp
+  const [skillSearch, setSkillSearch] = useState(''); // V8.09: Tìm kiếm công pháp
+  const [hideDeadNpcs, setHideDeadNpcs] = useState(localStorage.getItem('tuTienHideDead') === 'true'); // V5.55: Ẩn/hiện người chết
+  const [npcFilter, setNpcFilter] = useState('all'); // V6.57: Bộ lọc phân tầng Tông Môn
+  const [npcSearch, setNpcSearch] = useState(''); // V8.09: Tìm kiếm Hồng Trần Lục
+  const [npcVisibleCount, setNpcVisibleCount] = useState(50); // V6.57: Giới hạn hiển thị chống lag
+
+  useEffect(() => { localStorage.setItem('tuTienHideDead', hideDeadNpcs); }, [hideDeadNpcs]);
+
+  const [discardItemModal, setDiscardItemModal] = useState(null);
+  const [discardAmount, setDiscardAmount] = useState(1);
+  const [legacyPersonalityModal, setLegacyPersonalityModal] = useState(null); // V9.90: Bảng bắt chọn Tính cách cho file save cũ
+  const [selectedLegacyPersonality, setSelectedLegacyPersonality] = useState('');
+  const [isFusionConfigOpen, setIsFusionConfigOpen] = useState(false); // V12.42: Giao diện Hợp Thể
+  const [fusionPartner, setFusionPartner] = useState(null); // V12.42: Đối tượng Hợp Thể
+
+  // V3.58: State cho Túi đồ mới
+  const [invFilter, setInvFilter] = useState('all');
+  const [invSearch, setInvSearch] = useState('');
+  const [selectedInvItem, setSelectedInvItem] = useState(null);
+  // V3.59: Container active state
+  const [activeContainerId, setActiveContainerId] = useState('default');
+  // V3.70: Chọn nhiều vật phẩm
+  const [selectedInvNames, setSelectedInvNames] = useState([]);
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // V3.92: Trạng thái ẩn/hiện checkbox
+
+  // V4.72: State cho Bảng Hành Trang Tùy Tùng & Số lượng chuyển đồ
+  const [moveAmount, setMoveAmount] = useState(1); // Chuyển đồ NVC
+  const [selectedCompInvItem, setSelectedCompInvItem] = useState(null); // Item đang xem của Tùy tùng
+  const [compMoveAmount, setCompMoveAmount] = useState(1); // Chuyển đồ Tùy tùng về
+  
+  const [companionInventoryModal, setCompanionInventoryModal] = useState(null); // Lưu tên tùy tùng đang mở
+  const [compInvFilter, setCompInvFilter] = useState('all');
+  const [compInvSearch, setCompInvSearch] = useState('');
+  const [activeCompContainerId, setActiveCompContainerId] = useState('default');
+
+  const [isStoneConverterOpen, setIsStoneConverterOpen] = useState(false);
+  const [converterAmount, setConverterAmount] = useState(1);
+  const [converterUnit, setConverterUnit] = useState('trung');
+  const [converterTab, setConverterTab] = useState<'pack' | 'unpack'>('pack');
+
+  const [rolledTraits, setRolledTraits] = useState([]);
+  const [selectedTraitIds, setSelectedTraitIds] = useState([]);
+  const [selectedBgId, setSelectedBgId] = useState('bg_0'); 
+  const [luanHoiPoints, setLuanHoiPoints] = useState(10);
+
+  // V7.87 & V12.42: Thuật toán nhận diện và khóa chéo Khí vận (Mutually Exclusive)
+  const lockedTraitIds = useMemo(() => {
+      let locked = new Set();
+      let hasNormalTrait = false;
+      let hasSystemTrait = false;
+
+      selectedTraitIds.forEach(id => {
+          const trait = TRAITS_POOL.find(t => t.id === id);
+          if (trait) {
+              if (Array.isArray(trait.incompatible)) {
+                  trait.incompatible.forEach(incId => locked.add(incId));
+              }
+              if (trait.isSystemParent || trait.isSystemChild) {
+                  hasSystemTrait = true;
+              } else {
+                  hasNormalTrait = true;
+              }
+          }
+      });
+
+      // V1.88 (Báo lỗi Hunggth8): Chỉ khóa các Hệ Thống khác nếu đã chọn 1 Hệ Thống (duy nhất 1 Hệ Thống mỗi kiếp), cho phép chọn tự do các khí vận thường song hành.
+      if (hasSystemTrait) {
+          TRAITS_POOL.filter(t => (t.isSystemParent || t.isSystemChild) && !selectedTraitIds.includes(t.id)).forEach(t => locked.add(t.id));
+      }
+      // V1.49: KHÓA CHẶT KHÍ VẬN CẤM KỴ CỦA YÊU TỘC THUẦN CHỦNG (Góp ý Ethan195)
+      // V1.79: KHÓA CHẶT KHÍ VẬN CỦA THIÊN ĐẠO KHƯỚC TỪ (Góp ý Kha)
+      if (typeof selectedBgId !== 'undefined' && selectedBgId === 'bg_thien_dao_khuoc_tu') {
+          TRAITS_POOL.forEach(t => {
+              const n = (t.name || '').toLowerCase();
+              const d = (t.desc || '').toLowerCase();
+              if (
+                  t.isSystemParent || t.isSystemChild ||
+                  n.includes('thiên mệnh') || n.includes('khí vận chi tử') || n.includes('khí vận chi nữ') ||
+                  n.includes('may mắn') || n.includes('phúc duyên') || n.includes('hệ thống') ||
+                  n.includes('quý nhân') || n.includes('hồng vận') || n.includes('đại vận') ||
+                  d.includes('thiên đạo gia hộ') || d.includes('may mắn') || d.includes('quý nhân phù trợ') ||
+                  [201, 202, 203, 2002, 901, 902, 903, 904, 905].includes(t.id)
+              ) {
+                  locked.add(t.id);
+              }
+          });
+      }
+
+      if (typeof selectedBgId !== 'undefined' && isPureYeuTocBg(selectedBgId)) {
+          locked.add(504); // Kẻ Ăn Mày
+          locked.add(605); // Thái Cổ Ngự Yêu Sư
+          locked.add(803); // Vạn Thú Thân Hòa
+          TRAITS_POOL.filter(t => t.isSystemParent || t.isSystemChild).forEach(t => locked.add(t.id)); // Hệ Thống Gia Hộ
+      }
+
+      return Array.from(locked);
+  }, [selectedTraitIds, selectedBgId]);
+
+  const [isArenaOpen, setIsArenaOpen] = useState(false);
+  const [arenaServerTime, setArenaServerTime] = useState(''); // V6.1: Đồng hồ Server
+  const [arenaFontSize, setArenaFontSize] = useState(15); // V6.5: Cỡ chữ võ đài
+  const [arenaLengthLevel, setArenaLengthLevel] = useState(Number(localStorage.getItem('tuTienArenaLength')) || 4); // V12.14: Độ dài văn bản Võ đài
+  useEffect(() => { localStorage.setItem('tuTienArenaLength', arenaLengthLevel); }, [arenaLengthLevel]);
+
+  // V6.1: Vòng lặp đồng hồ thời gian thực
+  useEffect(() => {
+      let interval;
+      if (isArenaOpen) {
+          interval = setInterval(() => {
+              const now = new Date();
+              setArenaServerTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} - Ngày ${now.getDate()}/${now.getMonth() + 1}`);
+          }, 1000);
+      }
+      return () => clearInterval(interval);
+  }, [isArenaOpen]);
+
+  const [arenaState, setArenaState] = useState({
+      tab: 'setup', 
+      myProfileId: '',
+      combatStyle: 'default', // V6.2: Lưu tùy chọn văn phong Võ đài
+      viewingHistoryFor: null, // V6.2: Modal xem lịch sử đấu
+      mySnapshot: null,
+      myStrategy: '',
+      pvpCode: '',
+      opponentCodeInput: '',
+      opponentSnapshot: null,
+      logs: [],
+      myHP: 100, myMaxHP: 100, myMP: 50, myMaxMP: 50, myStamina: 100, myMaxStamina: 100,
+      oppHP: 100, oppMaxHP: 100, oppMP: 50, oppMaxMP: 50, oppStamina: 100, oppMaxStamina: 100,
+      options: ['Tấn công chớp nhoáng', 'Phòng thủ phản công', 'Dùng tuyệt kỹ mạnh nhất', 'Thăm dò đối thủ'],
+      isGenerating: false,
+      customAction: '',
+      selectedItems: [],
+      selectedSkills: [],
+      showInventorySelector: false,
+      showSkillSelector: false,
+      itemSearchQuery: '',
+      skillSearchQuery: ''
+  });
+  const arenaScrollRef = useRef(null);
+
+  // --- STATE CHO ADMIN DEVTOOLS ---
+  const [devClickCount, setDevClickCount] = useState(0);
+  const [showAdminBot, setShowAdminBot] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [diagnosticLogs, setDiagnosticLogs] = useState([]);
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
+  const [diagnosticProgress, setDiagnosticProgress] = useState({ percent: 0, text: '' });
+
+  // V6.44 & V6.45: STATE VÀ HÀM CHO ADMIN QUẢN TRỊ SERVER
+  const [adminTabMode, setAdminTabMode] = useState('diagnostics'); 
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(localStorage.getItem('tuTienAdmin') === 'true');
+  const [adminLoginInput, setAdminLoginInput] = useState({ user: '', pass: '' });
+  const [adminGlobalLogs, setAdminGlobalLogs] = useState([]);
+
+  useEffect(() => { localStorage.setItem('tuTienAdmin', isAdminLoggedIn); }, [isAdminLoggedIn]);
+  const [isAdminFetching, setIsAdminFetching] = useState(false);
+  const [adminLogFilter, setAdminLogFilter] = useState('all');
+  
+  // V6.45: State cho Admin xem Danh sách Người chơi & Soi Kính
+  const [adminMonitorTab, setAdminMonitorTab] = useState('logs'); // 'logs', 'players', 'coop', 'seal'
+  const [adminPlayersList, setAdminPlayersList] = useState([]);
+  const [adminViewingPlayer, setAdminViewingPlayer] = useState(null); 
+  const [selectedSealNames, setSelectedSealNames] = useState([]); // V11.97: Lưu danh sách tên được tick chọn
+
+  const [adminQuickEditMode, setAdminQuickEditMode] = useState(false);
+  const [editingStat, setEditingStat] = useState(null);
+

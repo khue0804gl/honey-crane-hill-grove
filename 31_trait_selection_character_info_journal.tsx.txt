@@ -1,0 +1,697 @@
+  const selectSystemChild = (childId) => {
+      let newSelected = selectedTraitIds.filter(id => {
+          const t = TRAITS_POOL.find(x => x.id === id);
+          return !(t && t.isSystemChild) && id !== 701;
+      });
+      if (newSelected.length >= 4 && gameState.gameMode !== 'mong_ao') {
+          showAlert("Chế độ này giới hạn tối đa 4 Khí Vận!");
+          return;
+      }
+      newSelected.push(childId);
+      setSelectedTraitIds(newSelected);
+      
+      setRolledTraits(current => {
+          const fullChild = TRAITS_POOL.find(t => t.id === childId);
+          if (!fullChild) return current;
+          const parentIdx = current.findIndex(t => t.id === 701);
+          const newRolled = [...current];
+          if (parentIdx >= 0) {
+              newRolled[parentIdx] = fullChild;
+          } else {
+              if (!current.find(t => t.id === childId)) {
+                  const replaceIdx = current.findIndex(t => !newSelected.includes(t.id) && t.id !== childId);
+                  if (replaceIdx >= 0) newRolled[replaceIdx] = fullChild; 
+                  else newRolled.push(fullChild);
+              }
+          }
+          return newRolled;
+      });
+
+      setIsSystemModalOpen(false);
+  };
+
+  const selectWeaponChild = (childId) => {
+      let newSelected = selectedTraitIds.filter(id => {
+          const t = TRAITS_POOL.find(x => x.id === id);
+          return !(t && t.isWeaponChild) && id !== 302;
+      });
+      if (newSelected.length >= 4 && gameState.gameMode !== 'mong_ao') {
+          showAlert("Chế độ này giới hạn tối đa 4 Khí Vận!");
+          return;
+      }
+      newSelected.push(childId);
+      setSelectedTraitIds(newSelected);
+      
+      setRolledTraits(current => {
+          const fullChild = TRAITS_POOL.find(t => t.id === childId);
+          if (!fullChild) return current;
+          const parentIdx = current.findIndex(t => t.id === 302);
+          const newRolled = [...current];
+          if (parentIdx >= 0) {
+              newRolled[parentIdx] = fullChild;
+          } else {
+              if (!current.find(t => t.id === childId)) {
+                  const replaceIdx = current.findIndex(t => !newSelected.includes(t.id) && t.id !== childId);
+                  if (replaceIdx >= 0) newRolled[replaceIdx] = fullChild; 
+                  else newRolled.push(fullChild);
+              }
+          }
+          return newRolled;
+      });
+
+      setIsWeaponModalOpen(false);
+  };
+
+  const toggleQuickSelect = (traitId) => {
+    if (selectedBgId === 'bg_thien_dao_khuoc_tu') {
+        const _tObj = TRAITS_POOL.find(t => t.id === traitId);
+        if (isForbiddenThienDaoKhuocTuTrait(_tObj)) {
+            showAlert("Xuất thân Thiên Đạo Khước Từ bị thiên địa ruồng bỏ, tuyệt đối không thể chọn Khí Vận may mắn, thiên mệnh hay hệ thống gia hộ!");
+            return;
+        }
+    }
+    if (lockedTraitIds.includes(traitId) && !selectedTraitIds.includes(traitId)) {
+        showAlert("Khí vận này xung khắc với Khí vận đã chọn!");
+        return;
+    }
+    // V1.49: KHÓA CỨNG BẰNG CODE - YÊU TỘC THUẦN CHỦNG CẤM CHỌN ĂN MÀY, NGỰ YÊU, HỆ THỐNG
+    if (isPureYeuTocBg(selectedBgId)) {
+        const _tObj = TRAITS_POOL.find(t => t.id === traitId);
+        if (traitId === 504 || traitId === 605 || traitId === 803 || traitId === 701 || (_tObj && (_tObj.isSystemParent || _tObj.isSystemChild))) {
+            showAlert("Xuất thân Yêu Tộc Thuần Chủng không thể chọn khí vận Kẻ Ăn Mày, Ngự Yêu hoặc Hệ Thống Gia Hộ!");
+            return;
+        }
+    }
+    const traitObj = TRAITS_POOL.find(t => t.id === traitId);
+    if (traitObj && traitObj.isSystemParent && !selectedTraitIds.includes(traitId)) {
+        setIsSystemModalOpen(true);
+        return;
+    }
+    if (traitObj && traitObj.isWeaponParent && !selectedTraitIds.includes(traitId)) {
+        setIsWeaponModalOpen(true);
+        return;
+    }
+    if (selectedTraitIds.includes(traitId)) {
+        let toRemove = [traitId];
+        if (traitId === 701) {
+            toRemove = [...toRemove, ...TRAITS_POOL.filter(t => t.isSystemChild).map(t => t.id)];
+        }
+        if (traitId === 302) {
+            toRemove = [...toRemove, ...TRAITS_POOL.filter(t => t.isWeaponChild).map(t => t.id)];
+        }
+        setSelectedTraitIds(prev => prev.filter(id => !toRemove.includes(id)));
+        
+        if (traitObj && (traitObj.isSystemChild || traitObj.isWeaponChild)) {
+            setRolledTraits(current => {
+                let parentId = null;
+                if (traitObj.isSystemChild) parentId = 701;
+                if (traitObj.isWeaponChild) parentId = 302;
+                
+                if (parentId) {
+                    const parentObj = TRAITS_POOL.find(t => t.id === parentId);
+                    const childIdx = current.findIndex(t => t.id === traitId);
+                    if (childIdx >= 0 && parentObj) {
+                        const newRolled = [...current];
+                        newRolled[childIdx] = parentObj;
+                        return newRolled;
+                    }
+                }
+                return current;
+            });
+        }
+    }
+    else if (selectedTraitIds.length < 4 || gameState.gameMode === 'mong_ao') {
+        setSelectedTraitIds(prev => [...prev, traitId]);
+        setRolledTraits(current => {
+          if (current.find(t => t.id === traitId)) return current;
+          const fullTrait = TRAITS_POOL.find(t => t.id === traitId);
+          const replaceIdx = current.findIndex(t => t && !selectedTraitIds.includes(t.id) && t.id !== traitId);
+          const newRolled = [...current];
+          if (replaceIdx >= 0) newRolled[replaceIdx] = fullTrait; else newRolled.push(fullTrait);
+          return newRolled;
+        });
+    } else showAlert("Chế độ Chân Thực giới hạn tối đa 4 Khí Vận!");
+  };
+
+  const isNpcSuppressed = (npc) => {
+      if (!npc) return false;
+      const myStageId = getStageConfig(gameState.cultivationLevel).id || 1;
+      const npcStageId = getStageConfig(npc.level).id || 1;
+      const isEnemy = (Number(npc.hostility) >= 50) || /(thù|địch|truy nã|nghịch tặc)/i.test(npc.relationType || '');
+      return isEnemy && (npcStageId - myStageId >= 5);
+  };
+
+  // Khôi phục Hàm showNPCInfo chuẩn v8.05
+  const showNPCInfo = (npc, forceFull = false) => {
+      const isNemesis = (npc.traits || []).includes('Thiên Mệnh Ma Nữ') || (npc.traits || []).includes('Thiên Mệnh Ma Tôn');
+      const isScouterBroken = gameState.traits?.some(t => t && t.name === 'Máy Đo Bị Hỏng');
+      
+      // V12.21 FIX: Sương Mù Tình Báo DBZ (Bắt buộc dùng Scouter)
+      const hasScouter = Object.values(gameState.equipped || {}).some(eq => eq && eq.name && (String(eq.name).toLowerCase().includes('scouter') || String(eq.name).toLowerCase().includes('máy đo lực chiến')));
+      const isDbzBlind = false;
+      const isSuppressed = isNpcSuppressed(npc);
+
+      if (isNemesis) {
+          let msg = `HỒ SƠ TÌNH BÁO: ${npc.name}\nĐộ Thấu Hiểu: [???% - Sương mù nhân quả che khuất]\n\n`;
+          msg += `Giới tính: ???\n`;
+          msg += `Tuổi tác: ???\n`;
+          msg += `Thể chất: ???\n`;
+          msg += `Tính cách: ???\n`;
+          msg += `Cảnh giới: ???\n`;
+          msg += `Chức vụ: ???\n\n`;
+          msg += `Thái độ: Tử Địch Truyền Kiếp\n`;
+          msg += `Trạng thái: Đang ẩn nấp trong bóng tối, chờ ngày đoạt mạng ngươi.\n\n`;
+          msg += `📖 Lai Lịch Bẩm Sinh:\n[Bị Phong Ấn] Kẻ này đã được Hắc Ám và Thiên Đạo che đậy hành tung. Không thể dùng thiên cơ bói toán!\n\n`;
+          msg += `🧠 Ký Ức Tích Lũy:\n???`;
+          showAlert(msg);
+          return;
+      }
+
+      const knowPct = forceFull ? 100 : (npc.knowledgePct !== undefined ? Number(npc.knowledgePct) : (npc.isDead ? 100 : 20));
+      const isCombatKnown = knowPct >= 60; 
+      const isLoreKnown = knowPct >= 90;   
+      
+      let displayLevel = npc.level || '???';
+      if (isDbzBlind) {
+          displayLevel = '[??? - Cần Máy Đo Lực Chiến]';
+      } else if (isCombatKnown && npc.realLevel && npc.realLevel !== npc.level) {
+          displayLevel = `${npc.realLevel} (Ngụy trang: ${npc.level})`;
+      } else if (!isCombatKnown && npc.realLevel && npc.realLevel !== npc.level) {
+          displayLevel = `${npc.level} (Có vẻ là vậy)`;
+      } else if (knowPct < 20) {
+          displayLevel = '??? (Chưa thể nhìn thấu)';
+      }
+
+      let msg = `HỒ SƠ TÌNH BÁO: ${npc.name}\nĐộ Thấu Hiểu: [${isDbzBlind ? '???' : knowPct}%]\n\n`;
+      
+      msg += `Giới tính: ${isDbzBlind ? '???' : (knowPct >= 20 ? (npc.gender || 'Không rõ') : '???')}\n`;
+      msg += `Tuổi tác: ${isDbzBlind ? '???' : (knowPct >= 30 ? (npc.age || 'Không rõ') : '???')}\n`;
+      {
+          msg += `Thể chất: ${isDbzBlind ? '???' : (knowPct >= 30 ? (npc.physique || 'Phàm thể') : '???')}\n`;
+      }
+      msg += `Linh căn: ${isDbzBlind ? '???' : (knowPct >= 20 ? (npc.spiritualRoots ? (Array.isArray(npc.spiritualRoots) ? npc.spiritualRoots.join(', ') : npc.spiritualRoots) : getNpcSpiritualRoots(npc)) : '???')}\n`;
+      if (hasNpcInnerWorld(npc)) {
+          msg += `Nội Thiên Địa: ${isDbzBlind ? '???' : (knowPct >= 30 ? `[${getNpcInnerWorldStage(npc)}]` : '???')}\n`;
+      }
+      msg += `Tính cách: ${isDbzBlind ? '???' : (knowPct >= 40 ? (npc.personality || 'Khó đoán') : '???')}\n`;
+      msg += `${'Cảnh giới'}: ${displayLevel}\n`;
+      msg += `Chức vụ: ${isDbzBlind ? '???' : (knowPct >= 20 ? (npc.role || 'Kẻ lang thang') : '???')}\n`;
+      if (!isDbzBlind && knowPct >= 20) {
+          msg += `Ngoại hình: ${npc.appearance || (npc.gender === 'Nữ' ? 'Dáng người thon thả uyển chuyển, khí chất thanh nhã, y phục chỉnh tề' : 'Khôi ngô tuấn tú, phong thái đĩnh đạc')}\n`;
+      }
+      msg += `\n`;
+
+      if (knowPct >= 60 && !isDbzBlind) {
+          {
+              msg += `[Chỉ Số Thể Phách]\n`;
+              msg += `Công: ${npc.attack || '???'} | Thủ: ${npc.defense || '???'} | Tốc: ${npc.speed || '???'} | Thức: ${npc.spiritPower || '???'}\n`;
+          }
+          msg += `Máu (HP): ${Math.floor(npc.hp || 0)}/${npc.maxHp || '???'}\n\n`;
+
+          {
+              msg += `[Trang Bị Nhục Thân]\n`;
+          }
+          if (npc.equipped && Object.values(npc.equipped).some(val => val !== null)) {
+              const eq = npc.equipped;
+              if (eq.weapon) msg += `- Vũ Khí: ${eq.weapon.name} ${eq.weapon.attackBonus ? `(Công +${eq.weapon.attackBonus})` : ''}\n`;
+              if (eq.armor) msg += `- Pháp Y: ${eq.armor.name} ${eq.armor.defenseBonus ? `(Thủ +${eq.armor.defenseBonus})` : ''}\n`;
+              if (eq.head) msg += `- Hộ Đầu: ${eq.head.name} ${eq.head.defenseBonus ? `(Thủ +${eq.head.defenseBonus})` : ''}\n`;
+              if (eq.boots) msg += `- Hài Ngoa: ${eq.boots.name} ${eq.boots.speedBonus ? `(Tốc +${eq.boots.speedBonus})` : ''}\n`;
+              if (eq.artifact) msg += `- Pháp Bảo: ${eq.artifact.name}\n`;
+              if (eq.accessory) msg += `- Trang Sức: ${eq.accessory.name}\n`;
+          } else if (npc.equippedStr) {
+              msg += `- ${npc.equippedStr}\n`;
+          } else {
+              msg += `- (Chưa có trang bị khắc ấn)\n`;
+          }
+          msg += `\n`;
+
+          msg += `[Hành Trang / Tài Sản]\n`;
+          if (npc.inventory && npc.inventory.length > 0) {
+              npc.inventory.forEach(i => {
+                  msg += `- ${i.name} (x${i.quantity || 1})\n`;
+              });
+          } else if (npc.lootStr) {
+              msg += `- ${npc.lootStr}\n`;
+          } else {
+              msg += `- Mạn phép không có đồ đạc quý giá.\n`;
+          }
+          msg += `\n`;
+
+          msg += `[${'Tuyệt Học Bổn Mạng'}]\n`;
+          if (npc.skills && npc.skills.length > 0) {
+              npc.skills.forEach(s => {
+                  msg += `- ${s.name} (${s.level || 'Nhập môn'})\n`;
+              });
+          } else {
+              msg += `- ${'Chưa thu thập đủ tình báo hoặc chưa thi triển tuyệt kỹ.'}\n`;
+          }
+          msg += `\n`;
+      }
+      
+      msg += `Thái độ: ${isDbzBlind ? '???' : (npc.relationType || 'Người dưng')}\n`;
+      msg += `Trạng thái: ${isDbzBlind ? '???' : (npc.state || 'Bình thường')}\n`;
+      msg += `\n📖 Lai Lịch Bẩm Sinh:\n`;
+      if (isLoreKnown) {
+          msg += `${npc.background || 'Chưa có ghi chép.'}\n\n`;
+      } else {
+          msg += `[Bị Phong Ấn] Cần Độ Thấu Hiểu >= 90% để mở khóa.\n\n`;
+      }
+
+      msg += `🧠 Ký Ức Tích Lũy:\n`;
+      msg += `${npc.historySummary || 'Chưa có biến cố nào đáng kể.'}`;
+      
+      if (isSuppressed) {
+          setDialog({ type: 'npcInfoSuppressed', name: npc.name, message: msg });
+      } else {
+          showAlert(msg);
+      }
+  };
+
+    const showSkillInfo = (skill) => setViewingSkill(skill);
+  
+  // V4.75: Hàm ghim chiêu thức
+  const togglePinSkill = (e, skillName) => {
+      e.stopPropagation();
+      if (checkSpam()) return;
+      setGameState(prev => {
+          const newJournal = { ...prev.journal };
+          newJournal.skills = newJournal.skills.map(s => s.name === skillName ? { ...s, isPinned: !s.isPinned } : s);
+          return { ...prev, journal: newJournal };
+      });
+  };
+
+  // V7.72: Hàm ẩn/hiện tuyệt học
+  const toggleHideSkill = (e, skillName) => {
+      e.stopPropagation();
+      if (checkSpam()) return;
+      setGameState(prev => {
+          const newJournal = { ...prev.journal };
+          newJournal.skills = newJournal.skills.map(s => s.name === skillName ? { ...s, isHidden: !s.isHidden } : s);
+          return { ...prev, journal: newJournal };
+      });
+  };
+
+  const showTimeAndDiary = () => {
+    const realms = gameState.knownRealms || {'Vùng đất vô danh':{ratio:1, accumulated:0}};
+    
+    let timeText = "ĐỒNG HỒ ĐA VŨ TRỤ:\n\n";
+    const realmKeys = Object.entries(realms).sort((a,b) => b[1].accumulated - a[1].accumulated).map(e => e[0]);
+    const hasTimeDilation = realmKeys.some(k => k !== 'Vùng đất vô danh' && realms[k].ratio !== 1);
+    
+    let timeEntries = [];
+    realmKeys.forEach(name => {
+        if (name === 'Vùng đất vô danh' && !hasTimeDilation && realmKeys.length > 1) return; 
+        timeEntries.push(`- ${name}: ${getRealmTimeStr(name, realms)}`);
+    });
+
+    timeText += timeEntries.join('\n      ↑\n');
+
+    // V6.19: Bổ sung Lịch sử thay đổi Tuế Nguyệt
+    let historyText = "\n\nLỊCH SỬ THỜI GIAN (GẦN NHẤT):\n";
+    if (!gameState.timeHistory || gameState.timeHistory.length === 0) {
+        historyText += "- Thời gian trôi qua theo tự nhiên.";
+    } else {
+        historyText += gameState.timeHistory.slice(0, 8).map(h => `[${h.time}]\n👉 ${h.reason}`).join("\n\n");
+    }
+
+    const currentChapLogs = storyLog.filter(l => l.chapter === gameState.chapterCount && l.type === 'action');
+    let diaryText = "\n\nNHẬT KÝ CHƯƠNG " + gameState.chapterCount + ":\n";
+    if (currentChapLogs.length === 0) diaryText += "Chưa có hành động nào đáng chú ý.";
+    else diaryText += currentChapLogs.map(l => `- ${(l.timeStart && l.timeEnd) ? `[${l.timeStart} -> ${l.timeEnd}] ` : ""}${l.text.replace(/\[.*?\] /, '')}`).join("\n");
+
+    showAlert(timeText + historyText + diaryText);
+  };
+
+  // V6.94: Biến quản lý giao diện Lịch Sử & Breakdown
+  const [statHistoryModal, setStatHistoryModal] = useState({ isOpen: false, title: '', history: [], activeRecord: null, introText: null });
+
+  // V10.31 FIX: Hỗ trợ truyền introText để hiển thị quy tắc dù history trống
+  const showStatHistoryModal = (title, historyArr, introText = null) => {
+    if ((!historyArr || historyArr.length === 0) && !introText) return showAlert(`Chưa có ghi chép nào về ${title}.`);
+    setStatHistoryModal({ isOpen: true, title, history: historyArr || [], activeRecord: null, introText });
+  };
+  
+  const showStatInfo = (statName, baseValue, totalValue, desc, pMult = 1) => {
+    const currentLevel = displayCultivationLevel;
+    const multiplier = stageConfig.statMult;
+    showAlert(`CHI TIẾT CHỈ SỐ: ${statName}\n\n[ Sức Mạnh Thực Tế ]\nTổng: ${formatLargeNumber(totalValue)}\n= (Căn cơ gốc + Bị Động Thể Chất + Pháp Bảo + Yêu Linh + Buff tạm thời) × Hệ số ${currentLevel} (x${multiplier})${pMult > 1 ? ` × Bạo Kích Khí Vận (x${pMult})` : ''}\n\n[ Ý Nghĩa ]\n${desc}\n\n*Ghi chú: Điểm Căn cơ gốc rất khó tăng, thường chỉ được cộng thêm khi Đột Phá cảnh giới. Khi đột phá, Hệ số nhân sẽ tăng vọt giúp sức mạnh nhảy vọt!`);
+  };
+
+  // V3.31 THÀNH KHÔN & HÀO VIP PRO: Xử lý Đột Phá Cảnh Giới Tùy Biến Siêu Thoát (Cấp 21 duy nhất, khóa Cấp 22+)
+  const handleCustomRealmBreakthrough = (targetStageId: number, customName: string, authority: string) => {
+      const finalStageId = 21;
+      const realmName = String(customName || '').trim() || `Khởi Nguyên Cảnh (Cấp 21)`;
+      const authDesc = String(authority || '').trim() || 'Chấp chưởng quy luật khởi nguyên, ý niệm sinh diệt chư thiên';
+      const nextStatMult = Math.min(Number.MAX_SAFE_INTEGER, Math.floor(3000 * 2.5));
+
+      registerCustomRealm({
+          id: finalStageId,
+          name: realmName,
+          authority: authDesc,
+          statMult: nextStatMult
+      });
+
+      const safeCap = Number.MAX_SAFE_INTEGER;
+      const physCount = countPhysicalTraitsWithCores(gameState.traits);
+      const majorPct = physCount * 0.10; // Đột phá đại cảnh giới tăng gấp 2 lần tiểu cảnh giới (10% mỗi khí vận)
+
+      setGameState((prev: any) => {
+          const curMaxHp = Math.max(100, (Number(prev.health) || 100) + (Number(prev.bonusMaxHp) || 0));
+          const curMaxMp = Math.max(50, (Number(prev.spiritualEnergy) || 50) + (Number(prev.bonusMaxMp) || 0));
+          const curMaxSta = Math.max(100, (Number(prev.stamina) || 100) + (Number(prev.bonusMaxStamina) || 0));
+
+          const gainHp = Math.min(safeCap, Math.floor(curMaxHp * majorPct));
+          const gainMp = Math.min(safeCap, Math.floor(curMaxMp * majorPct));
+          const gainSta = Math.min(safeCap, Math.floor(curMaxSta * majorPct));
+
+          const newAtk = Math.min(safeCap, Math.floor((Number(prev.attack) || 10) * 2.5));
+          const newDef = Math.min(safeCap, Math.floor((Number(prev.defense) || 10) * 2.5));
+          const newSpd = Math.min(safeCap, Math.floor((Number(prev.speed) || 10) * 2.5));
+          const newSpp = Math.min(safeCap, Math.floor((Number(prev.spiritPower) || 10) * 2.5));
+
+          const newBonusHp = Math.min(safeCap, (Number(prev.bonusMaxHp) || 0) + gainHp);
+          const newBonusMp = Math.min(safeCap, (Number(prev.bonusMaxMp) || 0) + gainMp);
+          const newBonusSta = Math.min(safeCap, (Number(prev.bonusMaxStamina) || 0) + gainSta);
+
+          const newCr = { id: targetStageId, name: realmName, authority: authDesc, statMult: nextStatMult };
+          const updatedCustomRealms = [...(prev.customRealms || []).filter((r: any) => r.id !== targetStageId), newCr];
+
+          const timeStr = getRealmTimeStr(prev.currentLocation, prev.knownRealms);
+
+          return {
+              ...prev,
+              cultivationLevel: realmName,
+              stageId: targetStageId,
+              minorLevel: 1,
+              cultivationProgress: 0,
+              breakthroughPity: 0,
+              attack: newAtk,
+              defense: newDef,
+              speed: newSpd,
+              spiritPower: newSpp,
+              health: Math.min(safeCap, (Number(prev.health) || 100) + gainHp),
+              spiritualEnergy: Math.min(safeCap, (Number(prev.spiritualEnergy) || 50) + gainMp),
+              stamina: Math.min(safeCap, (Number(prev.stamina) || 100) + gainSta),
+              bonusMaxHp: newBonusHp,
+              bonusMaxMp: newBonusMp,
+              bonusMaxStamina: newBonusSta,
+              customRealms: updatedCustomRealms,
+              levelHistory: [
+                  { time: timeStr, reason: `Siêu Thoát Cấp ${targetStageId}`, change: `${prev.cultivationLevel} ➔ ${realmName}` },
+                  ...(prev.levelHistory || [])
+              ].slice(0, 30),
+              logs: [
+                  ...(prev.logs || []),
+                  {
+                      type: 'system',
+                      text: `🌟 [SIÊU THOÁT ĐẠO TỔ - CẤP ${targetStageId}] Ngươi đã siêu thoát khỏi gông cùm vũ trụ, chứng đạo Đại Cảnh Giới [${realmName}]! Quyền năng: ${authDesc}. Lực chiến (Công, Thủ, Tốc, Thức) tăng vọt x2.5! Máu/Mana/Thể lực tăng +${(majorPct * 100).toFixed(1)}% (+${formatLargeNumber(gainHp)} HP, +${formatLargeNumber(gainMp)} MP) từ ${physCount} khí vận thể chất & phôi dung hợp!`,
+                      chapter: prev.chapterCount || 1
+                  }
+              ]
+          };
+      });
+
+      handleAction(`Ta đã siêu thoát gông cùm cốt truyện, thành công chứng đạo đại cảnh giới [${realmName}], chấp chưởng quyền năng [${authDesc}]!`);
+  };
+
+  // V5.40: Bảng chi tiết Nguyên nhân tăng/giảm tạm thời
+  const showStatModDetails = (e, statKey, statName) => {
+      e.stopPropagation();
+      const mods = (gameState.activeEffects || []).filter(eff => eff.statMods && eff.statMods[statKey]);
+      if (mods.length === 0) return;
+      let msg = `CHI TIẾT BIẾN ĐỘNG: ${statName}\n\n`;
+      mods.forEach(m => {
+          const val = m.statMods[statKey];
+          msg += `[${m.name}]: ${val > 0 ? '+'+val : val} (Còn ${formatEffTime(m.durationMinutes)})\n👉 ${m.desc}\n\n`;
+      });
+      showAlert(msg);
+  };
+
+  const getSoulLoadBreakdownText = (stateData) => {
+      const stConfig = getStageConfig(stateData.cultivationLevel);
+      const curMaxSoul = 1 + (stConfig.id || 1) + Math.floor((Number(stateData.spiritPower)||10)/10);
+      const curSoul = stateData.absorbedSouls || 1;
+
+      let msg = `CHI TIẾT BÓC TÁCH: TẢI TRỌNG HỒN\n\n`;
+      msg += `Thức Hải (Não bộ) của bạn đang phải gánh chịu áp lực từ:\n\n`;
+      
+      let stepIndex = 1;
+      msg += `${stepIndex}. Bản Thể (Linh hồn gốc) : +1\n`;
+      stepIndex++;
+
+      const hasCloneSystem = stateData.traits?.some(t => t.name === 'Hệ Thống Phân Thân');
+      let fusedComps = (stateData.companions || []).filter(c => c.isFused);
+      if (fusedComps.length > 0) {
+          let compGroups = {};
+          let totalLoad = 0;
+          fusedComps.forEach(c => {
+              let lvl = c.level || 'Phàm Nhân';
+              let cleanLvl = String(lvl).replace(/\s*\[.*?\]\s*/g, '').replace(/\s+Tầng\s+\d+/ig, '').replace(/\s+(Sơ|Trung|Hậu)\s+Kỳ/ig, '').replace(/\s+Viên\s+Mãn/ig, '').replace(/\s+Kỳ/ig, '').trim();
+              
+              if (!compGroups[cleanLvl]) compGroups[cleanLvl] = 0;
+              compGroups[cleanLvl] += 1;
+              
+              if (!hasCloneSystem) {
+                  totalLoad += (getStageConfig(lvl).id || 1);
+              }
+          });
+          let details = Object.keys(compGroups).map(lvl => `${compGroups[lvl]} ${lvl.toLowerCase()}`).join(', và ');
+          msg += `${stepIndex}. Đang dung hợp ${details} : +${totalLoad}${hasCloneSystem ? " (Được miễn trừ nhờ Hệ Thống Phân Thân)" : ""}\n`;
+          stepIndex++;
+      }
+
+      let activeFormations = (stateData.activeEffects || []).filter(e => /(trận|kết giới|phong ấn)/i.test(e.name));
+      if (activeFormations.length > 0) {
+          let formGroups = {};
+          activeFormations.forEach(e => {
+              if (!formGroups[e.name]) formGroups[e.name] = 0;
+              formGroups[e.name] += 1;
+          });
+          Object.keys(formGroups).forEach(name => {
+              let load = formGroups[name] * 2;
+              msg += `${stepIndex}. Điều khiển trận pháp "${name}" số lượng ${formGroups[name]} : +${load}\n`;
+              stepIndex++;
+          });
+      }
+
+      let soulDebuffs = (stateData.activeEffects || []).filter(e => e.type === 'debuff' && /(hồn|chú|nguyền|đoạt phách|oán|tà)/i.test(e.name));
+      if (soulDebuffs.length > 0) {
+          let debuffGroups = {};
+          soulDebuffs.forEach(e => {
+              if (!debuffGroups[e.name]) debuffGroups[e.name] = 0;
+              debuffGroups[e.name] += 1;
+          });
+          Object.keys(debuffGroups).forEach(name => {
+              let load = debuffGroups[name] * 3;
+              msg += `${stepIndex}. Chịu nguyền rủa "${name}" số lượng ${debuffGroups[name]} : +${load}\n`;
+              stepIndex++;
+          });
+      }
+
+      msg += `\n[ Tổng Tải Trọng: ${curSoul} / ${curMaxSoul} ]\n`;
+      return msg;
+  };
+
+  const showAgeBreakdownModal = () => {
+      let msg = "CHI TIẾT TUỔI TÁC (THỌ NGUYÊN):\n\n";
+      msg += `- Tuổi khởi điểm (Xuyên không): ${gameState.startAge} tuổi\n\n`;
+      
+      const breakdown = gameState.ageBreakdown || { [gameState.currentLocation || 'Thế giới hiện tại']: Math.max(0, gameState.age - gameState.startAge) };
+      let hasData = false;
+
+      Object.entries(breakdown).forEach(([realm, years]) => {
+          if (years > 0.005) {
+              const y = Math.floor(years);
+              const d = Math.floor((years % 1) * 360);
+              msg += `📍 Tại [${realm}]: Nhục thân trải qua ${y > 0 ? y + ' năm ' : ''}${d > 0 ? d + ' ngày' : ''}\n`;
+              hasData = true;
+          }
+      });
+      
+      if (!hasData) msg += "Chưa có biến động thời gian đáng kể.\n";
+      
+      msg += `\nTổng Tuổi Sinh Học (Nhục Thân): ${Math.floor(gameState.age)} tuổi\n`;
+      if (gameState.soulAge && Math.floor(gameState.soulAge) > Math.floor(gameState.age)) {
+          msg += `Tổng Tuổi Linh Hồn (Tâm Trí): ${Math.floor(gameState.soulAge)} tuổi\n`;
+      }
+      msg += `(Tuổi thọ tối đa: ${gameState.maxAge >= 999999 ? 'Vô Hạn' : gameState.maxAge + ' tuổi'})\n\n`;
+      msg += `*Lưu ý: Nhục thân quyết định sinh lão bệnh tử. Tuy nhiên, nếu bạn trải qua huyễn mộng, xuất hồn hoặc ý thức tiến vào chiều không gian khác, Tuổi Linh Hồn sẽ tiếp tục già dặn đi trong khi nhục thân được bảo toàn!`;
+      
+      showAlert(msg);
+  };
+
+  const showTalentInfo = () => showAlert(`GIẢI THÍCH CHỈ SỐ: THIÊN PHÚ\n\n- Điểm gốc: ${formatLargeNumber(gameState.talent || 0)}\n\nĐại diện cho tư chất tu luyện bẩm sinh, khả năng dung nạp và tốc độ hấp thu linh khí của trời đất. Người có Thiên phú càng cao, thời gian bế quan tu luyện để đạt tới bình cảnh tiếp theo càng được rút ngắn.\n\nLý do thay đổi:\nThường cố định từ khi sinh ra (phụ thuộc vào Khí Vận hoặc Xuất Thân). Thiên Phú chỉ có thể tăng lên nếu nhân vật gặp được Kỳ Ngộ cực lớn, nuốt tẩy tủy đan, hoặc luyện các công pháp đoạt xá thiên địa.`);
+  const showEnlightenmentInfo = () => showAlert(`GIẢI THÍCH CHỈ SỐ: NGỘ ĐẠO\n\n- Điểm gốc: ${formatLargeNumber(gameState.enlightenment || 0)}\n\nĐại diện cho trí tuệ tâm linh, khả năng lĩnh ngộ công pháp, trận pháp, cũng như sự nhạy bén để nhìn thấu bình cảnh và sơ hở của kẻ địch. Phàm nhân mặc định là 10.\n\nLý do thay đổi:\nCố định theo căn cốt bẩm sinh. Có thể từ từ tăng lên nhờ đốn ngộ giữa ranh giới sinh tử, uống Ngộ Đạo Trà, hoặc tu luyện các bí pháp rèn luyện thần hồn chuyên biệt.`);
+
+  const removeInventoryItem = (e, item) => {
+    e.stopPropagation();
+    if (checkSpam()) return;
+    setDiscardItemModal(item);
+    setDiscardAmount(1);
+  };
+
+  const removeSkill = (e, skillNameToRemove) => {
+    e.stopPropagation();
+    if (checkSpam()) return;
+    showConfirm(`Chắc chắn muốn phế bỏ công pháp "${skillNameToRemove}"?`, () => {
+      setGameState(prev => ({ ...prev, journal: { ...prev.journal, skills: (prev.journal?.skills || []).filter(s => s.name !== skillNameToRemove) } }));
+      setStoryLog(prev => {
+        const newLog = [...prev, { type: 'system', text: `[Hệ Thống] Người chơi đã phế bỏ / quên lãng công pháp: ${skillNameToRemove}.`, chapter: gameState.chapterCount }];
+        return newLog.length > 50 ? newLog.slice(-50) : newLog;
+      });
+    });
+  };
+
+  // V11.39: Hàm Vận Hành Tâm Pháp Bản Mệnh (Tốn 1 Lượt)
+  const handleEquipCoreMethod = (e, skill) => {
+    e.stopPropagation();
+    if (checkSpam() || isGenerating) return;
+    showConfirm(`Vận hành Tâm pháp [${skill.name}] làm căn cơ bổn mạng?\n\nLưu ý: Quá trình chuyển đổi chu thiên kinh mạch sẽ tiêu tốn thời gian (1 Lượt). Nếu thực hiện giữa lúc chiến đấu sinh tử, bạn có thể bị tẩu hỏa nhập ma hoặc trúng đòn chí mạng!`, () => {
+      // Gọi AI xử lý như một hành động thực tế
+      handleAction(`Ta khoanh chân tĩnh tọa, từ từ thu hồi chu thiên kinh mạch cũ, dồn toàn lực vận hành tâm pháp [${skill.name}] làm căn cơ bổn mạng mới! \nLỆNH HỆ THỐNG: BẮT BUỘC cập nhật trường "equippedCoreMethod" trong JSON thành "${skill.name}". Nếu ta đang trong trận chiến mà dám ngồi thiền, hãy cho kẻ địch đánh ta trọng thương!`);
+      
+      // Cập nhật State tạm thời để UI phản hồi nhanh
+      setGameState(prev => ({ ...prev, equippedCoreMethod: skill.name }));
+    });
+  };
+
+  // V6.7: Hàm chủ động Hủy/Dọn rác nhiệm vụ
+  const removeQuest = (e, questName) => {
+    e.stopPropagation();
+    if (checkSpam()) return;
+    showConfirm(`Bạn muốn từ bỏ / xóa bỏ nhiệm vụ "${questName}"?\nLưu ý: Bạn sẽ không nhận được phần thưởng, và Thiên Đạo có thể sẽ giáng hình phạt nếu đây là nhiệm vụ tông môn.`, () => {
+      setGameState(prev => ({ ...prev, quests: (prev.quests || []).filter(q => q.name !== questName) }));
+      setStoryLog(prev => {
+        const newLog = [...prev, { type: 'system', text: `[Nhiệm Vụ] Đã chủ động từ bỏ ủy thác: ${questName}.`, chapter: gameState.chapterCount }];
+        return newLog.length > 50 ? newLog.slice(-50) : newLog;
+      });
+    });
+  };
+
+  const togglePinNpc = (e, npcId) => {
+    e.stopPropagation();
+    if (checkSpam()) return;
+    setGameState(prev => {
+        const updateList = (list) => list.map(n => {
+            if (n.id === npcId) {
+                if (!n.isPinned) showAlert(`Đã ghim [${n.name}] làm bạn đồng hành! (Tối đa 1 người). Nhân vật này sẽ luôn đi theo bạn và được Thiên Đạo bảo vệ tính cách cốt lõi.`);
+                else showAlert(`Đã bỏ ghim [${n.name}].`);
+                return { ...n, isPinned: !n.isPinned };
+            }
+            if (n.isPinned) return { ...n, isPinned: false };
+            return n;
+        });
+        
+        const isPinningNew = [...(prev.journal?.npcs || []), ...(prev.sect?.npcs || [])].find(n => n.id === npcId && !n.isPinned);
+        
+        return {
+            ...prev,
+            journal: { ...prev.journal, npcs: isPinningNew ? updateList(prev.journal?.npcs || []) : (prev.journal?.npcs || []).map(n => n.id === npcId ? { ...n, isPinned: !n.isPinned } : n) },
+            sect: prev.sect ? { ...prev.sect, npcs: isPinningNew ? updateList(prev.sect.npcs || []) : (prev.sect.npcs || []).map(n => n.id === npcId ? { ...n, isPinned: !n.isPinned } : n) } : prev.sect
+        };
+    });
+  };
+
+  const removeNpcFromJournal = (e, npcNameToRemove) => {
+    e.stopPropagation();
+    if (checkSpam()) return;
+    showConfirm(`Xóa sổ "${npcNameToRemove}" khỏi ký ức?`, () => {
+      setGameState(prev => {
+        const cleanName = String(npcNameToRemove).replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim().toLowerCase();
+        const prevGraveyard = Array.isArray(prev.journal?.graveyard) ? prev.journal.graveyard : [];
+        const prevForgotten = Array.isArray(prev.journal?.forgottenNpcNames) ? prev.journal.forgottenNpcNames : [];
+        const targetNpc = (prev.journal?.npcs || []).find(n => n.name === npcNameToRemove);
+        const newGraveyard = targetNpc?.isDead && !prevGraveyard.includes(cleanName) ? [...prevGraveyard, cleanName] : prevGraveyard;
+        const newForgotten = !prevForgotten.includes(cleanName) ? [...prevForgotten, cleanName] : prevForgotten;
+
+        return {
+          ...prev,
+          journal: {
+            ...prev.journal,
+            npcs: (prev.journal?.npcs || []).filter(n => n.name !== npcNameToRemove),
+            graveyard: newGraveyard,
+            forgottenNpcNames: newForgotten
+          }
+        };
+      });
+      setStoryLog(prev => {
+        const newLog = [...prev, { type: 'system', text: `[Hệ Thống] Người chơi đã quên lãng / cắt đứt quan hệ với nhân vật: ${npcNameToRemove}.`, chapter: gameState.chapterCount }];
+        return newLog.length > 50 ? newLog.slice(-50) : newLog;
+      });
+    });
+  };
+
+  const handleShowDeathInfo = (e) => {
+    if (e) e.stopPropagation();
+    const historyArr = (gameState.deathHistory || []).map((h, i) => ({
+        time: h.time || 'Không rõ thời điểm',
+        reason: h.reason || 'Biến cố vô thường',
+        change: h.surviveReason || 'Hoàn hồn / Tái sinh',
+        breakdown: [
+            { action: `Nguyên nhân: ${h.reason || 'Vẫn lạc'}`, change: h.surviveReason || 'Đoạn kiếp', time: h.time || '' }
+        ]
+    }));
+    const introText = gameState.health <= 0 
+        ? `TÌNH TRẠNG HIỆN TẠI: VẪN LẠC\nNguyên nhân: "${gameState.deathReason || 'Thân xác tan thành cát bụi, linh lực quy hoàn thiên địa.'}"\n\n🌿 Vô Ngã Luân Hồi: Thân xác hữu hạn trả về thiên địa, linh hồn hòa vào đại đạo, chờ đợi nhân duyên tái sinh.`
+        : `GHI CHÉP SINH TỬ & TÁI SINH (${Number(gameState.rebirthCount) || 0} lần luân hồi)\n\n🌿 Duyên Khởi Bất Diệt: Trải qua sinh tử tôi luyện đạo tâm, vạn kiếp luân hồi chứng đạo trường sinh.`;
+    
+    showStatHistoryModal('Ghi Chép Sinh Tử & Luân Hồi', historyArr, introText);
+  };
+
+  // V3.70: Lazy Load History Function (Tải nhanh 200 chương, sau đó 50 chương)
+  const loadMoreHistory = async (count = 50) => {
+      if (!user || !currentProfileId) return;
+      setIsLoadingHistory(true);
+      
+      const chaptersToFetch = [];
+      let startChapter = gameState.chapterCount;
+      if (loadedChapterIds.size > 0) {
+          startChapter = Math.min(...Array.from(loadedChapterIds)) - 1;
+      }
+
+      // V1.28.1: Giới hạn cứng trong 200 chương gần nhất (từ chapterCount - 199 đến chapterCount)
+      const minAllowedChapter = Math.max(1, (gameState.chapterCount || 1) - 199);
+
+      for (let i = startChapter; i >= Math.max(minAllowedChapter, startChapter - count + 1); i--) {
+          if (!loadedChapterIds.has(i)) chaptersToFetch.push(i);
+      }
+
+      if (chaptersToFetch.length === 0) {
+          setIsLoadingHistory(false);
+          return;
+      }
+
+      // V3.70: Dùng Promise.all tải song song để tối ưu tốc độ cho 200 chương
+      const fetchPromises = chaptersToFetch.map(async (chap) => {
+          try {
+              const logRef = doc(db, 'artifacts', appId, 'users', user?.uid, 'profiles', currentProfileId, 'logs', String(chap));
+              const logSnap = await getDoc(logRef);
+              if (logSnap.exists() && logSnap.data().dataStr) {
+                  return safeDecompressLogs(logSnap.data().dataStr);
+              }
+          } catch (e) { console.error(`Lỗi tải lịch sử chương ${chap}:`, e); }
+          return [];
+      });
+
+      const results = await Promise.all(fetchPromises);
+      let fetchedLogs = results.flat();
+
+      setLoadedChapterIds(prev => {
+          const newSet = new Set(prev);
+          chaptersToFetch.forEach(c => newSet.add(c));
+          return newSet;
+      });
+
+      setHistoryLogs(prev => {
+          const combined = [...fetchedLogs, ...prev];
+          const minChap = Math.max(1, (gameState.chapterCount || 1) - 199);
+          const filtered = combined.filter(l => (Number(l.chapter) || 0) >= minChap);
+          return filtered.sort((a,b) => (a.chapter || 0) - (b.chapter || 0));
+      });
+      setIsLoadingHistory(false);
+  };
+  
+  // ================= V6.2: ĐẠI LA THIÊN BẢNG (VÕNG DU QUẦN HÙNG - LIVING LEADERBOARD) =================
+  
+  // V6.6: Hàm tạo Quần Hùng (NPC Ảo) - Tên mang phong cách Game thủ thật, chống trùng lặp
