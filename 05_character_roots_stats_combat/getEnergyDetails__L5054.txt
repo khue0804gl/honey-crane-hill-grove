@@ -1,0 +1,81 @@
+const getEnergyDetails = (bgId, traits, level = '') => {
+    if (__GlobalPremadeWorld === 'dau_pha') return { name: 'Đấu Khí', icon: Zap, color: 'bg-red-500', text: 'text-red-500', isPhysical: true };
+    const traitNames = traits.map(t => t?.name || '');
+    const levelStr = String(level).toLowerCase();
+    
+    // Ưu tiên 1: Lưới Lọc V13 - Cơ giới và Quân đội
+    // V1.22.4: ĐỒNG BỘ NĂNG LƯỢNG CHO CÁC THẦN THỂ DUNG HỢP TỐI CAO
+    if (traitNames.includes('Hỗn Độn Bàn Cổ Khu') || traitNames.includes('Thập Nhị Đô Thiên Thần Sát Chân Thân')) {
+        return { name: 'Cương Khí', icon: Flame, color: 'bg-orange-600', text: 'text-orange-500', isPhysical: true };
+    }
+    if (traitNames.includes('Cơ Giới Hắc Quang Thể') || traitNames.includes('Hạch Tâm Cơ Thần Khôi Lỗi') || traitNames.includes('Chung Yên Điểm Kỳ Dị Thể')) {
+        return { name: 'Thể Năng Lõi', icon: Zap, color: 'bg-blue-600', text: 'text-blue-500', isPhysical: true };
+    }
+    if (traitNames.includes('Vạn Yêu Thánh Hoàng Thể')) {
+        return { name: 'Yêu Lực', icon: Zap, color: 'bg-purple-600', text: 'text-purple-400', isPhysical: false };
+    }
+    if (traitNames.includes('Cực Đạo Ma Hoàng Khí Vận') || traitNames.includes('Cửu U Minh Mị Thể')) {
+        return { name: 'Ma Khí', icon: Skull, color: 'bg-gray-800', text: 'text-gray-400', isPhysical: false };
+    }
+    if (traitNames.includes('Bồ Đề Ma La Bất Hoại Thân') || traitNames.includes('Hỗn Độn Thái Cực Thần Thể') || traitNames.includes('Vạn Khí Quy Nguyên Thể')) {
+        return { name: 'Hỗn Nguyên Khí', icon: Sparkles, color: 'bg-amber-600', text: 'text-amber-400', isPhysical: false };
+    }
+    if (traitNames.includes('Thái Hư Thần Binh Chi Khu')) {
+        return { name: 'Sát Khí', icon: Crosshair, color: 'bg-red-600', text: 'text-red-500', isPhysical: false };
+    }
+    // V2.47 FIX (Báo lỗi haovippro) & V3.3 FIX (Báo lỗi Dark): ƯU TIÊN TUYỆT ĐỐI 1 - Khí Vận Đặc Thù Đại Đạo Trùng Tu (Khi đã đập nát đan điền / Hóa phàm đổi hệ)
+    const hasTrungTuMa = traitNames.includes('Đại Đạo Trùng Tu (Ma Khí)');
+    const hasTrungTuLinh = traitNames.includes('Đại Đạo Trùng Tu (Linh Lực)');
+    if (hasTrungTuMa && hasTrungTuLinh) {
+        if (/(ma|tụ khí|ngưng mạch|ma đan|ma anh|hóa ma|luyện ma|hợp ma|đại ma)/.test(levelStr)) {
+            return { name: 'Ma Khí', icon: Skull, color: 'bg-gray-800', text: 'text-gray-400', isPhysical: false };
+        }
+        return { name: 'Linh Lực', icon: Zap, color: 'bg-teal-500', text: 'text-teal-500', isPhysical: false };
+    }
+    if (hasTrungTuMa) return { name: 'Ma Khí', icon: Skull, color: 'bg-gray-800', text: 'text-gray-400', isPhysical: false };
+    if (traitNames.includes('Đại Đạo Trùng Tu (Cương Khí)')) return { name: 'Cương Khí', icon: Flame, color: 'bg-orange-600', text: 'text-orange-500', isPhysical: true };
+    if (traitNames.includes('Đại Đạo Trùng Tu (Yêu Lực)')) return { name: 'Yêu Lực', icon: Zap, color: 'bg-purple-600', text: 'text-purple-400', isPhysical: false };
+    if (traitNames.includes('Đại Đạo Trùng Tu (Phật Lực)')) return { name: 'Phật Lực', icon: Sun, color: 'bg-yellow-500', text: 'text-yellow-500', isPhysical: false };
+    if (hasTrungTuLinh) return { name: 'Linh Lực', icon: Zap, color: 'bg-teal-500', text: 'text-teal-500', isPhysical: false };
+    if (traitNames.includes('Đại Đạo Trùng Tu (Đấu Khí)')) return { name: 'Đấu Khí', icon: Zap, color: 'bg-red-500', text: 'text-red-500', isPhysical: true };
+    if (traitNames.includes('Đại Đạo Trùng Tu (Võ Công)')) return { name: 'Nội Lực', icon: Wind, color: 'bg-cyan-500', text: 'text-cyan-400', isPhysical: true };
+    if (traitNames.includes('Đại Đạo Trùng Tu (Ma Pháp)')) return { name: 'Áo Năng', icon: Sparkles, color: 'bg-blue-700', text: 'text-blue-400', isPhysical: false };
+
+    // V1.22.11b FIX: Thêm 4 Thần Thể fusion thiếu
+    if (traitNames.includes('Hoang Cổ Chí Tôn Thể')) {
+        return { name: 'Cương Khí', icon: Flame, color: 'bg-orange-600', text: 'text-orange-500', isPhysical: true };
+    }
+    if (traitNames.includes('Vạn Kiếp Chân Tôn Thể') || traitNames.includes('Đạo Tổ Toàn Tri Thể') || traitNames.includes('Vạn Trận Quy Tông Thể')) {
+        return { name: 'Linh Lực', icon: Zap, color: 'bg-teal-500', text: 'text-teal-500', isPhysical: false };
+    }
+
+    if (bgId === 'bg_military') return { name: 'Sĩ Khí', icon: Flame, color: 'bg-red-600', text: 'text-red-500', isPhysical: true };
+    if (traitNames.includes('Cơ Khí Chân Lý (Iron Suit)') || ['co_gioi_su'].includes(bgId)) return { name: 'Thể Năng Lõi', icon: Zap, color: 'bg-blue-600', text: 'text-blue-500', isPhysical: true };
+
+    // Ưu tiên 3: Quét Khí Vận / Xuất Thân bẩm sinh (Chống AI ép sai năng lượng)
+    if (traitNames.includes('Bàn Cổ Huyết Mạch') || ['bg_18', 'bg_1', 'bg_21', 'bg_titan', 'bg_behemoth', 'bg_vu_toc'].includes(bgId) || traitNames.includes('Cự Nhân Thể')) return { name: 'Cương Khí', icon: Flame, color: 'bg-orange-600', text: 'text-orange-500', isPhysical: true };
+    if (['bg_10', 'bg_25', 'bg_taotie', 'bg_long_toc', 'bg_con_bang', 'bg_ho_toc', 'bg_vien_co_cu_long', 'bg_yeu_thuan_long', 'bg_yeu_thuan_phuong', 'bg_yeu_thuan_mieu', 'bg_yeu_thuan_ho', 'bg_yeu_thuan_dieu', 'bg_yeu_thuan_di_toc', 'bg_yeu_thuan_ngu'].includes(bgId) || traitNames.includes('Bán yêu (Dị loại)') || traitNames.includes('Bán Yêu (Nô Lệ)') || traitNames.includes('Bán Yêu (Huyết Mạch Lai)') || traitNames.includes('Bán Long (Huyết Mạch Lai)') || traitNames.includes('Tiên Thiên Đại Yêu') || traitNames.includes('Thôn Phệ Tinh Không')) return { name: 'Yêu Lực', icon: Zap, color: 'bg-purple-600', text: 'text-purple-400', isPhysical: false };
+    if (['bg_16', 'bg_23'].includes(bgId) || traitNames.some(t => t.includes('Tuyệt Thế')) || traitNames.includes('Đao phủ tử tù')) return { name: 'Sát Khí', icon: Crosshair, color: 'bg-red-600', text: 'text-red-500', isPhysical: false };
+    // V3.8 ĐẶC QUYỀN CHỦ TOẠ THÀNH KHÔN: KHÓA CỨNG ÁO NĂNG ARCANE (#1d4ed8 / bg-blue-700) CHO NHÁNH MA PHÁP (ƯU TIÊN TUYỆT ĐỐI TRƯỚC MA KHÍ)
+    const isMaPhapLevel = /(học đồ ma pháp|pháp sư|đại pháp sư|ma đạo sư|pháp thần|bán thần|hạ vị thần|trung vị thần|thượng vị thần|chủ thần|sáng thế thần|pháp tắc chi chủ|vạn pháp khởi nguyên)/i.test(levelStr);
+    const isMaPhapBgOrTrait = ['ma_phap', 'bg_high_elf', 'bg_dark_elf'].includes(bgId) || traitNames.includes('Ma Pháp Khởi Nguyên') || traitNames.includes('Đại Đạo Trùng Tu (Ma Pháp)');
+    if (isMaPhapBgOrTrait || isMaPhapLevel) {
+        return { name: 'Áo Năng', icon: Sparkles, color: 'bg-blue-700', text: 'text-blue-400', isPhysical: false };
+    }
+
+    if (['bg_19', 'bg_succubus', 'bg_nightmare', 'bg_undead', 'bg_thi_am_tong', 'bg_hu_khong', 'bg_blood_angel'].includes(bgId) || traitNames.includes('Ma Tôn Chuyển Thế') || traitNames.includes('Thiên Ma Thể') || traitNames.includes('Vạn Ác Tội Thể') || traitNames.includes('Hợp Hoan Mị Cốt') || traitNames.includes('Bán Mị Ma (Huyết Mạch Lai)') || traitNames.includes('Bán Ma (Huyết Mạch Lai)') || traitNames.includes('Thi Âm Luyện Sư') || traitNames.includes('Quỷ Đạo Truyền Nhân') || traitNames.includes('Thái Âm Táng Thể') || traitNames.includes('Hỗn Độn Diệt Thế Ma Căn')) return { name: 'Ma Khí', icon: Skull, color: 'bg-gray-800', text: 'text-gray-400', isPhysical: false };
+    if (['bg_angel'].includes(bgId) || traitNames.includes('Phật Cốt Xá Lợi') || traitNames.includes('Hạo Nhiên Chính Khí')) return { name: 'Phật Lực', icon: Sun, color: 'bg-yellow-500', text: 'text-yellow-500', isPhysical: false };
+    if (['bg_nho_sinh'].includes(bgId)) return { name: 'Chính Khí', icon: BookOpen, color: 'bg-blue-500', text: 'text-blue-500', isPhysical: false };
+    if (['dau_khi'].includes(bgId) || traitNames.includes('Nghịch Mệnh Đấu Giả')) return { name: 'Đấu Khí', icon: Zap, color: 'bg-red-500', text: 'text-red-500', isPhysical: true };
+
+    // Ưu tiên 4 - Bắt chữ trong Cảnh Giới để đồng bộ năng lượng khi chơi chế độ Mộng Ảo hoặc bị AI ép cấp
+    if (/(yêu|đại yêu)/.test(levelStr)) return { name: 'Yêu Lực', icon: Zap, color: 'bg-purple-600', text: 'text-purple-400', isPhysical: false };
+    if (/(ma|ác quỷ|lệ quỷ)/.test(levelStr) && !isMaPhapLevel) return { name: 'Ma Khí', icon: Skull, color: 'bg-gray-800', text: 'text-gray-400', isPhysical: false };
+    if (/(phật|tăng|la hán|bồ tát|sa di)/.test(levelStr)) return { name: 'Phật Lực', icon: Sun, color: 'bg-yellow-500', text: 'text-yellow-500', isPhysical: false };
+    if (/(nho|đồng sinh|tú tài|cử nhân|tiến sĩ|hàn lâm)/.test(levelStr)) return { name: 'Chính Khí', icon: BookOpen, color: 'bg-blue-500', text: 'text-blue-500', isPhysical: false };
+    if (/(bì|cốt|huyết|kim thân|phá hư|thần thể|nhục thân|bàn cổ)/.test(levelStr)) return { name: 'Cương Khí', icon: Flame, color: 'bg-orange-600', text: 'text-orange-500', isPhysical: true };
+    if (/(võ|hậu thiên|tiên thiên|tông sư)/i.test(levelStr) || ['vo_cong'].includes(bgId) || traitNames.includes('Võ Đạo Đỉnh Phong')) return { name: 'Nội Lực', icon: Wind, color: 'bg-cyan-500', text: 'text-cyan-400', isPhysical: true };
+    if (/(pháp|ma đạo|thần|chủ thần|sáng thế)/i.test(levelStr)) return { name: 'Áo Năng', icon: Sparkles, color: 'bg-blue-700', text: 'text-blue-400', isPhysical: false };
+    
+    return { name: 'Linh Lực', icon: Zap, color: 'bg-teal-500', text: 'text-teal-500', isPhysical: false };
+};

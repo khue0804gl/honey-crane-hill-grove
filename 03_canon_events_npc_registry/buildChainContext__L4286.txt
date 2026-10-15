@@ -1,0 +1,11 @@
+export const buildChainContext = (evt: CanonEvent, list: CanonEvent[]): string => {
+  if (!evt || !evt.parentEventId || !Array.isArray(list)) return '';
+  const parent = list.find(e => e.id === evt.parentEventId);
+  if (!parent) return '';
+  const cons = (parent.consequences && parent.consequences[0]) || null;
+  const expected = cons ? (parent.hasDiverged ? cons.ifDiverged : cons.ifIntact) : null;
+  let out = `\n     + [CHUỖI NHÂN QUẢ] Sự kiện tiền đề: "${parent.title}" — Trạng thái: ${parent.hasDiverged ? 'ĐÃ BỊ PHÂN KỲ BỞI NVC' : 'NGUYÊN TÁC CHƯA BỊ BẺ CONG'}`;
+  if (expected) out += `\n     → Hệ quả kỳ vọng phải phản ánh vào chương này: ${expected}`;
+  if (parent.hasDiverged) out += `\n     → CẢNH BÁO: sự kiện tiền đề đã bị bẻ cong, BẠN BỊ CẤM chạy lại kịch bản gốc của sự kiện này!`;
+  return out;
+};

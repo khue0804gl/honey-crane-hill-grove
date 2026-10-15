@@ -1,0 +1,15 @@
+const getRandomTraits = (count, universe = 'tutien', premadeWorldId = '', gameMode = 'chan_thuc') => {
+  const selectableTraits = TRAITS_POOL.filter(t => {
+      if (t.isDynamic) return false;
+      if (t.onlyMongAo && gameMode !== 'mong_ao') return false;
+      if (gameMode === 'chan_thuc' && ['Tọa Vong Đạo', 'Người Gặp Ma', 'Vạn Giới Tôn Sùng'].includes(t.name)) return false;
+      if (t.name === 'Vạn Giới Tôn Sùng') return false;
+      if (premadeWorldId) {
+          return t.premadeWorld === premadeWorldId;
+      }
+      if (t.premadeWorld) return false;
+      return t.id < 10000;
+  });
+  const shuffled = [...selectableTraits].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+};

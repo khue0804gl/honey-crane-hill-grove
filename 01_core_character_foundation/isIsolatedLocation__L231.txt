@@ -1,0 +1,7 @@
+const isIsolatedLocation = (locName?: string, actionText?: string): boolean => {
+    const locLower = String(locName || '').toLowerCase();
+    const actLower = String(actionText || '').toLowerCase();
+    const isolatedKeywords = /(hang đá|hang động|đáy hồ|mật thất|cấm địa|dị không gian|đáy vực|lòng đất|phong ấn|động thiên phong bế|không gian độc lập|bí cảnh cô lập|đáy biển|thạch thất|u cốc biệt lập|hang ngầm|động ngầm)/;
+    const actIsolatedKeywords = /(bế quan|tĩnh tọa trong hang|ẩn cư trong mật thất|lặn xuống đáy hồ|tiến vào dị không gian|phong bế động phủ)/;
+    return isolatedKeywords.test(locLower) || actIsolatedKeywords.test(actLower);
+};

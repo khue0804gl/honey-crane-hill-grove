@@ -1,0 +1,41 @@
+const getStageConfig = (level) => {
+  const lv = String(level || 'Phàm Nhân').toLowerCase().trim();
+  
+  // V2.29 HÀO VIP PRO & ETSUO: Hỗ trợ cảnh giới tùy biến trên Cấp 20
+  if (CUSTOM_REALMS_REGISTRY[lv]) return CUSTOM_REALMS_REGISTRY[lv];
+  for (const key in CUSTOM_REALMS_REGISTRY) {
+      if (key && (lv.includes(key) || key.includes(lv))) return CUSTOM_REALMS_REGISTRY[key];
+  }
+  // V3.31 (LỆNH TỐI CAO THÀNH KHÔN & GÓP Ý HÀO VIP PRO): Nhận diện Cảnh Giới Siêu Thoát (Cấp 21 duy nhất, khóa Cấp 22+)
+  if (lv.includes('siêu thoát')) {
+      return getStageConfigById(21);
+  }
+  const lvlMatch = lv.match(/cấp\s*(\d{2,})/i);
+  if (lvlMatch) {
+      const cId = parseInt(lvlMatch[1], 10);
+      if (cId >= 21) return getStageConfigById(21);
+  }
+  
+  // V8.47 UPDATE: ĐẠI TU TOÀN DIỆN TỪ ĐIỂN CẢNH GIỚI ĐỂ KHỚP 100% VỚI CULTIVATION_PATHS
+  if (/(chúa tể đấu khí|đấng toàn tri|đạo tổ|bàn cổ chân thân|vạn ma chi chủ|thái cổ yêu tổ|vạn thế sư biểu|vạn phật chi tổ|u minh chi chủ|võ tổ|vạn pháp khởi nguyên)/i.test(lv)) return { id: 20, statMult: 3000, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 30, mpPrio: true, baseMaxAge: 999999 };
+  if (/(đại đạo đấu chủ|vật chất nhân quả|tiên đế|đại đạo nhục thân|ma đế|tổ vu|thánh đế|phật đế|phong đô đại đế|võ đạo chi chủ|pháp tắc chi chủ)/i.test(lv)) return { id: 19, statMult: 2000, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 25, mpPrio: true, baseMaxAge: 999999 };
+  if (/(đấu phá cảnh|cơ khí khởi nguyên|tiên vương|hỗn độn thể|ma hoàng|yêu thần|thánh vương|thế tôn|thập điện diêm vương|chí tôn võ đạo|sáng thế thần)/i.test(lv)) return { id: 18, statMult: 1500, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 20, mpPrio: true, baseMaxAge: 999999 };
+  if (/(chí cao đấu thần|cơ bản quy luật|tiên tôn|bất hủ|ma vương|yêu tôn|thánh tôn|cổ phật|minh tôn|phá không võ thần|chí cao thần)/i.test(lv)) return { id: 17, statMult: 1100, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 15, mpPrio: true, baseMaxAge: 999999 };
+  if (/(thiên đấu thần|thực thể đa chiều|đại la kim tiên|thần thể|đại la ma tôn|đại la yêu tôn|thiên thánh|chân phật|minh đế|võ thần|thần vương)/i.test(lv)) return { id: 16, statMult: 800, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 12, mpPrio: true, baseMaxAge: 999999 };
+  if (/(đại đấu thần|trình biên dịch thực tại|thái ất kim tiên|võ đế|thái ất ma tôn|thái ất yêu tôn|chí thánh|phật đà|minh vương|võ thánh|chủ thần)/i.test(lv)) return { id: 15, statMult: 600, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 10, mpPrio: true, baseMaxAge: 999999 };
+  if (/(đấu thần|thần cơ vĩnh hằng|kim tiên|võ hoàng|thiên ma|thiên yêu|đại thánh|thánh tăng|minh tướng|thượng vị thần)/i.test(lv)) return { id: 14, statMult: 440, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 8, mpPrio: true, baseMaxAge: 999999 };
+  if (/(đấu đế|thực thể phản chất|huyền tiên|chân vũ cảnh|võ vương|huyền ma|huyền yêu|chân thánh|đại bồ tát|diêm la|trung vị thần)/i.test(lv)) return { id: 13, statMult: 320, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 7, mpPrio: true, baseMaxAge: 999999 };
+  if (/(đấu thánh|vạn cơ quy luật|chân tiên|võ đạo kim đan|võ tôn|chân ma|chân yêu|á thánh|bồ tát|cửu u tiên|hạ vị thần)/i.test(lv)) return { id: 12, statMult: 230, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 6, mpPrio: true, baseMaxAge: 999999 };
+  if (/(bán thánh|lõi kỹ thuật số|hư tiên|toái hư không|tôn giả|hư ma|hư yêu|kim thân la hán|quỷ tiên|bán thần)/i.test(lv)) return { id: 11, statMult: 160, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 5, mpPrio: true, baseMaxAge: 50000 };
+  if (/(đấu tôn|ý thức thiên hà|độ kiếp kỳ|độ kiếp|huyết hải|độ ma kiếp|la hán|tu la|pháp thần)/i.test(lv)) return { id: 10, statMult: 110, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 4, mpPrio: true, baseMaxAge: 15000 };
+  if (/(đấu tông|lõi máy hành tinh|đại thừa kỳ|đại thừa|bất diệt|đại ma kỳ|yêu đế|đại đức|dạ xoa|võ lâm thần thoại|thánh ma đạo sư)/i.test(lv)) return { id: 9, statMult: 75, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 3, mpPrio: true, baseMaxAge: 8000 };
+  if (/(đấu hoàng|kỳ dị máy móc|hợp thể kỳ|hợp thể|niết bàn|hợp ma kỳ|yêu hoàng|đại nho|thượng nhân|quỷ đế|đại tông sư|đại ma đạo sư)/i.test(lv)) return { id: 8, statMult: 50, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 2, mpPrio: true, baseMaxAge: 4000 };
+  if (/(đấu vương|cơ khí hư không|luyện hư kỳ|luyện hư|hư không|luyện ma kỳ|yêu vương|hàn lâm|pháp sư(?! (sơ cấp|trung cấp|cao cấp))|quỷ vương|(?<!đại )tông sư|ma đạo sư)/i.test(lv)) return { id: 7, statMult: 34, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 1, mpPrio: true, baseMaxAge: 3000 };
+  if (/(đấu linh|hóa thần cơ quân|hóa thần kỳ|hóa thần|phá hư|hóa ma kỳ|yêu tướng|tiến sĩ|thiền sư|quỷ tướng|tiên thiên cảnh|pháp sư cao cấp)/i.test(lv)) return { id: 6, statMult: 22, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 0.5, mpPrio: true, baseMaxAge: 2000 };
+  if (/(đại đấu sư|nguyên anh cơ hồn|nguyên anh kỳ|nguyên anh|kim thân|ma anh kỳ|hóa hình|cử nhân|võ tăng|lệ quỷ|hậu thiên cảnh|pháp sư trung cấp)/i.test(lv)) return { id: 5, statMult: 14, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 0, mpPrio: true, baseMaxAge: 1000 };
+  if (/(^|\s)đấu sư\b|lõi lượng tử đan|kim đan kỳ|kim đan|nhị lưu võ giả|hoán huyết|ma đan kỳ|yêu đan|tú tài|hành giả|ác quỷ|nhất lưu võ giả|pháp sư sơ cấp/i.test(lv)) return { id: 4, statMult: 8, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 0, mpPrio: true, baseMaxAge: 500 };
+  if (/(đấu giả|bậc thầy ngoại cốt|trúc cơ kỳ|trúc cơ|tam lưu võ giả|luyện cốt|ngưng mạch kỳ|ngưng mạch|đại yêu|đồng sinh|tăng lữ|oán quỷ)/i.test(lv)) return { id: 3, statMult: 4, coefNo: 0.5, coefMp: 0.5, autoMpRegenPct: 0, mpPrio: false, baseMaxAge: 200 };
+  if (/(đấu chi khí|cơ giới binh|luyện khí kỳ|luyện khí|luyện bì|tụ khí kỳ|tụ khí|tiểu yêu|học đồng|sa di|du hồn|học đồ ma pháp|nhập đạo)/i.test(lv)) return { id: 2, statMult: 2, coefNo: 0.8, coefMp: 0.2, autoMpRegenPct: 0, mpPrio: false, baseMaxAge: 120 };
+  
+  return { id: 1, statMult: 1, coefNo: 0.9, coefMp: 0.1, autoMpRegenPct: 0, mpPrio: false, baseMaxAge: 80 }; 
+};

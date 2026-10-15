@@ -1,0 +1,18 @@
+const getDistance = (loc1, loc2, timelineId) => {
+    if (!loc1 || !loc2 || loc1 === loc2) return 0;
+    const activeGraph = getActiveWorldGraph(timelineId);
+    const node1 = activeGraph[loc1] || Object.values(activeGraph).find(n => n.name === loc1);
+    const node2 = activeGraph[loc2] || Object.values(activeGraph).find(n => n.name === loc2);
+
+    if (node1 && node2) {
+        // Nếu có tuyến đường nối trực tiếp trong đồ thị, dùng đúng cự ly dặm định sẵn
+        const directPath = (node1.connectedPaths || []).find(p => p.targetId === node2.id);
+        if (directPath) return directPath.distanceLi;
+
+        // Nếu không nối trực tiếp, tính cự ly không gian thực theo tọa độ
+        const dx = node1.coordinates.x - node2.coordinates.x;
+        const dy = node1.coordinates.y - node2.coordinates.y;
+        return Math.floor(Math.sqrt(dx * dx + dy * dy));
+    }
+    return 100;
+};

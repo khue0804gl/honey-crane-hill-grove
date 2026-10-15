@@ -1,0 +1,13 @@
+const pruneStatHistories = (state: any, maxKeep = 10) => {
+    if (!state || typeof state !== 'object') return state;
+    for (const key of STAT_HISTORY_KEYS) {
+        if (Array.isArray(state[key]) && state[key].length > maxKeep) {
+            state[key] = state[key].slice(0, maxKeep);
+        }
+    }
+    // V2.99: Khóa trần tóm tắt cốt truyện 20 chương gần nhất theo lệnh Chủ toạ Dark
+    if (Array.isArray(state.summaries) && state.summaries.length > 20) {
+        state.summaries = state.summaries.slice(0, 20);
+    }
+    return state;
+};

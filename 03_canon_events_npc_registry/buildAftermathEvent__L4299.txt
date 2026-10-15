@@ -1,0 +1,21 @@
+export const buildAftermathEvent = (evt: CanonEvent | undefined, survivor?: string, blocked?: string): { type: string; target?: string; description: string } => {
+  const evtTitle = evt?.title || 'sự kiện nguyên tác';
+  if (survivor) {
+    return {
+      type: 'debt_of_gratitude',
+      target: survivor,
+      description: `Nạn nhân ${survivor} của ${evtTitle} đã sống sót nhờ NVC, sinh ra Món Nợ Ân Tình: ân nhân sẽ theo đuổi trả ơn hoặc trả thù tùy duyên, kéo theo hệ quả về sau.`
+    };
+  }
+  if (blocked) {
+    return {
+      type: 'vengeful_enemy',
+      target: blocked,
+      description: `Kẻ đáng lẽ được lợi ${blocked} trong ${evtTitle} đã bị chặn, sinh ra Kẻ Thù Oán Hận: hắn sẽ truy xét nguyên nhân thất bại và tìm tới NVC.`
+    };
+  }
+  return {
+    type: 'world_scar',
+    description: `Địa điểm ${evt?.locationId || 'khu vực'} lệch khỏi kịch bản gốc, sinh ra Di Dân và Tái Thiết: dân cư, giá cả và thế lực địa phương biến động mạnh.`
+  };
+};

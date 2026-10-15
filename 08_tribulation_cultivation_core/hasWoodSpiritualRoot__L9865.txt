@@ -1,0 +1,6 @@
+const hasWoodSpiritualRoot = (sr: any): boolean => {
+    if (!sr) return false;
+    if (String(sr.name || '').toLowerCase().includes('mộc')) return true;
+    if (Array.isArray(sr.elements) && sr.elements.some((e: any) => String(e).toLowerCase().includes('mộc'))) return true;
+    return false;
+};

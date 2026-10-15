@@ -1,0 +1,208 @@
+const getLinhCanBuffDetails = (spiritualRoot) => {
+    if (!spiritualRoot || !spiritualRoot.name) return null;
+    const sr = spiritualRoot.name;
+    const pur = spiritualRoot.purity || 'Bình Thường';
+    const rawElements = Array.isArray(spiritualRoot.elements) ? spiritualRoot.elements : [];
+    const els = rawElements.join(', ') || 'Vô Hệ';
+    
+    let tuLuyenSpeed = 0;  // % bonus tốc độ tu luyện
+    let passiveBuff = {};  // {atk, def, spd, spp, mult}
+    let specialNote = '';  // Ghi chú đặc biệt
+    let elementSynergy = ''; // Ngũ Hành Sinh Khắc
+    let skillAffinity = '';  // Tương Thích Công Pháp
+    let tribulationResist = ''; // Thiên Kiếp / Lôi Kiếp Cảm Ứng
+
+    if (sr.includes('Chung Yên') || sr.includes('Lôi Ma') || (rawElements.includes('Ám') && rawElements.includes('Lôi') && rawElements.includes('Diệt'))) {
+        tuLuyenSpeed = 85; passiveBuff = {atk:80, def:50, spd:65, spp:70};
+        specialNote = 'Chung Yên vạn vật, Lôi Đình phạt thế, Ma Đạo tột cùng, Khởi Nguyên vạn linh quy tàn.';
+        elementSynergy = 'Tam Cực Biến Dị (Ám - Lôi - Diệt): Cuồng bạo xé rách vạn vật, công kích kèm theo sát thương Diệt Tuyệt và Băng Hoại chân nguyên.';
+        skillAffinity = 'Chung Yên Ma Đạo & Lôi Phạt: Tăng 50% uy lực công pháp Ma hệ và Lôi hệ, bỏ qua 30% phòng ngự của mục tiêu.';
+        tribulationResist = 'Chung Yên Nghịch Kiếp: Hấp thu lôi kiếp và ma kiếp, chuyển hóa 40% uy lực kiếp lôi thành tu vi bản thân.';
+    } else if (sr.includes('Hỗn Độn') || sr.includes('Hỗn Độn Đạo Thể')) {
+        tuLuyenSpeed = 80; passiveBuff = {atk:60, def:60, spd:40, spp:60}; 
+        specialNote = 'Vạn vật quy nguyên, hội tụ trọn vẹn Ngũ Hành và Cực Dị thuộc tính.';
+        elementSynergy = 'Ngũ Hành Viên Mãn: Tương sinh tuần hoàn bất diệt (Kim -> Thủy -> Mộc -> Hỏa -> Thổ), triệt tiêu mọi tương khắc nghịch cảnh.';
+        skillAffinity = 'Tuyệt Đỉnh Tương Thích: Tu luyện được toàn bộ mọi công pháp thế gian, uy lực tăng thêm 40%, không có điểm mù nguyên tố.';
+        tribulationResist = 'Dung Hợp Thiên Đạo: Kháng tính Lôi Kiếp +40%, biến lôi kiếp thành linh lực tôi luyện đạo cơ.';
+    } else if (sr.includes('Diệt Thế Ma Căn') || sr.includes('Hỗn Độn Diệt Thế')) {
+        tuLuyenSpeed = 75; passiveBuff = {atk:75, def:40, spd:35, spp:60};
+        specialNote = 'Diệt thế ma khí, cắn nuốt vạn linh, bá đạo tuyệt luân vạn pháp bất dung.';
+        elementSynergy = 'Ma Khí Thôn Phệ: Hấp thu và làm hoen ố mọi thuộc tính Ngũ Hành, chuyển hóa thành ma nguyên hộ thân.';
+        skillAffinity = 'Ma Đạo Cực Hạn: Uy lực công pháp Ma hệ tăng 50%, có xác suất hút máu và chân nguyên khi trúng đòn.';
+        tribulationResist = 'Nghịch Thiên Hóa Ma: Miễn nhiễm 35% uy áp Thiên Kiếp, kiếp lôi càng mạnh ma căn càng hung hãn.';
+    } else if (sr.includes('Phản Vật Chất Hố Đen') || sr.includes('Hư Không Lậu Thể')) {
+        tuLuyenSpeed = 70; passiveBuff = {atk:50, def:50, spd:70, spp:70};
+        specialNote = 'Không gian thời gian sụp đổ, điên đảo nhân quả, thôn phệ càn khôn.';
+        elementSynergy = 'Dị Thứ Nguyên Hóa: Bẻ cong quỹ đạo ngũ hành tấn công, miễn nhiễm phần lớn sát thương thuộc tính đơn lẻ.';
+        skillAffinity = 'Không Gian Thần Thông: Thần thức và tốc độ dịch chuyển tăng vượt bậc, thuật độn không bị truy vết.';
+        tribulationResist = 'Hố Đen Thôn Kiếp: Nuốt chửng 30% năng lượng lôi kiếp vào hư vô.';
+    } else if (sr.includes('Thiên Linh Căn')) {
+        tuLuyenSpeed = 60;
+        if (sr.includes('Mộc') || rawElements.includes('Mộc')) {
+            passiveBuff = {spp:80, def:40, atk:30};
+            specialNote = 'Thiên Đạo ban ân, Tiên Mộc thuần khiết sinh sôi bất tận, vạn linh sinh cơ quy phục.';
+            elementSynergy = 'Thuần Dương Tiên Mộc: Tương sinh cực thịnh hỗ trợ Hỏa hệ; khắc chế tuyệt đối Thổ hệ; sinh mệnh liên tục tự dưỡng.';
+            skillAffinity = 'Thuần Nhất Mộc Đạo: Uy lực công pháp hệ Mộc tăng 50%, hiệu quả linh thảo đan dược và hồi phục tăng 50%.';
+            tribulationResist = 'Tiên Thiên Sinh Mệnh Tự Dưỡng: Hồi phục sinh mệnh siêu tốc sau mỗi đợt thiên kiếp, giảm 40% tổn hại kinh mạch.';
+        } else if (sr.includes('Hỏa') || rawElements.includes('Hỏa')) {
+            passiveBuff = {atk:80, spp:40, spd:30};
+            specialNote = 'Thiên Đạo ban ân, Chân Hỏa thuần dương phần thiên chử hải, cuồng bạo bá đạo tuyệt luân.';
+            elementSynergy = 'Thuần Dương Liệt Diễm: Khắc chế cực mạnh Kim hệ và Âm Tà; tương sinh bồi bổ Thổ hệ bộc phát.';
+            skillAffinity = 'Thuần Nhất Hỏa Đạo: Uy lực công pháp hệ Hỏa tăng 50%, tăng 40% tỷ lệ luyện chế đan dược thượng phẩm.';
+            tribulationResist = 'Chân Hỏa Luyện Thể: Miễn nhiễm Địa Hỏa Tâm Ma Kiếp, chuyển hóa 40% hỏa kiếp thành hỏa lực bản mệnh.';
+        } else if (sr.includes('Kim') || rawElements.includes('Kim')) {
+            passiveBuff = {atk:80, def:40, spd:30};
+            specialNote = 'Thiên Đạo ban ân, Vô kiên bất tồi, sát phạt chi khí sắc bén ngút trời quán triệt càn khôn.';
+            elementSynergy = 'Tiên Thiên Bạch Kim: Khắc chế tuyệt đối Mộc hệ; tương sinh bồi bổ Thủy hệ; xuyên thấu mọi hộ giáp.';
+            skillAffinity = 'Thuần Nhất Kiếm Đạo: Uy lực Kiếm Pháp và công pháp Kim hệ tăng 50%, tăng 35% tỷ lệ bạo kích và phá giáp.';
+            tribulationResist = 'Kim Cương Bất Hoại: Kháng tính sát thương vật lý của kiếp lôi +45%.';
+        } else if (sr.includes('Thủy') || rawElements.includes('Thủy')) {
+            passiveBuff = {def:80, spp:40, spd:30};
+            specialNote = 'Thiên Đạo ban ân, Thượng thiện nhược thủy, bao dung vạn vật, sinh sôi bất tận, hộ thân tuyệt luân.';
+            elementSynergy = 'Thuần Dương Chân Thủy: Dập tắt liệt hỏa, tương sinh bồi dưỡng Mộc hệ, hóa giải sát thương nhu hòa.';
+            skillAffinity = 'Thuần Nhất Thủy Đạo: Uy lực công pháp hệ Thủy/Băng tăng 50%, giảm 30% chân nguyên tiêu hao và tăng 50% hồi phục.';
+            tribulationResist = 'Uẩn Thủy Hóa Kiếp: Hấp thu 40% xung lực Lôi Kiếp chuyển hóa thành Chân Nguyên dồi dào.';
+        } else if (sr.includes('Thổ') || rawElements.includes('Thổ')) {
+            passiveBuff = {def:90, atk:30, spp:30};
+            specialNote = 'Thiên Đạo ban ân, Hậu đức tải vật, phòng thủ kiên cố như Thái Sơn, bất động như đại địa.';
+            elementSynergy = 'Tiên Thiên Huyền Thổ: Đứng trên đại địa bất động như sơn, tương sinh bồi bổ Kim hệ, khắc chế Thủy hệ.';
+            skillAffinity = 'Thuần Nhất Thổ Đạo: Uy lực công pháp hệ Thổ tăng 50%, thể lực và hộ giáp tăng vượt trội.';
+            tribulationResist = 'Địa Thạch Định Tâm: Giảm 45% chấn thương kinh mạch từ thiên kiếp.';
+        } else if (sr.includes('Phong') || rawElements.includes('Phong')) {
+            passiveBuff = {spd:80, atk:40, spp:30};
+            specialNote = 'Thiên Đạo ban ân, Ngự phong tiêu dao, thân pháp xuất quỷ nhập thần vô tung vô ảnh.';
+            elementSynergy = 'Tiên Thiên Cực Phong: Hỗ trợ hỏa diễm bùng phát cuồng bạo; né tránh va chạm trực diện.';
+            skillAffinity = 'Thuần Nhất Phong Đạo: Uy lực công pháp hệ Phong tăng 50%, thân pháp và tốc độ di chuyển tăng 50%.';
+            tribulationResist = 'Hóa Phong Tránh Kiếp: Tăng 40% tỷ lệ né tránh trực diện các tia lôi kiếp biên duyên.';
+        } else if (sr.includes('Băng') || rawElements.includes('Băng')) {
+            passiveBuff = {def:70, atk:45, spp:35};
+            specialNote = 'Thiên Đạo ban ân, Vạn dặm băng phong, tuyệt đối lãnh độ đóng băng kinh mạch đối thủ.';
+            elementSynergy = 'Huyền Băng Cực Độ: Dập tắt liệt hỏa, làm chậm và phong tỏa hoàn toàn chân nguyên kẻ thù.';
+            skillAffinity = 'Thuần Nhất Băng Đạo: Uy lực công pháp hệ Băng tăng 50%, tăng 40% tỷ lệ đóng băng đối thủ.';
+            tribulationResist = 'Huyền Băng Hộ Giáp: Giảm 40% sát thương xung kích từ lôi kiếp.';
+        } else if (sr.includes('Quang') || rawElements.includes('Quang')) {
+            passiveBuff = {spp:80, atk:40, def:30};
+            specialNote = 'Thiên Đạo ban ân, Thánh quang tịnh thế, bài trừ tà ma, vạn pháp bất xâm.';
+            elementSynergy = 'Thuần Nhất Thánh Quang: Tịnh hóa mọi uế khí và ma niệm, khắc chế tuyệt đối Ám hệ và Thi Quỷ.';
+            skillAffinity = 'Thuần Nhất Quang Đạo: Uy lực công pháp Quang hệ tăng 50%, hộ giáp quang minh hấp thu sát thương.';
+            tribulationResist = 'Quang Minh Hộ Thể: Giảm 45% sát thương lôi kiếp, miễn nhiễm tâm ma xâm lấn khi độ kiếp.';
+        } else if (sr.includes('Ám') || rawElements.includes('Ám')) {
+            passiveBuff = {atk:80, spd:45, spp:25};
+            specialNote = 'Thiên Đạo ban ân, Hắc ám thôn phệ vạn vật, thích sát vô ảnh trong bóng đêm.';
+            elementSynergy = 'Hắc Ám Cực Đạo: Ăn mòn quang minh và sinh cơ, khắc chế Quang hệ.';
+            skillAffinity = 'Thuần Nhất Ám Đạo: Uy lực công pháp Ám hệ tăng 50%, sát thương đánh lén tăng vượt bậc.';
+            tribulationResist = 'Hắc Ám Ẩn Thân: Giảm 40% sát thương định vị của kiếp lôi.';
+        } else {
+            // Mặc định hoặc Lôi
+            passiveBuff = {spd:80, atk:40, spp:30};
+            specialNote = 'Thiên Đạo ban ân, Lôi Tốc đệ nhất thiên hạ, thần thông phát động trong chớp mắt.';
+            elementSynergy = 'Biến Dị Dương Lôi: Chuyên khắc Tà Ma, Quỷ Đạo và Thủy hệ; tương sinh hỗ trợ Hỏa hệ bộc phát.';
+            skillAffinity = 'Thuần Nhất Lôi Đạo: Uy lực công pháp hệ Lôi tăng 50%, giảm 30% chân nguyên tiêu hao khi xuất chiêu.';
+            tribulationResist = 'Tiên Thiên Bất Diệt Lôi Thể: Kháng tính Lôi Kiếp +50%, miễn nhiễm hoàn toàn Lôi Hỏa sơ kiếp.';
+        }
+    } else if (sr.includes('Cực Lôi') || rawElements.includes('Lôi')) {
+        tuLuyenSpeed = 50; passiveBuff = {spd:70, atk:35, spp:25};
+        specialNote = 'Cực Lôi phạt thế, thân pháp sấm sét, công phạt bộc phát kinh người.';
+        elementSynergy = 'Dương Lôi Chi Lực: Khắc Tà Ma, Quỷ Đạo và Thủy hệ; tương sinh hỗ trợ Hỏa hệ.';
+        skillAffinity = 'Lôi Đạo Thần Pháp: Uy lực công pháp hệ Lôi tăng 40%, giảm 20% chân nguyên tiêu hao.';
+        tribulationResist = 'Lôi Linh Hộ Thể: Kháng tính Lôi Kiếp +35%.';
+    } else if (sr.includes('Cực Kim') || rawElements.includes('Kim')) {
+        tuLuyenSpeed = 45; passiveBuff = {atk:50, def:20, spd:15};
+        specialNote = 'Vô Kiên Bất Tồi, sát phạt chi khí sắc bén ngút trời.';
+        elementSynergy = 'Kim Sinh Thủy: Hỗ trợ linh lực lưu chuyển nhu hòa; Khắc Mộc: Áp chế mộc linh và yêu thực mạnh mẽ.';
+        skillAffinity = 'Kiếm Đạo Độc Tôn: Uy lực Kiếm Pháp và Binh Khí công kích tăng 35%, tăng tỷ lệ xuyên thấu hộ giáp.';
+        tribulationResist = 'Kim Cương Cốt: Kháng tính sát thương vật lý của kiếp lôi +25%.';
+    } else if (sr.includes('Cực Hỏa') || rawElements.includes('Hỏa')) {
+        tuLuyenSpeed = 45; passiveBuff = {atk:50, spp:30};
+        specialNote = 'Liệt diễm phần thiên, cuồng bạo bá đạo bộc phá tức thời.';
+        elementSynergy = 'Hỏa Sinh Thổ: Bồi bổ khí huyết phòng hộ; Khắc Kim: Thiêu rụi giáp trụ và binh khí đối thủ.';
+        skillAffinity = 'Đan Đạo & Hỏa Pháp: Tăng 40% uy lực công pháp Hỏa hệ, tỷ lệ luyện đan thượng phẩm tăng 30%.';
+        tribulationResist = 'Hỏa Linh Hộ Thể: Miễn nhiễm Địa Hỏa Tâm Ma Kiếp.';
+    } else if (sr.includes('Cực Thủy') || sr.includes('Thủy Băng') || rawElements.includes('Thủy')) {
+        tuLuyenSpeed = 45; passiveBuff = {def:40, spp:40};
+        specialNote = 'Thượng thiện nhược thủy, sinh sôi bất tận, trị liệu và hộ thân tuyệt luân.';
+        elementSynergy = 'Thủy Sinh Mộc: Bồi dưỡng sinh cơ dồi dào; Khắc Hỏa: Dập tắt mọi cuồng bạo liệt diễm.';
+        skillAffinity = 'Băng Phách Trị Liệu: Tăng 40% hiệu quả hồi phục và uy lực băng phong khống chế đối thủ.';
+        tribulationResist = 'Uẩn Thủy Hóa Kiếp: Hấp thu 20% xung lực Lôi Kiếp chuyển hóa thành Chân Nguyên.';
+    } else if (sr.includes('Cực Mộc') || rawElements.includes('Mộc')) {
+        tuLuyenSpeed = 45; passiveBuff = {spp:45, def:25};
+        specialNote = 'Vạn vật hồi xuân, sinh mệnh lực dồi dào, thọ nguyên kéo dài.';
+        elementSynergy = 'Mộc Sinh Hỏa: Thúc đẩy hỏa lực bộc phát; Khắc Thổ: Hút cạn sinh khí thổ nhưỡng.';
+        skillAffinity = 'Dược Đạo & Trận Pháp: Tăng 35% hiệu quả linh thảo và uy lực mộc hệ trói buộc.';
+        tribulationResist = 'Thanh Mộc Hóa Sinh: Hồi phục sinh mệnh siêu tốc sau mỗi đợt thiên kiếp giáng xuống.';
+    } else if (sr.includes('Cực Thổ') || rawElements.includes('Thổ')) {
+        tuLuyenSpeed = 45; passiveBuff = {def:70, atk:15};
+        specialNote = 'Hậu đức tải vật, phòng thủ kiên cố như bàn thạch.';
+        elementSynergy = 'Thổ Sinh Kim: Đúc kết khoáng thạch bản mệnh; Khắc Thủy: Ngăn chặn sóng thần linh lực.';
+        skillAffinity = 'Thể Phách Trọng Khôi: Tăng 40% phòng ngự và thể lực khi đứng trên đại địa.';
+        tribulationResist = 'Địa Thạch Định Tâm: Giảm 35% sát thương chấn động từ thiên kiếp.';
+    } else if (sr.includes('Cực Phong') || rawElements.includes('Phong')) {
+        tuLuyenSpeed = 45; passiveBuff = {spd:60, atk:25};
+        specialNote = 'Ngự phong tiêu dao, thân pháp phiêu dật vô tung vô ảnh.';
+        elementSynergy = 'Phong Trợ Hỏa Thế: Hỗ trợ hỏa diễm bùng phát cuồng bạo; linh hoạt tránh né va chạm trực diện.';
+        skillAffinity = 'Phi Hành Khinh Công: Thân pháp và né tránh tăng 40%, giảm phân nửa tiêu hao khi độn tẩu.';
+        tribulationResist = 'Hóa Phong Tránh Kiếp: Tăng 25% tỷ lệ né tránh trực diện các tia lôi kiếp biên duyên.';
+    } else if (sr.includes('Cực Quang') || rawElements.includes('Quang')) {
+        tuLuyenSpeed = 50; passiveBuff = {spp:50, def:35, atk:25};
+        specialNote = 'Thánh quang tịnh thế, bài trừ tà ma, vạn pháp bất xâm.';
+        elementSynergy = 'Quang Minh Hóa Sinh: Tịnh hóa mọi uế khí và ma niệm, khắc chế tuyệt đối Ám hệ và Thi Quỷ.';
+        skillAffinity = 'Thánh Quang Thần Pháp: Tăng 40% uy lực công pháp Quang hệ, hộ giáp quang minh hấp thu sát thương.';
+        tribulationResist = 'Quang Minh Hộ Thể: Giảm 30% sát thương lôi kiếp, miễn nhiễm tâm ma xâm lấn khi độ kiếp.';
+    } else if (sr.includes('Cực Ám') || rawElements.includes('Ám')) {
+        tuLuyenSpeed = 50; passiveBuff = {atk:50, spd:40, spp:20};
+        specialNote = 'Hắc ám thôn phệ, vô thanh vô tức, thích sát vô ảnh.';
+        elementSynergy = 'Hắc Ám Thôn Phệ: Ăn mòn quang minh và sinh cơ; Khắc Quang: Hấp thu quang linh áp chế tầm nhìn.';
+        skillAffinity = 'Ám Ảnh Sát Đạo: Tăng 40% sát thương đòn đánh lén từ bóng tối và công pháp Ám hệ.';
+        tribulationResist = 'Hắc Ám Ẩn Thân: Giảm 25% sát thương định vị của kiếp lôi.';
+    } else if (sr.includes('Cực Băng') || rawElements.includes('Băng')) {
+        tuLuyenSpeed = 48; passiveBuff = {def:45, spp:35, spd:10};
+        specialNote = 'Vạn dặm băng phong, tuyệt đối lãnh độ, đóng băng kinh mạch đối thủ.';
+        elementSynergy = 'Băng Hàn Cực Độ: Dập tắt liệt hỏa, làm chậm lưu chuyển chân nguyên của mục tiêu.';
+        skillAffinity = 'Băng Phách Huyền Công: Tăng 40% uy lực công pháp hệ Băng và tỷ lệ đông cứng kẻ thù.';
+        tribulationResist = 'Huyền Băng Hộ Giáp: Giảm 25% sát thương xung kích từ lôi kiếp.';
+    } else if (sr.includes('Dị Linh Căn') || pur.includes('Biến Dị')) {
+        tuLuyenSpeed = 50; passiveBuff = {atk:45, spd:45, spp:35};
+        specialNote = 'Linh căn biến dị siêu phàm, mang uy năng dị chủng nguyên tố xuất quỷ nhập thần.';
+        elementSynergy = 'Dị Biến Cực Hạn: Bộc phát sát thương dị năng (Băng phong, Lôi chấn, Phong trảm, Ám thực), không theo quy luật thông thường.';
+        skillAffinity = 'Dị Hệ Độc Tôn: Tăng 45% uy lực công pháp biến dị tương ứng, dễ dàng xuyên thấu phòng ngự ngũ hành cơ bản.';
+        tribulationResist = 'Kháng kiếp biến dị: Giảm 30% sát thương từ lôi kiếp và tâm ma kiếp.';
+    } else if (sr.includes('Hỏa Mang Mộc Khí') || sr.includes('Luyện Dược Sư')) {
+        tuLuyenSpeed = 40; passiveBuff = {spp:55, atk:25, def:20};
+        specialNote = 'Trời sinh Đan Đạo Chi Thánh, hỏa trung hàm mộc, tinh thông dược lý thiên địa.';
+        elementSynergy = 'Mộc Trợ Hỏa Liệt: Ngọn lửa luyện đan sinh sôi bất tận, điều phối dược tính đạt cảnh giới hoàn mỹ.';
+        skillAffinity = 'Đan Thần Truyền Thừa: Tăng 50% hiệu suất luyện đan và công pháp Đan Hỏa hộ thể.';
+        tribulationResist = 'Đan Hồn Tự Dưỡng: Hồi phục sinh lực và thần thức siêu tốc khi gặp chấn thương độ kiếp.';
+    } else if (sr.includes('Song Linh Căn') || pur.includes('Thượng Phẩm')) {
+        tuLuyenSpeed = 25; passiveBuff = {atk:20, def:20, spd:10};
+        specialNote = 'Song hệ hòa hợp, bổ khuyết tương trợ trong chiến đấu.';
+        elementSynergy = 'Tương Phụ Tương Thành: Hai thuộc tính hòa quyện tạo thành đòn tấn công kép.';
+        skillAffinity = 'Linh Hoạt Đa Năng: Dễ dàng chuyển đổi giữa hai hệ công pháp theo hoàn cảnh.';
+        tribulationResist = 'Phân Lưu Kiếp Lực: Giảm 15% áp lực thiên kiếp qua cơ chế điều hòa hai luồng nguyên tố.';
+    } else if (sr.includes('Tam') || pur.includes('Trung Phẩm')) {
+        tuLuyenSpeed = 15; passiveBuff = {def:10, atk:5};
+        specialNote = 'Đa nguyên tố tạp giao, cần nỗ lực ngưng tụ căn cơ vững chắc.';
+        elementSynergy = 'Ngũ Hành Điều Hòa: Cân bằng ba luồng thuộc tính, linh hoạt ứng biến.';
+        skillAffinity = 'Bác Học Tạp Dụng: Thi triển được nhiều loại phù lục và trận pháp cơ bản.';
+        tribulationResist = 'Kháng kiếp cơ bản, cần trận pháp hộ thân phụ trợ khi độ kiếp.';
+    } else if (sr.includes('Tứ') || sr.includes('Ngũ') || pur.includes('Kém')) {
+        tuLuyenSpeed = 8; passiveBuff = {def:5};
+        specialNote = 'Tạp linh căn hỗn loạn, hấp thu linh khí chậm chạp.';
+        elementSynergy = 'Dung Hội Gian Nan: Ngũ hành phân tán, cần tẩy tủy đan dược trợ lực.';
+        skillAffinity = 'Tạp Tu Cơ Bản: Khó tinh thông công pháp cao thâm.';
+        tribulationResist = 'Kháng kiếp yếu, cần nhờ ngoại vật bảo hộ.';
+    } else if (pur.includes('Khởi Nguyên') || pur.includes('Tối Thượng') || pur.includes('Hoàn Mỹ') || pur.includes('Chí Tôn') || pur.includes('Thần Phẩm') || pur.includes('Tuyệt Đối') || pur.includes('Độc Nhất')) {
+        tuLuyenSpeed = 75; passiveBuff = {atk:55, def:45, spd:45, spp:55};
+        specialNote = `Linh căn đạt cảnh giới ${pur}, vượt ngoài trật tự thông thường của thế gian.`;
+        elementSynergy = `Bản Nguyên Thuần Khiết (${els}): Hòa hợp trọn vẹn các luồng nguyên tố, uy lực bộc phát gấp bội.`;
+        skillAffinity = 'Vô Thượng Khế Hợp: Tăng 40% uy lực công pháp tương thích với các nguyên tố sở hữu.';
+        tribulationResist = 'Kháng kiếp siêu phàm: Uy áp thiên đạo giảm 30%, tôi rèn linh căn khi vượt kiếp.';
+    } else {
+        tuLuyenSpeed = 10; passiveBuff = {};
+        specialNote = 'Linh căn bình phàm mộc mạc, lấy cần cù bù đắp thiên phú.';
+        elementSynergy = 'Tuân theo quy luật tự nhiên ngũ hành sinh khắc.';
+        skillAffinity = 'Thích hợp công pháp cơ bản không phân định hệ nguyên tố.';
+        tribulationResist = 'Độ kiếp phụ thuộc hoàn toàn vào đan dược hộ mạch và pháp bảo che chắn.';
+    }
+
+    return { tuLuyenSpeed, passiveBuff, specialNote, elementSynergy, skillAffinity, tribulationResist, elements: els, purity: pur };
+};

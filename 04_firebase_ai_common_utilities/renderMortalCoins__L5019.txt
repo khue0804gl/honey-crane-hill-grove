@@ -1,0 +1,15 @@
+const renderMortalCoins = (amount, onShowAlert) => {
+    const val = Number(amount) || 0;
+    if (val < 0) return <span className="text-red-500 font-bold bg-red-900/30 px-2 py-0.5 rounded border border-red-500/50 animate-pulse">NỢ {Math.abs(val).toLocaleString('vi-VN')} Văn</span>;
+    if (val === 0) return <span className="text-gray-400 font-bold bg-gray-800/30 px-2 py-0.5 rounded border border-gray-700/50">0 Văn</span>;
+    
+    const quan = Math.floor(val / 1000000);
+    const van = val % 1000000;
+    
+    return (
+        <div className="flex gap-2 flex-wrap justify-end font-mono text-[13px]" onClick={(e) => { e.stopPropagation(); if(onShowAlert) onShowAlert(`Tổng số tiền phàm tục: ${val.toLocaleString('vi-VN')} Văn tiền.\n\n*Hệ thống quy đổi: 1.000.000 Văn = 1 Quan.`); }}>
+            {quan > 0 && <span className="text-amber-500 font-bold bg-amber-900/10 px-2 py-0.5 rounded border border-amber-900/30 hover:bg-amber-900/20 cursor-pointer">{formatLargeNumber(quan)} Quan</span>}
+            {van > 0 && <span className="text-orange-300 font-bold bg-orange-900/20 px-2 py-0.5 rounded border border-orange-800/50 hover:bg-orange-900/30 cursor-pointer">{van.toLocaleString('vi-VN')} Văn</span>}
+        </div>
+    );
+};

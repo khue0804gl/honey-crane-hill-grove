@@ -1,0 +1,175 @@
+  const applySystemSettings = (s: any) => {
+    if (!s || typeof s !== 'object') return;
+    try {
+      const getVal = (k1: string, k2: string) => s[k1] !== undefined ? s[k1] : s[k2];
+
+      const showCrowd = getVal('settingShowCrowd', 'tuTienShowCrowd');
+      if (showCrowd !== undefined && showCrowd !== null) {
+        const val = String(showCrowd) !== 'false';
+        setSettingShowCrowd(val);
+        localStorage.setItem('tuTienShowCrowd', String(val));
+      }
+      const nsfw = getVal('settingNsfwMode', 'tuTienNsfwMode');
+      if (nsfw !== undefined && nsfw !== null) {
+        const val = String(nsfw) === 'true';
+        setSettingNsfwMode(val);
+        localStorage.setItem('tuTienNsfwMode', String(val));
+      }
+      const humor = getVal('settingHumorousCrowd', 'tuTienHumorCrowd');
+      if (humor !== undefined && humor !== null) {
+        const val = String(humor) === 'true';
+        setSettingHumorousCrowd(val);
+        localStorage.setItem('tuTienHumorCrowd', String(val));
+      }
+      const hideOpts = getVal('settingHideOptions', 'tuTienHideOptions');
+      if (hideOpts !== undefined && hideOpts !== null) {
+        const val = String(hideOpts) === 'true';
+        setSettingHideOptions(val);
+        localStorage.setItem('tuTienHideOptions', String(val));
+      }
+      const hideTags = getVal('settingHideOptionTags', 'tuTienHideOptionTags');
+      if (hideTags !== undefined && hideTags !== null) {
+        const val = String(hideTags) === 'true';
+        setSettingHideOptionTags(val);
+        localStorage.setItem('tuTienHideOptionTags', String(val));
+      }
+      const epic = getVal('settingEpicCombat', 'tuTienEpicCombat');
+      if (epic !== undefined && epic !== null) {
+        const val = String(epic) === 'true';
+        setSettingEpicCombat(val);
+        localStorage.setItem('tuTienEpicCombat', String(val));
+      }
+      const deep = getVal('settingDeepReasoning', 'tuTienDeepReasoning');
+      if (deep !== undefined && deep !== null) {
+        const val = String(deep) === 'true';
+        setSettingDeepReasoning(val);
+        localStorage.setItem('tuTienDeepReasoning', String(val));
+      }
+      const noPraise = getVal('settingNoPraise', 'tuTienNoPraise');
+      if (noPraise !== undefined && noPraise !== null) {
+        const val = String(noPraise) !== 'false';
+        setSettingNoPraise(val);
+        localStorage.setItem('tuTienNoPraise', String(val));
+      }
+      const noMutter = getVal('settingNoMuttering', 'tuTienNoMuttering');
+      if (noMutter !== undefined && noMutter !== null) {
+        const val = String(noMutter) === 'true';
+        setSettingNoMuttering(val);
+        localStorage.setItem('tuTienNoMuttering', String(val));
+      }
+      const optsCount = getVal('settingOptionsCount', 'tuTienOptionsCount');
+      if (optsCount !== undefined && optsCount !== null) {
+        const count = Math.max(4, Math.min(10, Number(optsCount) || 4));
+        setSettingOptionsCount(count);
+        localStorage.setItem('tuTienOptionsCount', String(count));
+      }
+      const invMode = getVal('invSearchMode', 'tuTienInvMode');
+      if (invMode !== undefined && invMode !== null) {
+        setInvSearchMode(String(invMode));
+        localStorage.setItem('tuTienInvMode', String(invMode));
+      }
+      const alias = getVal('isAliasEnabled', 'tuTienAlias');
+      if (alias !== undefined && alias !== null) {
+        const val = String(alias) !== 'false';
+        setIsAliasEnabled(val);
+        localStorage.setItem('tuTienAlias', String(val));
+      }
+      if (s.aliasInput !== undefined && s.aliasInput !== null && typeof setAliasInput === 'function') {
+        setAliasInput(String(s.aliasInput));
+      }
+      const genZAll = getVal('settingGenZAll', 'tuTienGenZAll');
+      if (genZAll !== undefined && genZAll !== null) {
+        const val = String(genZAll) === 'true';
+        setSettingGenZAll(val);
+        localStorage.setItem('tuTienGenZAll', String(val));
+      }
+      const genZRom = getVal('settingGenZRomance', 'tuTienGenZRomance');
+      if (genZRom !== undefined && genZRom !== null) {
+        const val = String(genZRom) === 'true';
+        setSettingGenZRomance(val);
+        localStorage.setItem('tuTienGenZRomance', String(val));
+      }
+      const genZCom = getVal('settingGenZCombat', 'tuTienGenZCombat');
+      if (genZCom !== undefined && genZCom !== null) {
+        const val = String(genZCom) === 'true';
+        setSettingGenZCombat(val);
+        localStorage.setItem('tuTienGenZCombat', String(val));
+      }
+      const genZCu = getVal('settingGenZCultivate', 'tuTienGenZCultivate');
+      if (genZCu !== undefined && genZCu !== null) {
+        const val = String(genZCu) === 'true';
+        setSettingGenZCultivate(val);
+        localStorage.setItem('tuTienGenZCultivate', String(val));
+      }
+      const subStats = getVal('visibleSubStats', 'tuTienSubStats');
+      if (subStats !== undefined && subStats !== null) {
+        try {
+          const arr = Array.isArray(subStats) ? subStats : JSON.parse(subStats);
+          if (Array.isArray(arr)) {
+            setVisibleSubStats(arr);
+            localStorage.setItem('tuTienSubStats', JSON.stringify(arr));
+          }
+        } catch(e) {}
+      }
+      const logAnti = getVal('logFilterAntiCheat', 'tuTienLogAntiCheat');
+      if (logAnti !== undefined && logAnti !== null) {
+        const val = String(logAnti) !== 'false';
+        setLogFilterAntiCheat(val);
+        localStorage.setItem('tuTienLogAntiCheat', String(val));
+      }
+      const logSt = getVal('logFilterStats', 'tuTienLogStats');
+      if (logSt !== undefined && logSt !== null) {
+        const val = String(logSt) !== 'false';
+        setLogFilterStats(val);
+        localStorage.setItem('tuTienLogStats', String(val));
+      }
+      const logIt = getVal('logFilterItems', 'tuTienLogItems');
+      if (logIt !== undefined && logIt !== null) {
+        const val = String(logIt) !== 'false';
+        setLogFilterItems(val);
+        localStorage.setItem('tuTienLogItems', String(val));
+      }
+      const logCu = getVal('logFilterCultivation', 'tuTienLogCultivation');
+      if (logCu !== undefined && logCu !== null) {
+        const val = String(logCu) !== 'false';
+        setLogFilterCultivation(val);
+        localStorage.setItem('tuTienLogCultivation', String(val));
+      }
+      const logSe = getVal('logFilterSect', 'tuTienLogSect');
+      if (logSe !== undefined && logSe !== null) {
+        const val = String(logSe) !== 'false';
+        setLogFilterSect(val);
+        localStorage.setItem('tuTienLogSect', String(val));
+      }
+      const thm = getVal('theme', 'tuTienTheme');
+      if (thm !== undefined && thm !== null) {
+        setTheme(String(thm));
+        localStorage.setItem('tuTienTheme', String(thm));
+      }
+      const vm = getVal('viewMode', 'tuTienViewMode');
+      if (vm !== undefined && vm !== null) {
+        setViewMode(String(vm));
+        localStorage.setItem('tuTienViewMode', String(vm));
+      }
+      const chapLen = getVal('chapterLengthLevel', 'tuTienChapLength');
+      if (chapLen !== undefined && chapLen !== null) {
+        const val = Number(chapLen) || 4;
+        setChapterLengthLevel(val);
+        localStorage.setItem('tuTienChapLength', String(val));
+      }
+      const wExp = getVal('worldExpansionDepth', 'tuTienWorldExpDepth');
+      if (wExp !== undefined && wExp !== null) {
+        const val = Number(wExp) || 10;
+        setWorldExpansionDepth(val);
+        localStorage.setItem('tuTienWorldExpDepth', String(val));
+      }
+      const autoExp = getVal('isAutoWorldExpansion', 'tuTienAutoWorldExp');
+      if (autoExp !== undefined && autoExp !== null) {
+        const val = String(autoExp) === 'true';
+        setIsAutoWorldExpansion(val);
+        localStorage.setItem('tuTienAutoWorldExp', String(val));
+      }
+    } catch(err) {
+      console.error("Lỗi khi áp dụng Cài Đặt Hệ Thống:", err);
+    }
+  };

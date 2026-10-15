@@ -1,0 +1,6 @@
+const getCurrencyUi = (universe, bgId, traits) => {
+    if (__GlobalPremadeWorld === 'dau_pha') return { name: 'Kim Tệ', color: 'text-yellow-400', bg: 'bg-yellow-900/10', border: 'border-yellow-900/50' };
+    const tNames = (Array.isArray(traits) ? traits : []).map(t => t.name);
+    if (bgId === 'bg_military') return { name: 'Lương Thảo', color: 'text-yellow-500', bg: 'bg-yellow-900/10', border: 'border-yellow-900/50' };
+    return null; // Fallback to display normally
+};

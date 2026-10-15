@@ -1,0 +1,7 @@
+const gradeTribulationQuality = (bodyWaves, totalWaves) => {
+  const total = Math.max(1, Number(totalWaves) || 1);
+  const ratio = Math.max(0, Math.min(1, (Number(bodyWaves) || 0) / total));
+  if (ratio >= 0.9) return TRIB_QUALITY.CUCCANH;
+  if (ratio >= 0.5) return TRIB_QUALITY.VUNGCHAC;
+  return TRIB_QUALITY.HUPHU;
+};

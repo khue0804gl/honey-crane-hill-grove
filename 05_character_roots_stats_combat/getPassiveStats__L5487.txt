@@ -1,0 +1,232 @@
+const getPassiveStats = (traits, spiritualRoot, soulAge = 18, physicalAge = 18, equippedCoreMethod = null, journalSkills = [], stageId = 1, runeCount = 0) => {
+    let pAtk = 0, pDef = 0, pSpd = 0, pSpp = 0;
+    let coreAtk = 0, coreDef = 0, coreSpd = 0, coreSpp = 0;
+    let traitAtk = 0, traitDef = 0, traitSpd = 0, traitSpp = 0;
+    let pMult = 1; // V7.71: Hệ số nhân bạo kích từ Khí Vận
+    const tNames = (Array.isArray(traits) ? traits : []).map(t => t?.name || '');
+
+    // 0. TÂM PHÁP BẢN MỆNH (V11.38 & V1.28 FIX: Chống Bug trùng tên Khí Vận để hack chỉ số Tuyệt Đỉnh)
+    if (equippedCoreMethod && Array.isArray(journalSkills)) {
+        const coreSkill = journalSkills.find(s => s && s.name === equippedCoreMethod);
+        if (coreSkill) {
+            let tierMult = 1.0;
+            const sTier = String(coreSkill?.tier || '').toLowerCase();
+            const sName = String(coreSkill?.name || '').toLowerCase();
+            
+            // V1.28: Nếu kỹ năng mạo danh hoặc trùng tên Khí Vận trong TRAITS_POOL -> Khóa tierMult không cho hack Thần Giai
+            const isCollidedWithTrait = (typeof TRAITS_POOL !== 'undefined') && TRAITS_POOL.some(tp => tp.name && tp.name.toLowerCase() === sName.replace(/\s*\(công pháp\)/i, '').trim());
+            
+            if (isCollidedWithTrait) {
+                tierMult = 1.0; // Bị khóa ở mức cơ bản, cấm ăn gian hệ số Thần Giai
+            } else if (sTier.includes('thần') || /(thần|đại đạo|chí tôn|sáng thế|hỗn độn)/.test(sName)) {
+                tierMult = 3.0; // Chuẩn hóa cân bằng
+            } else if (sTier.includes('tiên') || sTier.includes('thánh') || /(thiên|tiên|thánh)/.test(sName)) {
+                tierMult = 2.0;
+            } else if (sTier.includes('linh') || /(địa|huyền|chân|hồn)/.test(sName)) {
+                tierMult = 1.2;
+            }
+            
+            let lvlMult = 0.2; // Nhập môn
+            const sLvl = String(coreSkill.level || '').toLowerCase();
+            if (sLvl.includes('tiểu thành')) lvlMult = 0.5;
+            else if (sLvl.includes('đại thành')) lvlMult = 1.0;
+            else if (sLvl.includes('viên mãn')) lvlMult = 1.5;
+            else if (sLvl.includes('tuyệt đỉnh')) lvlMult = 2.5; // Chuẩn hóa 2.5 (thay vì 4.0 bạo phát)
+            
+            // Giới hạn trần coreBonus tối đa 50 điểm
+            const coreBonus = Math.min(50, Math.floor(10 * tierMult * lvlMult));
+            coreAtk = coreBonus;
+            coreDef = coreBonus;
+            coreSpd = Math.floor(coreBonus / 2);
+            coreSpp = Math.floor(coreBonus / 2);
+
+            pAtk += coreAtk;
+            pDef += coreDef;
+            pSpd += coreSpd;
+            pSpp += coreSpp;
+        }
+    }
+
+    // 1. LINH CĂN (SPIRITUAL ROOT) - V9.59 FIX: Tước bỏ sức mạnh thô kệch, trả về bản chất Ngũ Hành
+    // V1.73 (KHA PHẢN ÁNH): Đồng bộ chỉ số passive cho Linh Căn Chí Tôn / Chung Yên / Diệt Thế
+    if (spiritualRoot && spiritualRoot.name) {
+        const sr = spiritualRoot.name;
+        const pur = spiritualRoot.purity || '';
+        if (sr.includes('Chung Yên') || sr.includes('Lôi Ma')) {
+            pAtk += 40; pSpd += 30; pSpp += 30;
+        } else if (sr.includes('Diệt Thế') || sr.includes('Hỗn Độn')) {
+            pAtk += 30; pDef += 20; pSpp += 30;
+        } else if (pur.includes('Khởi Nguyên') || pur.includes('Tối Thượng') || pur.includes('Hoàn Mỹ')) {
+            pAtk += 25; pDef += 20; pSpd += 20; pSpp += 25;
+        } else if (sr.includes('Dị Linh Căn')) {
+            pSpd += 10;
+        }
+    }
+
+    // 2. KHÍ VẬN / THỂ CHẤT (TRAITS)
+    tNames.forEach(name => {
+        // Cấp Đỏ (Thần Thể / Thánh Thể)
+        if (name === 'Bàn Cổ Huyết Mạch') { pDef += 50; pAtk += 20; pSpd -= 10; }
+        if (name === 'Trùng Đồng Nhãn') { pSpp += 40; pSpd += 20; }
+        if (name === 'Chí Tôn Cốt') { pAtk += 30; pDef += 30; }
+        if (name === 'Chí Tôn Cốt (Niết Bàn)') { pAtk += 90; pDef += 90; }
+        if (name === 'Phản Tổ Huyết Mạch') { pMult += 0.2; }
+        if (name === 'Tuyệt Thế Kiếm Tu') { pAtk += 60; pDef -= 15; pSpd += 15; }
+        if (name === 'Tuyệt Thế Đao Tu') { pAtk += 70; pDef += 10; pSpd -= 20; }
+        if (name === 'Tuyệt Thế Thương Tu') { pAtk += 50; pDef -= 10; pSpd += 20; }
+        if (name === 'Tuyệt Thế Kích Tu') { pAtk += 80; pDef += 20; pSpd -= 40; }
+        if (name === 'Tuyệt Thế Cung Tu') { pAtk += 40; pDef -= 30; pSpd += 50; }
+        if (name === 'Tuyệt Thế Phủ Tu') { pAtk += 90; pDef += 40; pSpd -= 70; }
+        if (name === 'Tuyệt Thế Chùy Tu') { pAtk += 100; pDef += 50; pSpd -= 90; }
+        if (name === 'Tuyệt Thế Roi Tu') { pAtk += 30; pDef -= 20; pSpd += 50; }
+        if (name === 'Tuyệt Thế Nhạc Tu') { pSpp += 80; pAtk -= 20; pDef -= 30; pSpd += 30; }
+        if (name === 'Ma Tôn Chuyển Thế') { pAtk += 40; pSpd += 20; }
+        if (name === 'Phật Cốt Xá Lợi') { pDef += 30; pSpp += 50; }
+        if (name === 'Thiên Ma Thể') { pAtk += 70; pSpd += 30; pDef -= 20; }
+        if (name === 'Ách Nan Độc Thể') { pDef += 25; pSpp += 25; }
+        if (name === 'Hạn Bạt Viêm Thể') { pAtk += 50; pSpp += 30; }
+        if (name === 'Thủy Băng Hàn Thể') { pDef += 40; pSpp += 40; }
+        if (name === 'Thiên Sát Cô Tinh') { pDef += 80; pAtk += 20; }
+        if (name === 'Thái Âm Táng Thể') { pSpp += 60; pDef += 20; }
+        if (name === 'Hư Không Lậu Thể') { pSpd += 100; pAtk += 30; pDef -= 40; }
+        if (name === 'Tuế Nguyệt Khô Vinh Thể') { pAtk += 60; pSpp += 40; pDef -= 20; }
+        if (name === 'Thôn Kim Phệ Cốt Thể') { pDef += 100; pAtk += 50; }
+        if (name === 'Vạn Ác Tội Thể') { pAtk += 80; pSpd += 50; pDef -= 30; }
+        if (name === 'Hỗn Độn Đạo Thể') { 
+            const hdStages = Math.max(0, stageId - 1);
+            pMult += hdStages * 0.05; 
+        }
+        if (name === 'Hỗn Độn Diệt Thế Ma Căn') { 
+            pAtk += 150; pDef += 50; pSpd += 50; pSpp += 80; pMult += 0.5; 
+        }
+        if (name === 'Thánh Quang Thần Thể') { pSpp += 50; pDef += 30; }
+        if (name === 'Thiên Lôi Thể') { pSpd += 80; pAtk += 40; pDef -= 20; }
+        if (name === 'Địa Thổ Mộc Thể') { pDef += 80; pSpp -= 20; }
+        if (name.startsWith('Đại Đạo Trùng Tu')) { pMult += 0.3; pAtk += 50; pDef += 50; } // Buff mạnh cho kẻ đập nát đan điền tu lại
+        if (name === 'Cơ Khí Chân Lý (Iron Suit)') { pAtk += 20; pDef += 40; }
+        if (name === 'Hắc Quang Bệnh Độc (Blacklight Virus)') { pAtk += 40; pSpd += 20; pDef += 10; pSpp -= 10; }
+        if (name === 'Cơ Giới Bệnh Độc (Technocyte Virus)') { pDef += 50; pAtk += 20; pSpd -= 10; pSpp -= 20; }
+        if (name === 'Cơ Giới Hắc Quang Thể') { pAtk += 60; pDef += 60; pSpd += 30; pSpp -= 30; }
+        if (name === 'Dịch Bệnh Điểm Kỳ Dị (The Singularity Plague)') { pAtk += 100; pDef += 100; pSpp += 100; pMult += 0.5; }
+        
+        // V9.11 NERF: Cân bằng lại các Thể chất sinh Thần Thức 
+        if (name === 'Huyễn Mộng Chân Thể') { pSpp += 80; pDef -= 30; } // Giảm bớt sức mạnh ảo
+        if (name === 'Vô Ngã Vô Tướng Thể') { pSpd += 120; pSpp += 50; pAtk -= 20; }
+        if (name === 'Thuấn Di Bản Năng') { pSpd += 80; pSpp += 20; pDef -= 30; }
+        if (name === 'Tạo Hóa Huyết Nhục') { pAtk += 30; pDef += 30; pSpd += 30; pSpp += 30; }
+        if (name === 'Thái Cổ Ngự Yêu Sư') { pSpp += 40; pAtk += 20; }
+        if (name === 'Mị Cốt Thiên Sương') { pSpp += 50; pSpd += 20; }
+        if (name === 'Ngự Trù Bạo Chúa') { pSpp += 40; pDef += 10; } // V9.11 NERF
+        if (name === 'Khí Vận Chi Tử' || name === 'Khí Vận Chi Nữ' || name === 'Thiên Mệnh Chi Tử') { pMult += 0.2; }
+        if (name === 'Thiên Mệnh Ma Tôn') { pMult += 1.0; pAtk += 100; pDef += 50; } 
+        if (name === 'Thánh Bàn Phím') { pSpp += 60; pSpd += 30; pDef -= 50; } // V9.11 NERF: Đánh đổi phòng thủ đời thực nặng nề
+        if (name === 'Tọa Vong Đạo') { pSpp += 80; pSpd += 40; pDef -= 40; pAtk += 20; } 
+        if (name === 'Người Gặp Ma') { pSpp += 40; pAtk -= 10; pDef -= 10; }
+        
+        if (name === 'Bán Yêu (Huyết Mạch Lai)') { pSpd += 10; pAtk += 5; }
+        if (name === 'Bán Ma (Huyết Mạch Lai)') { pAtk += 15; pSpp += 5; }
+        if (name === 'Bán Tinh Linh (Huyết Mạch Lai)') { pSpp += 15; pDef -= 5; }
+        if (name === 'Bán Long (Huyết Mạch Lai)') { pDef += 20; pAtk += 10; }
+        if (name === 'Bán Mị Ma (Huyết Mạch Lai)') { pSpp += 15; pDef -= 10; }
+        if (name === 'Bán Thần (Huyết Mạch Lai)') { pDef += 15; pSpp += 15; }
+        
+        // V1.22.4: CHỈ SỐ BỊ ĐỘNG CÁC THỂ CHẤT DUNG HỢP TỐI CAO
+        const fusionMatch = MASTER_FUSION_MATRIX.find(r => r.name === name);
+        if (fusionMatch && fusionMatch.statsBonus) {
+            if (fusionMatch.statsBonus.pAtk) pAtk += fusionMatch.statsBonus.pAtk;
+            if (fusionMatch.statsBonus.pDef) pDef += fusionMatch.statsBonus.pDef;
+            if (fusionMatch.statsBonus.pSpd) pSpd += fusionMatch.statsBonus.pSpd;
+            if (fusionMatch.statsBonus.pSpp) pSpp += fusionMatch.statsBonus.pSpp;
+            if (fusionMatch.statsBonus.pMult) pMult += fusionMatch.statsBonus.pMult;
+        }
+        if (name === 'Thiên Quang Thánh Linh Thể' && typeof state !== 'undefined' && state?.thienQuangBuffPercent) {
+            pMult += (Number(state.thienQuangBuffPercent) || 0) / 100;
+        }
+
+        // V9.38 FIX: CHỈ SỐ BỊ ĐỘNG TỪ 20 NẤC NGHỀ NGHIỆP TỐI CAO
+        if (name === 'Hỗn Độn Đan Tổ') { pSpp += 300; pDef += 100; }
+        if (name === 'Đan Hoàng Cửu Châu') { pSpp += 100; pDef += 40; }
+        if (name === 'Đan Vương Hạ Giới') { pSpp += 60; pDef += 20; }
+        if (name === 'Đan Đạo Tông Sư') { pSpp += 40; pDef += 10; }
+        if (name === 'Luyện Đan Đại Sư') { pSpp += 20; }
+        if (name === 'Hỗn Độn Khí Tổ') { pAtk += 300; pDef += 150; }
+        if (name === 'Tiên Khí Tông Sư') { pAtk += 150; pDef += 60; }
+        if (name === 'Khí Hoàng Cửu Châu') { pAtk += 100; pDef += 40; }
+        if (name === 'Thiết Cốt Chi Thể') { pDef += 50; }
+        if (name === 'Khí Vương Hạ Giới') { pAtk += 60; }
+        if (name === 'Khí Đạo Tông Sư') { pAtk += 40; pDef += 20; }
+        if (name === 'Luyện Khí Đại Sư') { pAtk += 20; }
+        
+        // Chỉ số Căn Cơ từ Luyện Phù
+        if (name === 'Hỗn Độn Phù Tổ') { pSpp += 300; pSpd += 150; }
+        if (name === 'Tiên Phù Tông Sư') { pSpp += 150; pSpd += 60; }
+        if (name === 'Phù Hoàng Cửu Châu') { pSpp += 100; pSpd += 40; }
+        if (name === 'Linh Châu Khắc Thể') { pDef += 50; }
+        if (name === 'Phù Vương Hạ Giới') { pSpp += 60; }
+        if (name === 'Phù Đạo Tông Sư') { pSpp += 40; pSpd += 10; }
+        if (name === 'Luyện Phù Đại Sư') { pSpp += 20; }
+        if (name === 'Vạn Họa Phù Tôn') { pSpp += 80; pSpd += 20; }
+        if (name === 'Thiên Sinh Phù Cốt') { pSpp += 20; pSpd += 10; }
+        
+        // Chỉ số Căn Cơ từ Trận Pháp
+        if (name === 'Trận Tổ Chuyển Thế') { pSpp += 300; pDef += 150; }
+        if (name === 'Vạn Vật Giai Trận') { pSpp += 150; pDef += 60; }
+        if (name === 'Luyện Trận Thánh Sư' || name === 'Tiên Trận Tông Sư') { pSpp += 100; pDef += 40; }
+        if (name === 'Trận Hoàng Cửu Châu') { pSpp += 60; pDef += 20; }
+        if (name === 'Phá Vọng Trận Nhãn') { pSpp += 50; }
+        if (name === 'Trận Sư Thiên Tài') { pSpp += 40; pDef += 10; }
+        if (name === 'Trận Đạo Tông Sư') { pSpp += 30; }
+        if (name === 'Bố Trận Đại Sư') { pSpp += 20; }
+        if (name === 'Trận Sư Chính Thức' || name === 'Bố Trận Sơ Cấp') { pSpp += 10; }
+
+        // Cấp Cam / Tím (Bảo Thể / Linh Thể)
+        if (name === 'Phong Ảnh Thể') { pSpd += 40; }
+        if (name === 'Vạn Pháp Bất Xâm') { pDef += 40; pSpp += 20; }
+        if (name === 'Quỷ Đạo Truyền Nhân') { pSpp += 50; pAtk += 15; pDef -= 10; }
+        if (name === 'Tiên Phong Đạo Cốt') { pSpp += 20; pDef += 10; }
+        if (name === 'Học Bá Tu Tiên') { pSpp += 15; }
+        if (name === 'Vạn Thú Thân Hòa') { pSpp += 10; }
+        if (name === 'Thiên Sinh Khí Sư') { pAtk += 10; pDef += 10; }
+        if (name === 'Dược Vương Hóa Thân') { pSpp += 20; }
+        if (name === 'Hắc Khách Thiên Cơ') { pSpp += 60; } 
+        if (name === 'Thánh Nữ Mạng') { pSpp += 40; } 
+
+        // Thể Chất Dị Biệt & Bất Lợi
+        if (name === 'Tuyệt Dục Tàn Khu') { pSpd += 60; pAtk += 20; pDef -= 30; }
+        if (name === 'Đoạn Kinh Mạch') { pAtk -= 20; pSpd -= 20; }
+        if (name === 'Thiên Đạo Áp Chế') { pAtk -= 20; pDef -= 20; pSpd -= 20; pSpp -= 20; pMult -= 0.3; } // V9.11 NERF: Trừ thẳng 30% bạo kích để chống "Buff Chồng"
+    });
+
+    // V9.11 FIX & NERF: KHÓA "LỖ HỔNG HUYỄN MỘNG" (Hack Thần Thức vô hạn)
+    const soulAgeGap = Math.max(0, Math.floor(Number(soulAge)) - Math.floor(Number(physicalAge)));
+    if (soulAgeGap >= 100) {
+        // V11.54 FIX: Giới hạn max Thần Thức nhận được từ Tuổi Linh Hồn dựa trên Cảnh giới (Max = stageId * 50)
+        const maxBonusSpp = stageId * 50;
+        const bonusSpp = Math.min(maxBonusSpp, Math.floor(soulAgeGap / 100));
+        pSpp += bonusSpp;
+        
+        // Hình phạt "Tải Trọng Linh Hồn": Nếu hồn quá già (chênh > 3000 năm) mà xác phàm yếu, nhục thân sẽ bị ép nát.
+        if (soulAgeGap >= 3000) {
+            pDef -= 20;
+            pAtk -= 10;
+        }
+    }
+
+    if (runeCount > 0) {
+        pMult += (runeCount * 0.1);
+    }
+    // Đảm bảo hệ số bạo kích không bị âm quá đáng
+    pMult = Math.max(0.1, pMult);
+
+    // V1.28: Tách bạch rõ ràng Chỉ số từ Thể Chất Thuần Túy để dùng cho Đột Phá, cấm Công Pháp hack stack
+    traitAtk = Math.max(0, pAtk - coreAtk);
+    traitDef = Math.max(0, pDef - coreDef);
+    traitSpd = Math.max(0, pSpd - coreSpd);
+    traitSpp = Math.max(0, pSpp - coreSpp);
+
+    return { 
+        atk: pAtk, def: pDef, spd: pSpd, spp: pSpp, mult: pMult,
+        traitAtk, traitDef, traitSpd, traitSpp,
+        coreAtk, coreDef, coreSpd, coreSpp
+    };
+};

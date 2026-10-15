@@ -1,0 +1,104 @@
+const cleanEvolutionDuplicates = (traitsArr) => {
+    if (!Array.isArray(traitsArr)) return [];
+    
+    // 1. Dọn dẹp trùng lặp tuyệt đối (cùng tên do lỗi Trùng Tu đẻ ra bản sao)
+    let uniqueMap = {};
+    traitsArr.forEach(t => {
+        if (t && t.name) {
+            // Tẩy sạch hậu tố do AI tự đẻ ra (Sơ khai, Thăng hoa) để tránh lỗi không nhận diện và nhân bản
+            let cleanName = String(t.name).replace(/\s*\((sơ khai|thăng hoa|tiến hóa)\)/gi, '').trim();
+            // Nếu đã có trong map, ưu tiên giữ lại cái có ID (để tránh mất ID gốc)
+            if (!uniqueMap[cleanName] || (!uniqueMap[cleanName].id && t.id)) {
+                t.name = cleanName; // Gán lại tên sạch cho Khí Vận
+                uniqueMap[cleanName] = t;
+            }
+        }
+    });
+    let cleaned = Object.values(uniqueMap);
+
+    // 2. Gom nhóm Bách Nghệ và Ngộ Tính để xử lý trùng lặp
+            const groups = [
+                { ids: ALC_ALL, name: 'Luyện Đan' },
+                { ids: SMI_ALL, name: 'Luyện Khí' },
+                { ids: PHU_ALL, name: 'Luyện Phù' },
+                { ids: TRAN_ALL, name: 'Trận Pháp' },
+                { ids: ECO_ALL, name: 'Tài Phú' },
+                { ids: NGO_ALL, name: 'Ngộ Tính' }
+            ];
+            
+            groups.forEach(group => {
+                const traitsInGroup = cleaned.filter(t => group.ids.includes(t.id));
+                if (traitsInGroup.length > 1) {
+                    const rVals = { 'Đỏ': 7, 'Cam': 6, 'Vàng': 5, 'Tím': 4, 'Xanh lam': 3, 'Xanh lá': 2, 'Trắng': 1, 'Đen': 0, 'Xám': -1 };
+                    traitsInGroup.sort((a, b) => (rVals[b.rarity] || 0) - (rVals[a.rarity] || 0));
+                    const bestTrait = traitsInGroup[0];
+                    
+                    cleaned = cleaned.filter(t => !group.ids.includes(t.id));
+                    cleaned.push(bestTrait);
+                }
+            });
+            
+            const nhanSacIds = [802, 101, 801, 107];
+            const nsInGroup = cleaned.filter(t => nhanSacIds.includes(t.id));
+            if (nsInGroup.length > 1) {
+                nsInGroup.sort((a, b) => nhanSacIds.indexOf(a.id) - nhanSacIds.indexOf(b.id)); 
+                const best = nsInGroup[0];
+                cleaned = cleaned.filter(t => !nhanSacIds.includes(t.id));
+                cleaned.push(best);
+            }
+
+            // V1.45 HARD CODE GUARD & V2.55 CHỐT CHẶN: BẢO VỆ NGUYÊN LIỆU CHO DUNG HỢP BẬC CAO & KHÍ VẬN TÁI KÍCH HOẠT (Báo lỗi Hào Vip Pro)
+            if (typeof MASTER_FUSION_MATRIX !== 'undefined' && Array.isArray(MASTER_FUSION_MATRIX)) {
+                const ownedFusedNames = cleaned
+                    .map(t => (t && t.name ? String(t.name).toLowerCase().trim() : ''))
+                    .filter(name => name && MASTER_FUSION_MATRIX.some(r => r.name.toLowerCase() === name));
+
+                if (ownedFusedNames.length > 0) {
+                    const allPurged = new Set<string>();
+                    ownedFusedNames.forEach(fName => {
+                        const ings = getRecursiveFusionIngredients(fName);
+                        ings.forEach(i => allPurged.add(i));
+                    });
+
+                    // V2.55: Tìm tất cả nguyên liệu của các công thức dung hợp bậc cao mà người chơi CHƯA hoàn thành
+                    const unownedRecipes = MASTER_FUSION_MATRIX.filter(r => !ownedFusedNames.includes(r.name.toLowerCase().trim()));
+                    const neededIngredients = new Set<string>();
+                    unownedRecipes.forEach(r => {
+                        const rIngs = [
+                            ...r.ingredients,
+                            ...(r.alternativeIngredients ? r.alternativeIngredients.flat() : [])
+                        ];
+                        rIngs.forEach(ing => neededIngredients.add(ing.toLowerCase().trim()));
+                    });
+
+                    cleaned = cleaned.filter(t => {
+                        if (!t || !t.name) return false;
+                        const tNameLow = String(t.name).toLowerCase().trim();
+
+                        // 1. Nếu khí vận này là Hỗn Độn Đạo Thể hoặc mang cờ tái kích hoạt -> TUYỆT ĐỐI KHÔNG THU HỒI!
+                        if (tNameLow === 'hỗn độn đạo thể' || t.isReawakened || t.isGodTier) return true;
+
+                        // 2. Nếu khí vận này là nguyên liệu cần thiết cho một công thức dung hợp chưa hoàn thành -> BẢO TỒN NGUYÊN VẸN!
+                        const isNeededForNextTier = Array.from(neededIngredients).some(ing => {
+                            if (tNameLow === ing) return true;
+                            const ingClean = ing.replace(/\s*\(.*?\)/g, '').replace(/ (thể|căn|cốt|khí vận) /gi, '').trim().toLowerCase();
+                            const tClean = tNameLow.replace(/\s*\(.*?\)/g, '').replace(/ (thể|căn|cốt|khí vận) /gi, '').trim().toLowerCase();
+                            return tClean === ingClean && tClean.length >= 3;
+                        });
+                        if (isNeededForNextTier) return true;
+
+                        // 3. Kiểm tra xem trait này có phải là phôi nguyên liệu cần thu hồi không
+                        const isPurged = Array.from(allPurged).some(ing => {
+                            if (tNameLow === ing) return true;
+                            const ingClean = ing.replace(/\s*\(.*?\)/g, '').replace(/ (thể|căn|cốt|khí vận) /gi, '').trim().toLowerCase();
+                            const tClean = tNameLow.replace(/\s*\(.*?\)/g, '').replace(/ (thể|căn|cốt|khí vận) /gi, '').trim().toLowerCase();
+                            if (tClean === ingClean && tClean.length >= 3) return true;
+                            return false;
+                        });
+                        return !isPurged;
+                    });
+                }
+            }
+
+            return cleaned;
+};

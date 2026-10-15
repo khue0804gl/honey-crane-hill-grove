@@ -1,0 +1,30 @@
+const getTribulationTier = (intendedStageId, karma, spiritualRootName) => {
+  const id = Number(intendedStageId) || 2;
+  let baseWaves = 9;
+  let tierName = 'Tam Cửu Thiên Lôi';
+  if (id >= 15)      { baseWaves = 81; tierName = 'Cửu Cửu Thiên Kiếp'; }
+  else if (id >= 11) { baseWaves = 54; tierName = 'Lục Cửu Thiên Kiếp'; }
+  else if (id >= 8)  { baseWaves = 36; tierName = 'Tứ Cửu Thiên Kiếp'; }
+  else if (id >= 5)  { baseWaves = 27; tierName = 'Nhị Thập Thất Thiên Lôi'; }
+
+  const k = Number(karma) || 0;
+  const karmaBonus = k < 0 ? Math.min(27, Math.floor(Math.abs(k) / 10) * 3) : 0;
+
+  const rootName = String(spiritualRootName || '');
+  const isChaos = /hỗn độn|hủy diệt/i.test(rootName);
+  const isHeaven = /thiên linh/i.test(rootName);
+  const rootBonus = isChaos ? 9 : 0;
+
+  let totalWaves = baseWaves + karmaBonus + rootBonus;
+  if (isHeaven) totalWaves -= 9;
+  totalWaves = Math.max(9, totalWaves);
+
+  let damageType = 'Thái Ất Thần Lôi';
+  if (isChaos && k <= -40) damageType = 'Hỗn Độn Diệt Thế Hắc Lôi';
+  else if (k <= -80)       damageType = 'Diệt Thế Hắc Lôi';
+  else if (k <= -40)       damageType = 'Hủy Diệt Tử Lôi';
+  else if (isChaos)        damageType = 'Hỗn Độn Diệt Thế Lôi';
+  else if (k >= 80)        damageType = 'Tẩy Tủy Cam Lôi';
+
+  return { tierName, totalWaves, damageType, isChaos, isHeaven, karmaBonus, rootBonus };
+};

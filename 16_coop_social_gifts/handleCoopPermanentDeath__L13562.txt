@@ -1,0 +1,29 @@
+  const handleCoopPermanentDeath = async () => {
+      if (!window.confirm("CẢNH BÁO: Ngươi có chắc chắn muốn VĨNH VIỄN CHẾT, tan biến khỏi Liên Giới và xóa bỏ nhân vật này không?")) return;
+      
+      if (currentCoopRoom && user) {
+          try {
+              const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+              const snap = await getDoc(roomRef);
+              if (snap.exists()) {
+                  const rData = snap.data();
+                  const cleanPlayers = (rData.players || []).filter(p => p.uid !== user?.uid);
+                  const deathLog = {
+                      uid: user?.uid,
+                      name: gameState.name,
+                      location: gameState.currentLocation || 'Liên Giới',
+                      text: `[Vẫn Lạc Vĩnh Hằng] Tiên hữu [${gameState.name}] đã tan biến khỏi Liên Giới, hồn phi phách tán không trở lại!`,
+                      chapter: gameState.chapterCount || 1,
+                      timestamp: Date.now()
+                  };
+                  await setDoc(roomRef, { players: cleanPlayers, worldLog: [...(rData.worldLog || []), deathLog] }, { merge: true });
+              }
+          } catch(e) {}
+      }
+      
+      setCoopDeathModal(null);
+      setCurrentCoopRoom(null);
+      setCoopTab('select');
+      setIsGameOverDismissed(false);
+      showAlert("Ngươi đã tan biến khỏi Liên Giới! Hãy khởi tạo sinh mệnh mới.");
+  };

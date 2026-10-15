@@ -1,0 +1,55 @@
+  const handleSendCoopGift = async () => {
+      if (!coopGiftModal || !selectedGiftItem || !currentCoopRoom || !user) return;
+      const targetPlayer = coopGiftModal.player;
+      const qty = Math.max(1, Math.min(Number(giftQuantity) || 1, selectedGiftItem.quantity || 1));
+      
+      setGameState(prev => {
+          const newInv = [...prev.inventory];
+          const itIdx = newInv.findIndex(i => i.name === selectedGiftItem.name && (i.containerId === selectedGiftItem.containerId || !selectedGiftItem.containerId));
+          if (itIdx >= 0) {
+              if (newInv[itIdx].quantity <= qty) {
+                  newInv.splice(itIdx, 1);
+              } else {
+                  newInv[itIdx] = { ...newInv[itIdx], quantity: newInv[itIdx].quantity - qty };
+              }
+          }
+          return { ...prev, inventory: newInv };
+      });
+
+      try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'coop_rooms', currentCoopRoom.id);
+          const snap = await getDoc(roomRef);
+          if (snap.exists()) {
+              const rData = snap.data();
+              const transfers = rData.itemTransfers || [];
+              const newTransfer = {
+                  id: `tf_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                  fromUid: user?.uid,
+                  toUid: targetPlayer.uid,
+                  fromName: gameState.name,
+                  toName: targetPlayer.characterName || targetPlayer.name,
+                  item: { ...selectedGiftItem, quantity: qty },
+                  claimed: false,
+                  timestamp: Date.now()
+              };
+              const shareLog = {
+                  uid: user?.uid,
+                  name: gameState.name,
+                  location: gameState.currentLocation || 'Liên Giới',
+                  text: `[Liên Giới Tương Trợ] Đã trao tặng bảo vật [${selectedGiftItem.name}] x${qty} cho đạo hữu [${targetPlayer.characterName || targetPlayer.name}]!`,
+                  chapter: gameState.chapterCount || 1,
+                  timestamp: Date.now()
+              };
+              await setDoc(roomRef, { 
+                  itemTransfers: [...transfers, newTransfer],
+                  worldLog: [...(rData.worldLog || []), shareLog]
+              }, { merge: true });
+          }
+      } catch(e) {
+          console.error("Lỗi gửi quà:", e);
+      }
+
+      showAlert(`Đã trao tặng thành công [${selectedGiftItem.name}] x${qty} cho đạo hữu ${targetPlayer.characterName || targetPlayer.name}!`);
+      setCoopGiftModal(null);
+      setSelectedGiftItem(null);
+  };

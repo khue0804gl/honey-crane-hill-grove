@@ -1,0 +1,4 @@
+const hasThienDoTrait = (traits: any): boolean => {
+    if (!traits || !Array.isArray(traits)) return false;
+    return traits.some(t => t && (t.name === 'Thể Chất Thiên Đố' || t.name === 'Thiên Đố Chi Thể' || t.id === 1321));
+};

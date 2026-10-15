@@ -1,0 +1,6 @@
+const getLevelNameDisplayUi = (universe, bgId, traits) => {
+    const tNames = (Array.isArray(traits) ? traits : []).map(t => t.name);
+    if (tNames.includes('Cơ Khí Chân Lý (Iron Suit)')) return 'Cấp Bậc Khải Giáp';
+    if (bgId === 'bg_military') return 'Quân Hàm Khởi Nghĩa';
+    return 'Cảnh Giới';
+};

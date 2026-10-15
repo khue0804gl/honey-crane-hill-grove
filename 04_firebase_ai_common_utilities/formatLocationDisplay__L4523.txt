@@ -1,0 +1,10 @@
+const formatLocationDisplay = (loc, universe, timelineId) => {
+    if (!loc) return '';
+    const activeGraph = getActiveWorldGraph(timelineId);
+    const node = activeGraph[loc] || Object.values(activeGraph).find(n => n.name === loc);
+    if (node) {
+        const reg = (node.regionName || node.region || '').trim();
+        return (reg && reg !== 'undefined' && reg !== 'null') ? `${node.name} (${reg})` : node.name;
+    }
+    return String(loc).replace(/\s*\((?:undefined|null)\)/gi, '').trim();
+};

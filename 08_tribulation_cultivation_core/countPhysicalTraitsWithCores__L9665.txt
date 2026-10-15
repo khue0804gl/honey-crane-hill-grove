@@ -1,0 +1,20 @@
+export const countPhysicalTraitsWithCores = (traits: any[]): number => {
+    if (!traits || !Array.isArray(traits)) return 1;
+    let total = 0;
+    traits.forEach(t => {
+        if (!t) return;
+        const name = typeof t === 'string' ? t : (t.name || '');
+        if (typeof MASTER_FUSION_MATRIX !== 'undefined') {
+            const recipe = MASTER_FUSION_MATRIX.find(r => r.name.toLowerCase() === name.toLowerCase());
+            if (recipe) {
+                const ings = typeof getRecursiveFusionIngredients === 'function' ? getRecursiveFusionIngredients(name) : [];
+                total += Math.max(1, ings.length);
+                return;
+            }
+        }
+        if (isPhysicalTrait(t)) {
+            total += 1;
+        }
+    });
+    return Math.max(1, total);
+};

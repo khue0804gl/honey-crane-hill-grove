@@ -1,0 +1,8 @@
+const getFoodFreshnessLimit = (name) => {
+    const n = String(name).toLowerCase();
+    if (/(đan|tửu|rượu|cao|tinh huyết|linh dịch|bình|lọ|trữ|ma dược|potion)/.test(n)) return 3600; 
+    if (/(lương khô|khô|hạt|đậu|mứt|trà)/.test(n)) return 90; 
+    if (/(thịt|cá|cơm|bánh|canh|thức ăn|đồ ăn|nướng|cháo|mì|phở|rau)/.test(n)) return 3; 
+    if (/(thảo|linh thảo|quả|trái|sâm|hoa|nấm)/.test(n)) return 30; 
+    return 15; 
+};

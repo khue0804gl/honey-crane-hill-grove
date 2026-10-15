@@ -1,0 +1,22 @@
+const generateSpoiledName = (name) => {
+    const n = String(name).toLowerCase();
+    let adj = "hư hỏng";
+    if (/(thịt|cá|huyết|xác|canh|cháo|nướng)/.test(n)) {
+        const adjs = ["ôi thiu", "bốc mùi thối", "rữa nát", "đầy dòi bọ", "chảy nước vàng"];
+        adj = adjs[Math.floor(Math.random() * adjs.length)];
+    } else if (/(bánh|cơm|mì|lương khô|đậu|hạt)/.test(n)) {
+        const adjs = ["mốc meo xanh rờn", "ôi chua", "cứng như đá", "nổi mốc trắng", "bị mọt ăn rỗng"];
+        adj = adjs[Math.floor(Math.random() * adjs.length)];
+    } else if (/(đan|dược|dịch|hoàn|tán|tửu|cao|ma dược|potion)/.test(n)) {
+        const adjs = ["tiêu tán dược tính", "phế thải", "đóng cặn độc", "biến chất đục ngầu", "tỏa hắc khí"];
+        adj = adjs[Math.floor(Math.random() * adjs.length)];
+    } else if (/(thảo|quả|sâm|hoa|nấm|táo|linh chi|trái)/.test(n)) {
+        const adjs = ["héo rũ", "thối rữa", "chảy nước đen", "mất hết linh khí", "nhũn nát"];
+        adj = adjs[Math.floor(Math.random() * adjs.length)];
+    } else {
+        const adjs = ["biến chất", "mục nát", "đã hư hại", "nổi mốc meo"];
+        adj = adjs[Math.floor(Math.random() * adjs.length)];
+    }
+    const cleanName = String(name).replace(/\s*\([^)]*\)\s*/g, '').trim();
+    return `${cleanName} (${adj})`;
+};

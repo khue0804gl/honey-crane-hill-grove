@@ -1,0 +1,60 @@
+const extractNpcSpiritualRootFromStory = (npcName: string, textToScan: string, currentNpc: any): string | null => {
+  if (!npcName || !textToScan) return null;
+  const cleanName = String(npcName).replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
+  if (!cleanName || cleanName.length < 2) return null;
+
+  // V2.55 CHỐT CHẶN: PHẠM VI HẸP THEO ĐOẠN (Tránh lây nhiễm toàn bộ Hồng Trần Lục thành Thiên Linh Căn - Báo lỗi Ori)
+  const escName = cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const nameIdx = textToScan.indexOf(cleanName);
+  if (nameIdx === -1) return null;
+
+  // Chỉ quét trong cửa sổ cục bộ 200 ký tự xung quanh tên NPC
+  const startIdx = Math.max(0, nameIdx - 200);
+  const endIdx = Math.min(textToScan.length, nameIdx + cleanName.length + 200);
+  const localSnippet = textToScan.slice(startIdx, endIdx);
+
+  // Phải có hành động đúc / tạo / tẩy tủy / ban linh căn TRỰC TIẾP trong phạm vi cục bộ của NPC
+  const localActionRegex = new RegExp(`(?:đúc|tạo|đúc tạo|ngưng tụ|khai mở|tẩy tủy|thăng cấp|thăng tiến|tiến hóa|thức tỉnh|chuyển hóa|ban|khôi phục|tái tạo|đúc lại|biến dị|đột biến|thăng hoa|tinh thuần|hóa thành|chuyển biến)\\s+(?:cho|thành|được|lại)?\\s*.*?(?:linh căn|căn cơ)`, 'i');
+  if (!localActionRegex.test(localSnippet)) return null;
+
+  // 2. Tìm kiếm tên linh căn cụ thể trong phạm vi cục bộ
+  const rootSpecificPatterns = [
+    new RegExp(`\\[?${escName}\\]?.*?(?:thành|lên|được|có|ngưng tụ thành|đúc thành)\\s+([A-Za-zÀ-ỹ\\s\\(\\),]+?Linh Căn(?:\\s*\\([A-Za-zÀ-ỹ\\s,]+\\))?)`, 'i'),
+    new RegExp(`(?:đúc|tạo|khai mở|ngưng tụ|ban cho|ban)\\s+([A-Za-zÀ-ỹ\\s\\(\\),]+?Linh Căn(?:\\s*\\([A-Za-zÀ-ỹ\\s,]+\\))?)\\s+(?:cho|vào|lên)?\\s*\\[?${escName}\\]?`, 'i'),
+    new RegExp(`(?:thành|lên|đạt được|sang|là|ngưng tụ thành|đúc thành)\\s+((?:Thiên|Dị|Song|Tam|Tứ|Ngũ|Cực Phẩm|Hỗn Độn|Thuần Dương|Thái Âm|Tiên Thiên|Huyền Thiên|Bát Hoang|Đơn)?\\s*[A-Za-zÀ-ỹ\\s\\(\\),]+?\\s*Linh Căn(?:\\s*\\([A-Za-zÀ-ỹ\\s,]+\\))?)`, 'i'),
+    new RegExp(`((?:Thiên|Dị|Song|Tam|Tứ|Ngũ|Cực Phẩm|Hỗn Độn|Thuần Dương|Thái Âm|Tiên Thiên|Huyền Thiên|Bát Hoang)?\\s*(?:Kim|Mộc|Thủy|Hỏa|Thổ|Lôi|Băng|Phong|Quang|Ám|Độc|Kiếm|Hỗn Độn|Âm|Dương)\\s*Linh Căn(?:\\s*\\([A-Za-zÀ-ỹ\\s,]+\\))?)`, 'i')
+  ];
+
+  for (const pat of rootSpecificPatterns) {
+    const m = localSnippet.match(pat);
+    if (m && m[1]) {
+      let extracted = m[1].trim().replace(/\\s+/g, ' ');
+      extracted = extracted.replace(/^(?:được|thành|lên|sang|là|ra|cho|một|chiếc|đạo)\\s+/i, '').trim();
+      if (/linh căn/i.test(extracted) && extracted.length >= 8 && extracted.length <= 40) {
+        return extracted.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      }
+    }
+  }
+
+  // 3. Nếu không bắt được tên chi tiết trong phạm vi cục bộ, dò hệ nguyên tố trong snippet cục bộ
+  const elementMatches = [
+    { re: /(?:hỏa|lửa|viêm|chúc dung)/i, name: "Thiên Linh Căn (Hỏa)" },
+    { re: /(?:lôi|sấm|sét|thiên lôi)/i, name: "Dị Linh Căn (Lôi)" },
+    { re: /(?:băng|hàn|tuyết)/i, name: "Dị Linh Căn (Băng)" },
+    { re: /(?:thủy|nước|hải|đại dương)/i, name: "Thiên Linh Căn (Thủy)" },
+    { re: /(?:mộc|cây|rừng|thảo)/i, name: "Thiên Linh Căn (Mộc)" },
+    { re: /(?:kim|kiếm|sắt|vàng)/i, name: "Thiên Linh Căn (Kim)" },
+    { re: /(?:thổ|đất|địa|nham)/i, name: "Thiên Linh Căn (Thổ)" },
+    { re: /(?:phong|gió)/i, name: "Dị Linh Căn (Phong)" },
+    { re: /(?:quang|ánh sáng)/i, name: "Dị Linh Căn (Quang)" },
+    { re: /(?:ám|bóng tối|ma)/i, name: "Dị Linh Căn (Ám)" }
+  ];
+
+  for (const elem of elementMatches) {
+    if (elem.re.test(localSnippet)) {
+      return elem.name;
+    }
+  }
+
+  return null;
+};

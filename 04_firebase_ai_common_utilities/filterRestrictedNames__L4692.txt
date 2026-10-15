@@ -1,0 +1,106 @@
+const filterRestrictedNames = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    const nameMap = {
+        "Tanya Von Degurechaff": "Tania Degureha",
+        "Demonbane": "Demonveil",
+        "Rimuru Tempest": "Rimura Tempes",
+        "Tamamo no Mae": "Tamane no Mei",
+        "Shuten Dōji": "Shūten Dōga",
+        "Shuten Doji": "Shūten Dōga",
+        "Ibaraki Dōji": "Ibara Dōga",
+        "Ibaraki Doji": "Ibara Dōga",
+        "Orsted": "Orset",
+        "Hitogami": "Hitokami",
+        "Gurren Lagann": "Guren Ragna",
+        "Yoriichi Tsugikuni": "Yoritsuki Tsugikane",
+        "Albedo": "Arbedo",
+        "Momonga-sama": "Momonka",
+        "Ainz": "Ains",
+        "Tokisaki Kurumi": "Tokizaki Kurumi",
+        "Anna Nishikinomiya": "Anna Nishinomiya",
+        "Gasai Yuno": "Kasai Yuna",
+        "Yuki": "Yuuki",
+        "Seryu Ubiquitous": "Seiryu Ubikata",
+        "Katsura Kotonoha": "Kazura Kotonoe",
+        "Ayano Aishi": "Ayana Aishiro",
+        "Inuyasha": "Inukage",
+        "Sesshomaru": "Setsumaru",
+        "David Martinez": "Daigo Marten",
+        "Shiori": "Shion",
+        "Aries Mu": "Aries Muu",
+        "Gemini Saga": "Gemini Sagan",
+        "Gemini Kanon": "Gemini Kanen",
+        "Cancer Deathmask": "Cancer Deathmark",
+        "Leo Aiolia": "Leo Aiora",
+        "Virgo Shaka": "Virgo Shakai",
+        "Libra Dohko": "Libra Douka",
+        "Scorpio Milo": "Scorpio Miro",
+        "Sagittarius Aiolos": "Sagittarius Aioros",
+        "Capricorn Shura": "Capricorn Shiran",
+        "Aquarius Camus": "Aquarius Kamis",
+        "Pisces Aphrodite": "Pisces Aphrodis",
+        "Jesus": "Yeshua",
+        "Thích Ca Mâu Ni": "Siddha Gautan",
+        "Thich Ca Mau Ni": "Siddha Gautan",
+        "Aizen Sosuke": "Aizen Soushi",
+        "Griffith": "Griffis",
+        "Femto": "Femtor",
+        "Void": "Voide",
+        "Slan": "Slarn",
+        "Ubik": "Ubek",
+        "Conrad": "Konrad",
+        "Jeanne d'Arc Alter": "Jeanne Altera",
+        "Jeanne d'Arc": "Jeanne Aria",
+        "Ulquiorra Cifer": "Ulkiora Cifer",
+        "Zaraki Kenpachi": "Zaraki Kenpachiro",
+        "Guts": "Gattsu",
+        "Ikaros": "Ikarosu",
+        "Alpha": "Alphia",
+        "Nymph": "Nympha",
+        "Beta": "Betia",
+        "Astraea": "Astreia",
+        "Delta": "Deltia",
+        "Urahara Kisuke": "Urabara Kisuke",
+        "Kuchiki Byakuya": "Kuchiya Byaku",
+        "Skull Knight": "Skull Kaiser",
+        "Kurosaki Ichigo": "Kurosagi Ichiro",
+        "Hyosube Ichibei": "Hyosube Ichibe",
+        "Yamamoto Genryusai": "Yamamori Genryusen",
+        "Jibril": "Jibriel",
+        "Jerusalem": "Jerusalem",
+        "Seireitei": "Seireiden",
+        "Abraham": "Abrahan",
+        "Isaac": "Isak",
+        "Jacob": "Yakobu",
+        "Maria": "Marian",
+        "Tịnh Phạn": "Tịnh Phạm",
+        "Yhwach": "Yhwark",
+        "Oberon": "Oberan",
+        "Vortigern": "Vortigan",
+        "Heretic Sultan": "Heretik Sultan",
+        "Wyald": "Wyaldor",
+        "Elijah": "Eliyah",
+        "Satou Kazuma": "Sato Kazuma",
+        "Aqua": "Akua",
+        "Darkness": "Darknes",
+        "Lalatina Ford Dustiness": "Laratina Ford Dustenis",
+        "Megumin": "Megumine",
+        "Goblin Slayer": "Goblin Hunter",
+        "Keyaru": "Keyaro"
+    };
+    let processed = text;
+    Object.keys(nameMap).forEach(oldName => {
+        const newName = nameMap[oldName];
+        const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escapeRegExp(oldName), 'gi');
+        processed = processed.replace(regex, (match) => {
+            const firstChar = match.charAt(0);
+            if (firstChar === firstChar.toUpperCase() && firstChar !== firstChar.toLowerCase()) {
+                return newName.charAt(0).toUpperCase() + newName.slice(1);
+            } else {
+                return newName.charAt(0).toLowerCase() + newName.slice(1);
+            }
+        });
+    });
+    return processed;
+};

@@ -1,0 +1,64 @@
+const sanitizeNpcRelationships = (npcs: any[], playerGender: string = 'Nam') => {
+    if (!Array.isArray(npcs) || npcs.length === 0) return;
+    const isCorpseOrSkeleton = (nameStr: string) => /(hài cốt|xác chết|bộ xương|di cốt|tàn cốt|thi thể|vô danh cổ tu|vô danh|cổ tu)/i.test(nameStr || '');
+    const isSpouseRelation = (relStr: string) => /(thê tử|phu quân|đạo lữ|hồng nhan|tỳ thiếp|người tình|thê thiếp|vợ|chồng|ái nhân|bạn đời)/i.test(relStr || '');
+
+    // 1. Dọn dẹp lỗi chuỗi danh phận, giới tính danh phận
+    npcs.forEach((npc: any) => {
+        if (npc.name) {
+            npc.name = String(npc.name).replace(/(?:\s*\(\s*ĐÃ CHẾT\s*\))+/ig, '').trim();
+        }
+        if (npc.relationType) {
+            npc.relationType = String(npc.relationType).replace(/(?:\s*\((?:Phàm nhân|Chính đạo|Ma đạo|Trung lập|Không rõ|Thuộc hạ|Trung thành tuyệt đối|Tà tu|Tán tu|Yêu tộc|Ma tộc)\))+\s*$/ig, '').trim();
+            if (/(thê tử|vợ)/i.test(npc.relationType) && playerGender === 'Nữ') npc.relationType = 'Phu quân';
+            else if (/(phu quân|chồng)/i.test(npc.relationType) && playerGender === 'Nam') npc.relationType = 'Thê tử';
+            if (npc.gender === 'Nữ' && String(npc.relationType).toLowerCase() === 'phu quân') npc.relationType = 'Thê tử';
+            if (npc.gender === 'Nam' && String(npc.relationType).toLowerCase() === 'thê tử') npc.relationType = 'Phu quân';
+            if (playerGender === 'Nam' && String(npc.name).includes('Vọng Thư') && String(npc.relationType).toLowerCase() === 'phu quân') {
+                npc.relationType = 'Thê tử';
+                if (!npc.gender) npc.gender = 'Nữ';
+            }
+        }
+        if (npc.role) {
+            npc.role = String(npc.role).replace(/(?:\s*\((?:Phàm nhân|Chính đạo|Ma đạo|Trung lập|Không rõ|Thuộc hạ|Trung thành tuyệt đối|Tà tu|Tán tu|Yêu tộc|Ma tộc)\))+\s*$/ig, '').trim();
+        }
+    });
+
+    // 2. Xử lý triệt để Hài cốt / Xác chết / Vô Danh Cổ Tu bị gán nhầm danh phận Đạo Lữ (Điển hình: Vô Danh Cổ Tu cướp danh phận của Althea)
+    npcs.forEach((npc: any) => {
+        if (npc.isDead || isCorpseOrSkeleton(npc.name)) {
+            if (isSpouseRelation(npc.relationType)) {
+                const summaryText = (String(npc.historySummary || '') + ' ' + String(npc.state || '')).toLowerCase();
+                
+                let rightfulPartner = npcs.find((other: any) => 
+                    !other.isDead && !isCorpseOrSkeleton(other.name) && 
+                    (summaryText.includes(String(other.name || '').toLowerCase()) || 
+                     (other.aliases || []).some((al: string) => summaryText.includes(String(al).toLowerCase())) ||
+                     (String(other.name || '').toLowerCase().includes('althea') && (summaryText.includes('song tu') || summaryText.includes('truyền lực')))
+                    )
+                );
+
+                if (!rightfulPartner && isCorpseOrSkeleton(npc.name)) {
+                    rightfulPartner = npcs.find((other: any) => 
+                        !other.isDead && String(other.name || '').toLowerCase().includes('althea')
+                    );
+                }
+
+                if (rightfulPartner) {
+                    rightfulPartner.relationType = npc.relationType || 'Đạo Lữ Đồng Hành';
+                    if (!rightfulPartner.affinity || Number(rightfulPartner.affinity) < 80) rightfulPartner.affinity = 100;
+                    if (summaryText.includes('song tu') || summaryText.includes('truyền lực')) {
+                        rightfulPartner.historySummary = npc.historySummary;
+                        rightfulPartner.state = npc.state;
+                    }
+                }
+
+                npc.relationType = "Âm Dương Cách Biệt";
+                npc.state = "Đã an táng / Hoàng Tuyền";
+                if (summaryText.includes('song tu') || summaryText.includes('truyền lực')) {
+                    npc.historySummary = "Hài cốt cổ tu tiền bối, đã được an táng chu đáo nơi nghĩa địa/rừng sâu.";
+                }
+            }
+        }
+    });
+};

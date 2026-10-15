@@ -1,0 +1,29 @@
+const capActiveEffects = (effects: any[], maxCount = 12): any[] => {
+    if (!Array.isArray(effects)) return [];
+    if (effects.length <= maxCount) return effects.filter(Boolean);
+    
+    const validEffects = effects.filter(Boolean);
+    const priority1: any[] = [];
+    const debuffs: any[] = [];
+    const normalBuffs: any[] = [];
+
+    validEffects.forEach(e => {
+        if (e.type === 'core_method' || (e.durationMinutes || 0) > 50000000 || e.id === 'eff_chan_than_boc_phat' || e.id === 'eff_nhan_the_han_che') {
+            priority1.push(e);
+        } else if (e.type === 'debuff') {
+            debuffs.push(e);
+        } else {
+            normalBuffs.push(e);
+        }
+    });
+
+    const result: any[] = [...priority1];
+    for (const d of debuffs) {
+        if (result.length < maxCount) result.push(d);
+    }
+    normalBuffs.sort((a, b) => (b.durationMinutes || 0) - (a.durationMinutes || 0));
+    for (const b of normalBuffs) {
+        if (result.length < maxCount) result.push(b);
+    }
+    return result;
+};

@@ -1,0 +1,9 @@
+const getStonesBreakdown = (amount) => {
+  const val = Math.floor(Number(amount) || 0);
+  let remaining = val;
+  const cuc = Math.floor(remaining / 1000000); remaining %= 1000000;
+  const thuong = Math.floor(remaining / 10000); remaining %= 10000;
+  const trung = Math.floor(remaining / 100); remaining %= 100;
+  const ha = remaining;
+  return { cuc, thuong, trung, ha, total: val };
+};

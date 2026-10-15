@@ -1,0 +1,13 @@
+  const handleChallengeCoopNpc = (playerNpc) => {
+      if (gameState.coopSyncEnabled === false) {
+          return showAlert("Chế độ Tương Tác của ngươi đang TẮT. Hãy bật lại để tham gia tỉ thí/tương tác!");
+      }
+      const targetPlayer = currentCoopRoom?.players?.find(p => p.uid === playerNpc.id.replace('player_', '') || p.characterName === playerNpc.name || p.name === playerNpc.name);
+      if (!targetPlayer) return showAlert("Không tìm thấy Tiên Hữu!");
+      if (targetPlayer.interactionEnabled === false) {
+          return showAlert(`Tiên hữu ${playerNpc.name} đang ở trạng thái Độc Tu Ẩn Thân, không thể PK!`);
+      }
+      
+      sendPvpRequest(targetPlayer.uid);
+      showAlert(`Đã phát chiến thư PK tới đạo hữu ${playerNpc.name}! Nếu đối phương tiếp nhận sẽ kích hoạt tỉ thí.`);
+  };

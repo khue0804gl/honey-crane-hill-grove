@@ -1,0 +1,14 @@
+const getTavern = (state: any) => {
+  if (!state || !state.tavern) return DEFAULT_TAVERN_DATA;
+  return {
+    ...DEFAULT_TAVERN_DATA,
+    ...state.tavern,
+    staff: Array.isArray(state.tavern.staff) && state.tavern.staff.length > 0 ? state.tavern.staff : DEFAULT_TAVERN_DATA.staff,
+    ingredients: Array.isArray(state.tavern.ingredients) && state.tavern.ingredients.length > 0 ? state.tavern.ingredients : DEFAULT_TAVERN_DATA.ingredients,
+    wines: Array.isArray(state.tavern.wines) && state.tavern.wines.length > 0 ? state.tavern.wines : DEFAULT_TAVERN_DATA.wines,
+    beasts: Array.isArray(state.tavern.beasts) && state.tavern.beasts.length > 0 ? state.tavern.beasts : DEFAULT_TAVERN_DATA.beasts,
+    fruits: Array.isArray(state.tavern.fruits) && state.tavern.fruits.length > 0 ? state.tavern.fruits : DEFAULT_TAVERN_DATA.fruits,
+    news: Array.isArray(state.tavern.news) && state.tavern.news.length > 0 ? state.tavern.news : DEFAULT_TAVERN_DATA.news,
+    financeLogs: Array.isArray(state.tavern.financeLogs) && state.tavern.financeLogs.length > 0 ? state.tavern.financeLogs : DEFAULT_TAVERN_DATA.financeLogs
+  };
+};

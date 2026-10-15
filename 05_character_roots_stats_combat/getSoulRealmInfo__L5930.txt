@@ -1,0 +1,25 @@
+const getSoulRealmInfo = (spp, soulAgeGap) => {
+    let realm = "Phàm Hồn";
+    let color = "text-[var(--text-muted)]";
+    let atkPct = 0, defPct = 0, spdPct = 0, mpPct = 0, talentBonus = 0, engBonus = 0;
+
+    if (spp >= 1000000000) { realm = "Chí Cao Thần Hồn"; color = "text-yellow-400"; atkPct = 50; defPct = -20; spdPct = 30; mpPct = 100; talentBonus = 500; engBonus = 1000; }
+    else if (spp >= 50000000) { realm = "Sáng Thế Thần Hồn"; color = "text-orange-500"; atkPct = 40; defPct = -15; spdPct = 25; mpPct = 80; talentBonus = 200; engBonus = 500; }
+    else if (spp >= 2000000) { realm = "Bất Diệt Thiên Hồn"; color = "text-red-500"; atkPct = 30; defPct = -10; spdPct = 20; mpPct = 60; talentBonus = 100; engBonus = 200; }
+    else if (spp >= 100000) { realm = "Thái Hư Nguyên Thần"; color = "text-rose-400"; atkPct = 20; defPct = -5; spdPct = 15; mpPct = 40; talentBonus = 50; engBonus = 100; }
+    else if (spp >= 10000) { realm = "Đại Thừa Dương Thần"; color = "text-fuchsia-400"; atkPct = 15; defPct = 0; spdPct = 10; mpPct = 30; talentBonus = 20; engBonus = 50; }
+    else if (spp >= 2000) { realm = "Hóa Hình Âm Thần"; color = "text-purple-500"; atkPct = 10; defPct = 0; spdPct = 5; mpPct = 20; talentBonus = 10; engBonus = 20; }
+    else if (spp >= 500) { realm = "Tam Muội Chân Hồn"; color = "text-blue-400"; atkPct = 5; defPct = 0; spdPct = 0; mpPct = 10; talentBonus = 5; engBonus = 10; }
+    else if (spp >= 100) { realm = "Dịch Bách Ngưng Hồn"; color = "text-emerald-400"; atkPct = 0; defPct = 0; spdPct = 0; mpPct = 5; talentBonus = 2; engBonus = 5; }
+    else if (spp >= 30) { realm = "Tinh Trần Tụ Hồn"; color = "text-teal-400"; atkPct = 0; defPct = 0; spdPct = 0; mpPct = 0; talentBonus = 0; engBonus = 2; }
+    
+    if (soulAgeGap >= 500) {
+        let gapPenalty = Math.min(50, Math.floor(soulAgeGap / 200));
+        defPct -= gapPenalty;
+        engBonus += Math.floor(soulAgeGap / 100);
+    }
+
+    let detail = `CẢNH GIỚI THẦN HỒN: ${realm}\n\nChỉ số Thần Thức (Cảm Quan) của bạn đã đạt mốc ${formatLargeNumber(spp)}, ngưng tựu thành cảnh giới Hồn Tu [${realm}]. Cảnh giới linh hồn càng cao, khả năng thao túng vạn vật càng đáng sợ, bổ trợ mạnh mẽ cho thể phách:\n\n- Thiên Phú: +${talentBonus}\n- Ngộ Đạo: +${engBonus}\n- Áp lực lên thân xác: Phòng thủ ${defPct > 0 ? '+'+defPct : defPct}%\n\nKhuyếch đại sức mạnh toàn diện:\n- Tấn Công: ${atkPct > 0 ? '+'+atkPct : atkPct}%\n- Năng Lượng (MP): ${mpPct > 0 ? '+'+mpPct : mpPct}%\n- Tốc Độ: ${spdPct > 0 ? '+'+spdPct : spdPct}%\n\n*Lưu ý: Nếu Tuổi Linh Hồn già hơn Tuổi Thể Xác quá xa, Thể Cốt sẽ bị Thần Hồn đè ép dẫn đến giảm mạnh Phòng Thủ, nhưng bù lại Ngộ Tính bạo tăng!`;
+
+    return { realm, color, atkPct, defPct, spdPct, mpPct, talentBonus, engBonus, detail };
+};

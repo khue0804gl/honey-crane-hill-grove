@@ -1,0 +1,7 @@
+const getFoundationName = (score) => {
+    const s = Number(score) || 50;
+    if (s <= 20) return 'Hư Phù';
+    if (s <= 50) return 'Phàm Đạo';
+    if (s <= 80) return 'Thiên Đạo'; 
+    return 'Cực Đạo';
+};

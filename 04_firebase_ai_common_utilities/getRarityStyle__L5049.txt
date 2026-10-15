@@ -1,0 +1,3 @@
+const getRarityStyle = (rarity) => {
+    return ITEM_RARITY_COLORS[rarity] || 'text-[var(--text-main)] border-[var(--border-main)] bg-[var(--bg-surface)]';
+};

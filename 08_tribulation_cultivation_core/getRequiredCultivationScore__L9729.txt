@@ -1,0 +1,20 @@
+const getRequiredCultivationScore = (stageId) => {
+    const sId = Number(stageId) || 1;
+    if (sId <= 1) return 100; // Phàm Nhân
+    if (sId === 2) return 1000; // Luyện Khí
+    if (sId === 3) return 10000; // Trúc Cơ
+    if (sId === 4) return 100000; // Kim Đan
+    if (sId === 5) return 1000000; // Nguyên Anh
+    if (sId === 6) return 10000000; // Hóa Thần
+    if (sId === 7) return 100000000; // Luyện Hư
+    if (sId === 8) return 1000000000; // Hợp Thể (1 Tỷ)
+    if (sId === 9) return 10000000000; // Đại Thừa (10 Tỷ)
+    if (sId === 10) return 100000000000; // Độ Kiếp (100 Tỷ)
+    if (sId === 11) return 1000000000000; // Hư Tiên (1 Nghìn Tỷ)
+    if (sId === 12) return 10000000000000; // Chân Tiên (10 Nghìn Tỷ)
+    if (sId === 13) return 100000000000000; // Huyền Tiên (100 Nghìn Tỷ)
+    if (sId === 14) return 1000000000000000; // Kim Tiên (1 Triệu Tỷ)
+    if (sId === 15) return 10000000000000000; // Thái Ất Kim Tiên (10 Triệu Tỷ)
+    if (sId >= 16) return Math.min(Number.MAX_SAFE_INTEGER, Math.round(100 * Math.pow(10, Math.min(14, sId - 1))));
+    return 1000;
+};

@@ -1,0 +1,7 @@
+  const handleOpenCoopGift = (playerNpc) => {
+      const targetPlayer = currentCoopRoom?.players?.find(p => p.uid === playerNpc.id.replace('player_', '') || p.characterName === playerNpc.name || p.name === playerNpc.name);
+      if (!targetPlayer) {
+          return showAlert("Không tìm thấy thông tin Tiên Hữu trong phòng!");
+      }
+      setCoopGiftModal({ player: targetPlayer, npc: playerNpc });
+  };

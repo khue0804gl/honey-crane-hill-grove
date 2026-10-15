@@ -1,0 +1,87 @@
+const getKhiLinhEffects = (inventory, equipped) => {
+    let klHpPct = 0, klAtkPct = 0, klDefPct = 0, klSpdPct = 0, klSppPct = 0;
+    let klAllStatPct = 0;
+    let combatTags = [];
+
+    const itemNames = [
+        ...(Array.isArray(inventory) ? inventory : []).filter(Boolean).filter(i => i && (i as any).name).map(i => String((i as any).name).toLowerCase()),
+        ...Object.values(equipped || {}).filter(Boolean).filter(i => i && (i as any).name).map(i => String((i as any).name).toLowerCase())
+    ];
+
+    const hasItem = (name) => itemNames.some(n => n.includes(name.toLowerCase()));
+
+    // A. Vàng
+    if (hasItem("vãn tình - thanh tâm tinh") && hasItem("vãn tình - thanh tâm đái")) klHpPct += 20;
+    if (hasItem("lưu huyền - hàm châu tinh") && hasItem("lưu huyền - hàm châu thúc")) { klAtkPct += 10; combatTags.push("Tăng 10% sát thương bạo kích"); }
+    if (hasItem("nguyệt ảnh - ác châu tinh") && hasItem("nguyệt ảnh - ác châu trượng")) { klAtkPct += 12; }
+    if (hasItem("du thủy - phù cừ tinh") && hasItem("du thủy - phù cừ trượng")) { combatTags.push("Tăng 12% bạo kích"); }
+    if (hasItem("bí ngân - loan vũ tinh") && hasItem("bí ngân - loan vũ thoa")) { combatTags.push("Tăng 12% tỉ lệ né tránh"); }
+    if (hasItem("vẫn thiết - tụ lực tinh") && hasItem("vẫn thiết - tụ lực uyển")) { klHpPct += 24; }
+    if (hasItem("lôi bạo - súc thế thúc") && hasItem("lôi bạo - súc thế tinh")) { combatTags.push("Tăng 12% tỉ lệ bạo kích, sát thương bạo kích và chính xác"); }
+    if (hasItem("hoa ngữ - thanh điệp y") && hasItem("hoa ngữ - thanh điệp tinh")) { klSppPct += 12; }
+
+    // B. Cam
+    if (hasItem("kim la - lưu uyên hồn") && hasItem("kim la - lưu uyên bào")) { combatTags.push("Gây thêm 12% dame chuẩn dựa trên sát thương bản thân"); }
+    if (hasItem("khôn nguyên - càn lôi hồn") && hasItem("khôn nguyên - càn lôi châu")) { combatTags.push("Kháng 15% toàn bộ sát thương (tính dame chuẩn và dựa trên phòng thủ bản thân)"); }
+    if (hasItem("càn nguyên - phá vân hồn") && hasItem("càn nguyên - phá vân thương")) { combatTags.push("Địch mất thêm 15% hp"); }
+    if (hasItem("linh mộng - thanh liên hồn") && hasItem("linh mộng - thanh liên y")) { combatTags.push("Kháng 10% bị bạo kích và sát thương bạo"); }
+
+    // C. Đỏ
+    if (hasItem("chước hoa - phong vũ tôn") && hasItem("chước hoa - phong vũ đao")) { klAllStatPct += 2; klDefPct += 20; combatTags.push("Miễn 2% sát thương phản", "Khi dính sát thương, tăng 50% tốc độ 1 lượt load"); }
+    if (hasItem("lưu kim - xích tâm linh") && hasItem("lưu kim - xích tâm bội")) { klAllStatPct += 2; klAtkPct += 20; combatTags.push("Giảm 2% sát thương bạo kích", "Lần đầu tiên ra chiêu với kẻ thù: tăng 50% bạo kích, 80% chính xác, gây dame chuẩn = 50% tổng sát thương gây ra"); }
+    if (hasItem("hồng liên - kinh hồng linh") && hasItem("hồng liên - kinh hồng đai")) { klAllStatPct += 2; klDefPct += 20; combatTags.push("Giảm 20% sát thương bạo kích", "Miễn phong ấn thần thông"); }
+    if (hasItem("vô tướng - thiên biến tôn") && hasItem("vô tướng - xứng tâm thiết")) { klAllStatPct += 2; combatTags.push("Tăng 20% hút máu, tăng 5% kháng bạo kích", "Ăn cắp 50% hp kẻ thù lần đầu tiên trong 1 lượt load"); }
+    if (hasItem("thần uy - ngự thần tôn") && hasItem("thần uy - ngự thần quyển")) { klAllStatPct += 2; combatTags.push("Tăng miễn phản thương 20%, tăng hồi máu 20%", "Khi có vật triệu hồi/ảo ảnh, sát thương chuyển sang triệu hồi thêm 30%"); }
+    if (hasItem("xích tiêu - phần tâm tôn") && hasItem("xích tiêu - phần tâm vũ")) { klAllStatPct += 2; combatTags.push("Giảm thủ kẻ địch 20%", "Miễn phong ấn đặc kỹ/chiêu thức"); }
+    if (hasItem("long đằng - phong lôi tôn") && hasItem("long đằng - phong lôi dẫn")) { klAllStatPct += 2; klAtkPct += 20; klSpdPct += 20; combatTags.push("Tự động tạo lá chắn bằng 100% HP trong 1 lượt load"); }
+
+    // D. CHƯ THIÊN PHÁP BẢO ĐỘC TÔN (V12.15)
+    if (hasItem("sơn hà xã tắc đồ")) combatTags.push("[Sơn Hà Xã Tắc Đồ] Mỗi lần ăn đòn mất tối đa không quá 30% HP (không tính sát thương chuẩn)");
+    if (hasItem("tam bảo ngọc như ý")) combatTags.push("[Tam Bảo Ngọc Như Ý] Đánh trúng rớt vĩnh viễn 8% Max HP kẻ địch, hồi HP thân bằng 40% sát thương gây ra (xuyên kháng hồi máu)");
+    if (hasItem("thất bảo diệu thụ")) combatTags.push("[Thất Bảo Diệu Thụ] Mỗi nhịp chống đỡ hồi cho phe ta 20% HP; Đồng đội chết thì Bản thân nhận thêm 2 giáp đỡ đòn phản vật lý");
+    if (hasItem("thập nhị phẩm liên đài") || hasItem("thập nhị phảm liên đài")) { klAllStatPct += 8; combatTags.push("[Thập Nhị Phẩm Liên Đài] Thể chất Vô Tướng: Miễn nhiễm 100% Độc, Thiêu Đốt và kháng 50% Huyễn Thuật"); }
+    if (hasItem("hỗn nguyên kim đấu")) combatTags.push("[Hỗn Nguyên Kim Đấu] Khi bị đánh trúng, đòn tấn công tiếp theo sẽ bạo tăng 80% sức mạnh (gây thành Sát Thương Chuẩn)");
+    if (hasItem("thái cực phù ấn")) combatTags.push("[Thái Cực Phù Ấn] Trận pháp vô khuyết: Tự động hấp thu 30% sát thương thường đánh tới, chuyển hoá bù thẳng làm Thể Lực và Tốc Độ");
+    if (hasItem("thông thiên thần hỏa trụ")) combatTags.push("[Thông Thiên Thần Hỏa Trụ] Lửa nghiệp bùng nổ: Gây thêm sát thương Chuẩn (True Damage) bằng 8% tổng lượng Sát thương vừa tạo ra");
+    if (hasItem("bát quái tiên y")) combatTags.push("[Bát Quái Tiên Y] Có khả năng cản được Sát Thương Chuẩn (bù trừ bằng 30% HP hiện hành), đánh trúng Sát Thương Chuẩn lần 2 cản thêm 60%");
+    if (hasItem("thanh tịnh lưu ly bình")) combatTags.push("[Thanh Tịnh Lưu Ly Bình] Lưu Ly Lực: Sau khi bị đập, chắt lọc 25% sinh lực mất đi vĩnh viễn biến thành sức Phòng Thủ cho đồng đội hoặc bản thân");
+    if (hasItem("bàn cổ phiên")) combatTags.push("[Bàn Cổ Phiên] Kháng Khảm Phản Nghịch: Gỡ bỏ Phản Đam. Hủy diệt Tối thượng trong 2 nhịp đầu tiên (Auto Bạo Kích, x100% Sát thương Lượt 1)");
+    if (hasItem("nam minh ly hỏa kiếm")) combatTags.push("[Nam Minh Ly Hỏa Kiếm] Buff 25% Công cường sát. Khi kết liễu 1 kẻ cùng hoặc vượt cấp, Buff tạm thời hóa thành Vĩnh Viễn Tăng 5% ST");
+    if (hasItem("huyền hoàng bảo tháp")) combatTags.push("[Huyền Hoàng Bảo Tháp] Pháo đài Tháp: Giảm 50% uy lực công kích thường. Chảy máu đồng minh (Bật Khiên 12%), đồng minh gục thì Mưa máu phục Hồi mình");
+    if (hasItem("không động long ấn")) combatTags.push("[Không Động Long Ấn] Tổ Long Gầm: Thiết lập vô phương phá giải. Tuyệt đối miễn nhiễm hiệu ứng Nhốt Chỉ Số / Cấm Tuyệt Chiêu");
+    if (hasItem("ngũ hỏa thần diễm phiến")) combatTags.push("[Ngũ Hỏa Thần Diễm Phiến] Quạt Thần Trợ Trận: Cường tráng cho các Đồng Minh xung quanh hưởng 12% theo Mốc sức mạnh chủ tướng");
+    if (hasItem("tử kim hồ lô")) combatTags.push("[Tử Kim Hồ Lô] Tinh Tủy Chế Dược: Tác động vĩ mô, Luyện đan và Chế ma dược Vĩnh Viễn auto nổ Khí Phẩm cấp Đỏ Tiên Đan, giữ tươi nguyên vật liệu");
+    if (hasItem("phi long bảo trượng")) combatTags.push("[Phi Long Bảo Trượng] Tấn Công Tăng 30%, phong bế đặc kỹ quân thù ở lượt Tấn Công. Tước đoạt 5% Thể cốt Công Vĩnh Viễn đánh thẳng lên người mình");
+    if (hasItem("cửu lê luyện yêu hồ")) combatTags.push("[Cửu Lê Luyện Yêu Hồ] Khắc Tinh Yêu Tộc: Gây ST Chuẩn tỷ lệ 10% tính theo HP giáp Yêu kẻ thù. Có thể Luyện Yêu bắt ấn tăng tiềm năng Vĩnh Cửu (Gánh truy nã)");
+    if (hasItem("la sát ba tiêu phiến")) combatTags.push("[La Sát Ba Tiêu Phiến] Lá Phóng Chắn: 40% chỉ số Thủ thành Miễn ST. Giết địch thì Vĩnh Viễn mang 50% Sức mạnh kẻ bại chia đều Tướng sỹ phe ta");
+    if (hasItem("xuyên tâm tỏa")) combatTags.push("[Xuyên Tâm Tỏa] Đánh thấu tâm trí: Dame ta bạo hơn địch sẽ văng Choáng. Cột đòn chấn kích vĩnh viễn tước thủ Tiên Cốt Địch 6% cho bản thân Trọn kiếp");
+    if (hasItem("ngưng u thanh quang giới")) combatTags.push("[Ngưng U Thanh Quang Giới] Bất Tử Khóa Máu: Hãm lại 8% HP nếu ăn đòn Tận Mạng. Xuất chiêu giập ngay Cửa khóa Tắt Thần Thông và Tuyệt Kỹ Địch ở Lượt này");
+    if (hasItem("huyền trượng tì bà")) combatTags.push("[Huyền Trượng Tì Bà] Vô Lượng Phá Không: Tuyệt đối phế bỏ khả thuật Khóa Không Gian của chúng, thay vào đó Xích khóa vĩnh Tọa Độ trốn chạy của quân Thù");
+    if (hasItem("càn thiên hỏa linh châu")) combatTags.push("[Càn Thiên Hỏa Linh Châu] Kháng 100% Cấp Bách Hỏa Diệm. Nếu mang sẵn cốt Băng/Kháng Hỏa từ trước, liền Cường Hóa toàn bộ Pháp Hệ Hỏa của mình ra Chuẩn Damage");
+    if (hasItem("liệp hồn thương")) combatTags.push("[Liệp Hồn Thương] Ác Liềm Dã Quỷ: Gây Đòn Trúng Vĩnh cướp được 30% Sát thương kẻ địch. Đệ tử / Cố nhân gục thì Mượn nạp 15% Chỉ số Tụ Tái vĩnh viễn");
+    if (hasItem("ngọc hư lưu ly đăng")) combatTags.push("[Ngọc Hư Lưu Ly Đăng] Châm Lửa Tróc Độc: Cộng dồn thêm 30% Damage vào thân kẻ địch Đang bám theo Tà/Debuff/Giảm kháng");
+    if (hasItem("tử kim linh")) { klSpdPct += 40; combatTags.push("[Tử Kim Linh] Âm vang Rung Trí: Quật 50% Tốc Độ địch thủ Tê liệt hai nhịp đánh. NVC Đạo gia cường bạo tăng Tốc Độ 40% Vĩnh Hằng"); }
+    if (hasItem("đả thần tiên")) combatTags.push("[Đả Thần Tiên] Gậy Đét Tinh Thần: Ra tay niêm phong 16% Toàn Thuộc Tín Kẻ đánh cùng. Khép Cửa Địch Tử: Trực Tịch nhét vĩnh viễn 16% ấy gộp lên ta");
+    if (hasItem("hỗn nguyên càn khôn dù")) combatTags.push("[Hỗn Nguyên Càn Khôn Dù] Ô Sinh Mạng: Tiêu Biến mọi Màng chắn qua việc Tái Hóa Sát Thương Chuẩn 16% lấy ngay từ Chỉ số gốc tấn kích");
+    if (hasItem("u hồn vạn cốt phiên") || hasItem("vạn hồn phiên")) combatTags.push("[U Hồn Vạn Cốt Phiên] Buff Mãnh Liệt Lượng Sinh Lực Cải Tái. Vô Địch Tẩy Qua Mọi Lớp Màng Đâm Kháng Trị liệu Bất Ngờ Hồi Quy");
+    if (hasItem("cửu tiên tam sinh thạch")) { klAllStatPct += 8; combatTags.push("[Cửu Tiên Tam Sinh Thạch] Bạo kích nhảy Bật lên 16%. Quyền Lực Tạo Sinh: Tôn tạo Hồi Sinh cho NPC là Tức Khắc Nâng Toàn Cấp vĩnh viễn 8% (+/- Báo)"); }
+    if (hasItem("hậu nghệ xạ nhật cung")) combatTags.push("[Hậu Nghệ Xạ Nhật Cung] Lưỡi Kiếm Từ Xa: Bắt xác Đội hình Diệt trừ 1 Kẻ Là Sẵn Cướp Ngay 15% Damage tọng vào Tàn Thần Tu Vi Cổ Mãi");
+    if (hasItem("hỗn độn ngũ linh châu")) combatTags.push("[Hỗn Độn Ngũ Linh Châu] Sát Quả Trấn Linh: Nghiền Bẹp 1 Tấn Thắng Mục Tiêu Thì Cột Định Cướp Gắn Thẳng 33% Tuyệt Đối Phòng Ngự Dâng Nhục Thân");
+    if (hasItem("bát ngục đãng ma phủ")) combatTags.push("[Bát Ngục Đãng Ma Phủ] Trù Chú Đánh Bồi: Cực Phẩm +30% ST Khóa Độc Lửa và Giáng Thần. Quất 2 Lần Dính Ác Chú Là Chết Gục Tuyệt Đối Không Đường Giải");
+    if (hasItem("dao âm phượng vận cầm")) combatTags.push("[Dao Âm Phượng Vận Cầm] Khúc Hồn Tàn Lực: Neft Đè Cổ Sát Thương Chúng 20%. Không Dọn Giải Theo Vòng Là Ăn Liên Hoàn Giáng Khuyết Tụ Tổn Chỉ Số Đời Kế");
+    if (hasItem("nhiếp hồn đoạt phách liêm")) combatTags.push("[Nhiếp Hồn Đoạt Phách Liêm] Áp Lực Tối Thượng: ST Chuẩn Khai 30%. Sát Diệt Gặt Hồn Đoạt Dồn Tụ 30% Toàn Diện Bọn Nó. Bức Dây Truy Nã Sát Thủ Toàn Diệm!");
+    if (hasItem("ám uyên tinh hồng kiếm")) combatTags.push("[Ám Uyên Tinh Hồng Kiếm] Vòng Tỏa Tiên Quyết: Phủ Áo Giáp 5% Trực Tiếp Max Máu Mỗi Vòng. Hủy Màng Khiên Này Nạp Cộng Dồn Lời Nguyền Trừ Cạn Kiệt Cho Địch");
+    if (hasItem("xích hà nhiên vũ phiến")) combatTags.push("[Xích Hà Nhiên Vũ Phiến] Nghịch Phiến Giao Tranh: Phản Giáng Cấu Trúc Bức Ép 16% Tu Vi Phạt Ngược 100% Cắt Qua Đích Tôn Miễn Phản Kể Cả Tà Lực!");
+    if (hasItem("thịnh đức kim thiền chung")) combatTags.push("[Thịnh Đức Kim Thiền Chung] Tôn Chỉ Tối Đỉnh: Miễn Giáng Gồng Băng Lực Che Chở Tuyệt Đối 16% Dành Sang Sát Thương Nặng Nề Phi Vật Bất Bạo Khóa Đội");
+    if (hasItem("quan chiếu vạn tượng kính")) { klAllStatPct += 3; combatTags.push("[Quan Chiếu Vạn Tượng Kính] Kính Thâu Cốt Cách: Kẹp Tắt 30% Bạo Và Kích Choác Yếu Hại Của Kẻ Địch. Cứ Giết Là Auto Lấy 3% Hủy Chặn Các Skill Nấp Ảo Mộng Soi Lõi."); }
+    if (hasItem("phục long trấn thiên đỉnh")) combatTags.push("[Phục Long Trấn Thiên Đỉnh] Đỉnh Cứu Tái Sinh: 50% Đoạt Quyền Từ Chối Ăn Damage Phí Phạm Ở Mỗi Nhịp Lọc Sinh Tử. Độc Tôn Hầm Nấu Đan Chắc Ra Hàng Lớn X2 Lượng Đỏ.");
+
+    return {
+        hpBonusPct: klHpPct + klAllStatPct,
+        atkBonusPct: klAtkPct + klAllStatPct,
+        defBonusPct: klDefPct + klAllStatPct,
+        spdBonusPct: klSpdPct + klAllStatPct,
+        sppBonusPct: klSppPct + klAllStatPct,
+        instruction: combatTags.length > 0 ? `\n[CẢNH BÁO TỐI CAO - KHÍ LINH VÀ PHÁP BẢO ĐỘC TÔN]: NVC ĐANG SỞ HỮU CÁC HIỆU ỨNG PHÁP KHÍ BÁ ĐẠO SAU TRONG TÚI/TRÊN NGƯỜI: ${combatTags.join(' | ')}. BẠN BẮT BUỘC PHẢI TỰ ĐỘNG PHÂN TÍCH VÀ ÁP DỤNG TUYỆT ĐỐI CÁC HIỆU ỨNG NÀY ĐỂ TÍNH TOÁN SÁT THƯƠNG HOẶC QUYẾT ĐỊNH KẾT QUẢ ĐÒN ĐÁNH CỦA TRẬN CHIẾN NÀY!` : ""
+    };
+};

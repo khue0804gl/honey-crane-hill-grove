@@ -1,0 +1,4 @@
+export const getActiveWorldGraph = (timelineId?: string): Record<string, LocationNode> => {
+  const tl = getActiveTimeline(timelineId);
+  return { ...FIXED_WORLD_GRAPH, ...(tl.worldGraph || {}) };
+};

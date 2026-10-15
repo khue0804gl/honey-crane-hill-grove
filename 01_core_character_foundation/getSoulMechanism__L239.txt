@@ -1,0 +1,75 @@
+const getSoulMechanism = (bgId, traits) => {
+    if (__GlobalPremadeWorld === 'dau_pha') {
+        return { type: "Linh Hồn Lực", mechanism: "Tu luyện linh hồn từ Phàm cảnh đến Đế cảnh. Linh hồn lực càng mạnh, khả năng khống chế dị hỏa và luyện dược càng cao." };
+    }
+    let type = "Phàm Hồn Thất Tình";
+    let mechanism = "Thần hồn nguyên sơ bị ràng buộc bởi nhục dục thất tình lục dục. Tu luyện thần hồn chủ yếu dựa vào việc tĩnh tâm, thiền định đạo pháp, trải qua sinh tử luân hồi, nếm trải ái hận tình cừu để chế ngự cám dỗ, ngưng tụ linh quang.";
+    
+    // Check traits
+    const tNames = traits.map(t => t.name);
+
+    // V1.22.4: ĐỒNG BỘ THẦN HỒN CÁC THẦN THỂ DUNG HỢP TỐI CAO
+    if (tNames.includes('Bồ Đề Ma La Bất Hoại Thân')) {
+        type = "Thanh Ma Đồng Nguyên Hồn";
+        mechanism = "Nửa Thánh Huy thuần khiết, nửa Ma Uyên hắc diễm. Siêu thoát khỏi thiện ác nhị nguyên, lấy tâm ma rèn luyện bản tính, lấy thanh quang tôi luyện sát ý. Tu luyện bằng cách cân bằng hai cực âm dương quang ám, vạn pháp bất xâm.";
+    } else if (tNames.includes('Hoang Cổ Chí Tôn Thể')) {
+        type = "Hoang Cổ Thần Vương Hồn";
+        mechanism = "Thần hồn ngưng tụ bóng hình Thần Vương viễn cổ tọa trấn thức hải, hai mắt Trùng Đồng khai thiên tịch địa, bảo cốt trấn áp chư thiên. Tu luyện bằng cách quan tưởng tinh tú hồng hoang và chiến đấu vượt cấp.";
+    } else if (tNames.includes('Hỗn Độn Bàn Cổ Khu') || tNames.includes('Thập Nhị Đô Thiên Thần Sát Chân Thân')) {
+        type = "Hỗn Độn Khai Thiên Hồn";
+        mechanism = "Thần hồn hóa thành cự nhân khai thiên, dĩ lực chứng đạo. Không sợ hãi bất kỳ thần thông ảo thuật nào, uy áp huyết khí chấn vỡ thức hải kẻ địch có thần thức yếu hơn.";
+    } else if (tNames.includes('Vạn Kiếp Chân Tôn Thể')) {
+        type = "Luân Hồi Bất Diệt Hồn";
+        mechanism = "Khắc ghi dấu ấn vạn kiếp trầm luân của sông Hoàng Tuyền. Linh hồn không chịu sự quản thúc của Sổ Sinh Tử, mỗi lần cận kề cái chết lại đốn ngộ thêm một tầng áo nghĩa sinh tử.";
+    } else if (tNames.includes('Cơ Giới Hắc Quang Thể') || tNames.includes('Hạch Tâm Cơ Thần Khôi Lỗi') || tNames.includes('Chung Yên Điểm Kỳ Dị Thể')) {
+        type = "Cơ Thần Lượng Tử Hồn";
+        mechanism = "Thần hồn số hóa thành biển dữ liệu lượng tử của kim loại sống. Tính toán điểm yếu đối thủ với tốc độ hàng triệu phép tính mỗi nhịp thở, miễn nhiễm tuyệt đối mọi ảo mộng mê hoặc.";
+    } else if (tNames.includes('Đạo Tổ Toàn Tri Thể')) {
+        type = "Đại Đạo Toàn Tri Hồn";
+        mechanism = "Hòa nhập ý niệm vào Thiên Đạo ý chí. Nhìn thấu quá khứ tương lai của nhân quả, lời nói ra hóa thành pháp tắc chi phối thế giới.";
+    } else if (tNames.includes('Vạn Trận Quy Tông Thể')) {
+        type = "Lăng Kính Trận Hồn";
+        mechanism = "Thần hồn lấp lánh như chiếc gương đa diện phân tích vạn vật. Tự khắc họa các trận đồ vi mô lên tư duy não bộ, giải mã cấu trúc càn khôn.";
+    } else if (tNames.includes('Hư Vọng Chân Đế Thể')) {
+        type = "Thái Hư Ảo Hồn";
+        mechanism = "Thần hồn điên đảo hư thực, biến giả thành chân. Đắm chìm trong hư vô để dệt nên thực tại.";
+    } else if (tNames.includes('Vạn Yêu Thánh Hoàng Thể') || tNames.includes('Thao Thiết Ma Độc Cổ Thể')) {
+        type = "Man Hoang Thiên Hồn";
+        mechanism = "Thần hồn mang đậm dã tính vạn cổ, thống ngự vạn linh muôn thú, cắn nuốt tinh hoa thiên địa.";
+    } else if (tNames.includes('Cực Đạo Ma Hoàng Khí Vận') || tNames.includes('Cửu U Minh Mị Thể')) {
+        type = "Ma Uyên Nghịch Hồn";
+        mechanism = "Thần hồn ma đạo tột cùng, ngưng tụ sát khí và oán niệm của vạn kiếp sinh linh thành vương miện thống trị U Minh.";
+    } else if (bgId === 'bg_ctan') {
+        type = "Tinh Tú Bản Nguyên (C'tan)";
+        mechanism = "Bản chất C'tan không có linh hồn theo định nghĩa sinh học hay ma pháp. Thức hải của chúng là một khối năng lượng bức xạ tinh tú khổng lồ chứa đựng quy luật vật lý. Kháng 100% ảo mộng nhưng tuyệt đối vô duyên với ma thuật tâm linh.";
+    } else if (tNames.includes('Ma Tôn Chuyển Thế') || tNames.includes('Vạn Ác Tội Thể') || tNames.includes('Thiên Ma Thể') || tNames.includes('Quỷ Đạo Truyền Nhân') || tNames.includes('Người Gặp Ma') || tNames.includes('Hợp Hoan Mị Cốt') || tNames.includes('Bán Mị Ma (Huyết Mạch Lai)') || tNames.includes('Bán Ma (Huyết Mạch Lai)') || bgId.includes('thi_am_tong') || bgId.includes('bg_succubus') || bgId.includes('bg_19')) {
+        type = "Ma Uyên Nghịch Hồn";
+        mechanism = "Thần hồn nhuốm màu bạo tàn, ngưng tụ từ hận thù và oán khí. Tu luyện bằng cách cắn nuốt tàn hồn kẻ địch, tra tấn kẻ thù sinh ra sợ hãi để hấp thu, hoặc chủ động dẫn Tâm Ma vào thể để dung hợp luyện hóa ma chướng lớn mạnh Thức hải.";
+    } else if (tNames.includes('Phật Cốt Xá Lợi') || bgId === 'bg_angel') {
+        type = "Thanh Tịnh Kim Hồn";
+        mechanism = "Thần hồn thánh khiết, phát ra Thánh Quang hoặc Bản Nguyên Thanh Tịnh Lực bảo hộ sinh linh. Tu luyện bằng cách ngộ đạo Vô Ngã, thuận ứng Duyên Khởi tự nhiên, hành thiện tích đức bồi đắp thiên địa, đoạn trừ chấp niệm để thức hải trong suốt không vướng bụi trần.";
+    } else if (bgId === 'bg_10' || bgId === 'bg_25' || bgId === 'bg_long_toc' || bgId === 'bg_con_bang' || bgId === 'bg_ho_toc' || bgId === 'bg_taotie' || bgId === 'bg_vien_co_cu_long' || isPureYeuTocBg(bgId) || tNames.includes('Tiên Thiên Đại Yêu') || tNames.includes('Thái Cổ Ngự Yêu Sư')) {
+        type = "Man Hoang Thiên Hồn";
+        mechanism = "Thần hồn mang đậm dã tính vạn cổ, không bị gò bó bởi đạo lý. Tu luyện bằng cách thấu hiểu thiên địa sơ khai, gầm thét dưới ánh trăng, hấp thụ Nhật Nguyệt Tinh Hoa, hoặc bộc phát sát ý tối nguyên thủy để đánh thức ý chí cường hoành của cự thú.";
+    } else if (bgId === 'bg_21' || bgId === 'bg_22' || bgId === 'bg_23' || tNames.includes('Thạch Thần Bất Diệt') || tNames.includes('Cơ Quan Hạch Tâm') || tNames.includes('Bảo Vật Hóa Hình')) {
+        type = "Vật Linh Khí Hồn";
+        mechanism = "Không sinh ra từ xương thịt, linh hồn hình thành từ tinh hoa vạn năm ngưng tụ. Tu luyện bằng cách chìm vào giấc ngủ vùi tẩm bổ linh khí vũ trụ, được đại năng giảng đạo khai sáng, hoặc dung hợp với pháp bảo cấp cao khác để gia tăng dung lượng linh tính phần cứng.";
+    } else if (bgId === 'bg_nho_sinh' || tNames.includes('Hạo Nhiên Chính Khí') || tNames.includes('Thuyết Khách')) {
+        type = "Hạo Nhiên Chính Hồn";
+        mechanism = "Thần hồn được đúc bằng niềm tin sắt đá và văn tự thánh hiền. Tu luyện thông qua việc đọc thuộc Nho đạo cổ tịch, ngâm thi ngâm phú tạo ra dị tượng thiên địa, xử án nghiêm minh bảo vệ nhân luân để không ngừng thổi phồng Chính Khí trong thức hải.";
+    } else if (tNames.includes('Trận Tổ Chuyển Thế') || tNames.includes('Vạn Vật Giai Trận') || tNames.includes('Trận Sư Thiên Tài')) {
+        type = "Lăng Kính Trận Hồn";
+        mechanism = "Thần hồn lấp lánh như chiếc gương đa diện phân tích vạn vật. Tu luyện bằng cách tự khắc họa các trận đồ vi mô lên tư duy não bộ, giải mã số liệu từ trường của trời đất, bóc tách phân tích cấu trúc vi diện vào tiềm thức để khuếch đại não vực.";
+    } else if (tNames.includes('Huyễn Mộng Chân Thể') || tNames.includes('Mị Cốt Thiên Sương') || tNames.includes('Tọa Vong Đạo')) {
+        type = "Thái Hư Ảo Hồn";
+        mechanism = "Thần hồn như một giấc mộng hư thực đan xen. Tu luyện bằng cách chìm sâu vào Huyễn mộng giới do chính mình tạo ra, hấp thu dục vọng và ảo giác của thế nhân, không ngừng dệt nên huyễn thuật để tôi luyện tinh thần lực ảo diệu.";
+    } else if (tNames.includes('Hư Không Lậu Thể')) {
+        type = "Hư Không Thần Hồn";
+        mechanism = "Thần hồn dung nhập vào vô biên tĩnh mịch. Tu luyện bằng cách hòa mình vào loạn lưu hư không, cắn nuốt không thời gian và vật chất để tự bồi đắp linh giác cường đại.";
+    } else if (tNames.some(t => t.includes('Tuyệt Thế')) || tNames.includes('Đại Đạo Trùng Tu (Cương Khí)')) {
+        type = "Binh Ý Sát Hồn";
+        mechanism = "Thần hồn mang hình bóng của một loại tuyệt thế binh khí trầm mặc. Tu luyện không dựa vào thiền định mà thông qua việc chém giết, vung binh khí giữa sinh tử lằn ranh, lấy huyết nhục địch nhân làm đá mài rèn giũa ý chí sắc bén không thể uốn cong.";
+    }
+    
+    return { type, mechanism };
+};

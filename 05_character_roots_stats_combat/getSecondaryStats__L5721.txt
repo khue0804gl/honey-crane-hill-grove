@@ -1,0 +1,103 @@
+const getSecondaryStats = (traits, enlightenment, currentState) => {
+    let stats = {
+        dan: 0, khi: 0, tran: 0, phu: 0,
+        thu: 0, thuc: 0, thuong: 0, mi: 0
+    };
+    const baseBonus = Math.floor((Number(enlightenment) || 10) / 10); 
+    Object.keys(stats).forEach(k => stats[k] = baseBonus);
+
+    const tNames = (Array.isArray(traits) ? traits : []).map(t => t?.name || '');
+    const tStr = tNames.join(' | ');
+
+    // Luyện Đan
+    // V1.22.4: KẾ THỪA VÀ NÂNG TẦM BÁCH NGHỆ CHO CÁC THẦN THỂ DUNG HỢP
+    if (tStr.includes('Tiên Thiên Bách Thảo Bất Tử Khu')) stats.dan += 5000;
+    if (tStr.includes('Vạn Trận Quy Tông Thể')) stats.tran += 15000;
+    if (tStr.includes('Thao Thiết Ma Độc Cổ Thể')) stats.thuc += 15000;
+    if (tStr.includes('Vạn Yêu Thánh Hoàng Thể')) stats.thu += 10000;
+    if (tStr.includes('Thái Hư Thần Binh Chi Khu')) stats.khi += 5000;
+    if (tStr.includes('Cửu U Minh Mị Thể')) stats.mi += 10000;
+
+    if (tStr.includes('Dược Phế Thể')) stats.dan = 0;
+    
+    if (tStr.includes('Hỗn Độn Đan Tổ')) stats.dan += 10000;
+    else if (tStr.includes('Đan Hoàng Cửu Châu') || tStr.includes('Tiên Đan Tông Sư') || tStr.includes('Tiên Đan Thánh Sư') || tStr.includes('Hạn Bạt Viêm Thể')) stats.dan += 5000;
+    else if (tStr.includes('Đan Vương Hạ Giới') || tStr.includes('Vạn Dược Chi Thể')) stats.dan += 1000;
+    else if (tStr.includes('Đan Đạo Tông Sư')) stats.dan += 500;
+    else if (tStr.includes('Luyện Đan Đại Sư') || tStr.includes('Dược Vương Hóa Thân')) stats.dan += 100;
+    else if (tStr.includes('Luyện Đan Sơ Cấp') || tStr.includes('Đan Sư Chính Thức')) stats.dan += 50;
+    else if (tStr.includes('Học Đồ Luyện Đan') || tStr.includes('Dược Sư Phàm Trần')) stats.dan += 10;
+
+    // Luyện Khí
+    if (tStr.includes('Cầm Búa Rớt Chân')) stats.khi = 0;
+
+    if (tStr.includes('Hỗn Độn Khí Tổ')) stats.khi += 10000;
+    else if (tStr.includes('Khí Hoàng Cửu Châu') || tStr.includes('Tiên Khí Tông Sư') || tStr.includes('Luyện Khí Thánh Sư') || tStr.includes('Hạn Bạt Viêm Thể')) stats.khi += 5000;
+    else if (tStr.includes('Khí Vương Hạ Giới') || tStr.includes('Thiết Cốt Chi Thể')) stats.khi += 1000;
+    else if (tStr.includes('Khí Đạo Tông Sư')) stats.khi += 500;
+    else if (tStr.includes('Luyện Khí Đại Sư') || tStr.includes('Thiên Sinh Khí Sư')) stats.khi += 100;
+    else if (tStr.includes('Luyện Khí Sơ Cấp') || tStr.includes('Khí Sư Chính Thức')) stats.khi += 50;
+    else if (tStr.includes('Học Đồ Luyện Khí') || tStr.includes('Thợ Đúc Binh Khí')) stats.khi += 10;
+
+    // Trận Pháp
+    if (tStr.includes('Rối Loạn Trận Cơ')) stats.tran = 0;
+
+    if (tStr.includes('Trận Tổ Chuyển Thế')) stats.tran += 10000;
+    else if (tStr.includes('Vạn Vật Giai Trận') || tStr.includes('Luyện Trận Thánh Sư') || tStr.includes('Tiên Trận Tông Sư')) stats.tran += 5000;
+    else if (tStr.includes('Trận Hoàng Cửu Châu') || tStr.includes('Phá Vọng Trận Nhãn')) stats.tran += 1000;
+    else if (tStr.includes('Trận Sư Thiên Tài') || tStr.includes('Trận Đạo Tông Sư')) stats.tran += 500;
+    else if (tStr.includes('Bố Trận Đại Sư')) stats.tran += 100;
+    else if (tStr.includes('Trận Sư Chính Thức') || tStr.includes('Bố Trận Sơ Cấp')) stats.tran += 50;
+    else if (tStr.includes('Cơ Sở Trận Pháp') || tStr.includes('Trận Sư Phàm Trần') || tStr.includes('Tạp Dịch Khắc Trận')) stats.tran += 10;
+
+    // Luyện Phù
+    if (tStr.includes('Vẽ Bùa Rách Giấy')) stats.phu = 0;
+
+    if (tStr.includes('Hỗn Độn Phù Tổ') || tStr.includes('Vạn Họa Phù Tôn')) stats.phu += 10000;
+    else if (tStr.includes('Phù Hoàng Cửu Châu') || tStr.includes('Tiên Phù Tông Sư') || tStr.includes('Luyện Phù Thánh Sư')) stats.phu += 5000;
+    else if (tStr.includes('Phù Vương Hạ Giới') || tStr.includes('Linh Châu Khắc Thể')) stats.phu += 1000;
+    else if (tStr.includes('Phù Đạo Tông Sư') || tStr.includes('Thiên Sinh Phù Cốt')) stats.phu += 500;
+    else if (tStr.includes('Luyện Phù Đại Sư')) stats.phu += 100;
+    else if (tStr.includes('Luyện Phù Sơ Cấp') || tStr.includes('Phù Sư Chính Thức')) stats.phu += 50;
+    else if (tStr.includes('Học Đồ Luyện Phù') || tStr.includes('Phù Sư Phàm Trần')) stats.phu += 10;
+    
+    // Cộng thêm phụ trợ từ Trận Pháp (Liên kết nhẹ)
+    if (tStr.includes('Trận Tổ Chuyển Thế')) stats.phu += 1000;
+    if (tStr.includes('Học Bá Tu Tiên')) stats.phu += 100;
+
+    // Ngự Thú
+    if (tStr.includes('Thái Cổ Ngự Yêu Sư')) stats.thu += 10000;
+    else if (tStr.includes('Vạn Thú Thân Hòa')) stats.thu += 500;
+
+    // Thực Thần
+    if (tStr.includes('Ngự Trù Bạo Chúa')) stats.thuc += 10000;
+
+    // Thương Đạo
+    if (tStr.includes('Tài Thần Giáng Lâm')) stats.thuong += 10000;
+    else if (tStr.includes('Phú Giáp Nhất Phương') || tStr.includes('Vạn Giới Kim Chủ') || tStr.includes('Thạch Sùng Tái Thế')) stats.thuong += 5000;
+    else if (tStr.includes('Kim Ngọc Mãn Đường') || tStr.includes('Cự Phú Hào Môn')) stats.thuong += 1000;
+    else if (tStr.includes('Gia Tài Bạc Vạn') || tStr.includes('Tài Nguyên Cuồn Cuộn')) stats.thuong += 500;
+    else if (tStr.includes('Đại Thương Nhân') || tStr.includes('Chưởng Khống Thương Hội')) stats.thuong += 100;
+    else if (tStr.includes('Tiểu Thương Vỉa Hè') || tStr.includes('Phú Hộ Quê Mùa')) stats.thuong += 20;
+    if (tStr.includes('Kẻ Đổ Nợ') || tStr.includes('Khố Rách Áo Ôm')) stats.thuong = 0;
+
+    // Mị Lực
+    if (tStr.includes('Mị Cốt Thiên Sương') || tStr.includes('Hợp Hoan Mị Cốt')) stats.mi += 10000;
+    else if (tStr.includes('Khuynh Quốc Khuynh Thành')) stats.mi += 1000;
+    else if (tStr.includes('Thuyết Khách') || tStr.includes('Ngôn Xuất Pháp Tùy')) stats.mi += 500;
+    else if (tStr.includes('Khéo Ăn Nói')) stats.mi += 100;
+    if (tStr.includes('Tướng Mạo Xấu Xí')) stats.mi = 0;
+
+    if (currentState) {
+        stats.dan += (Number(currentState.alchemyExp) || 0);
+        stats.khi += (Number(currentState.smithingExp) || 0);
+        stats.tran += (Number(currentState.arrayExp) || 0);
+        stats.phu += (Number(currentState.talismanExp) || 0);
+        stats.thu += (Number(currentState.tamingExp) || 0);
+        stats.thuc += (Number(currentState.cookingExp) || 0);
+        stats.thuong += (Number(currentState.commerceExp) || 0);
+        stats.mi += (Number(currentState.charmExp) || 0);
+    }
+
+    return stats;
+};

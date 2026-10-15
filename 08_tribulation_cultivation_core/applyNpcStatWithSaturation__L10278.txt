@@ -1,0 +1,84 @@
+const applyNpcStatWithSaturation = (statName, prevVal, aiAbsoluteVal, isBonus = false, statKey, npc, forceBypass = false) => {
+    if (aiAbsoluteVal === undefined || aiAbsoluteVal === null) return Number(prevVal) || 0;
+    const targetVal = parseAIStat(aiAbsoluteVal);
+    const baseValue = Number(prevVal) || (isBonus ? 0 : 10);
+    const change = targetVal - baseValue;
+    
+    if (change <= 0) return targetVal;
+
+    // 1. Ngoại Lệ Vĩ Mô, Đặc Quyền Admin, Chế Độ Ác Mộng & 10 Siêu Thực Thể Ngoại Hạn (Bỏ qua khóa trần hoàn toàn)
+    const npcCleanName = String(npc?.name || '').toLowerCase();
+    const isUncappedCosmicEntity = [
+        'azathoth', 'phong đô đại đế', 'neoth', 'beyond anafabula', 'ma thần gurren lagann',
+        'void demonbane', 'featherine', 'featherine augustus aurora', 'tự sự chí tôn', 'atroposx', 'bạch hoàng',
+        'anos voldigoad', 'anos', 'ruphas mafahl', 'ruphas', 'bá hoàng nữ vương',
+        'shallow vernal', 'bạch ngưng chi chủ', 'bất nghiệt tự điển',
+        'orsted', 'long thần orsted', 'cổ trần sa', 'sailor galaxia', 'kha thần lục',
+        'rimuru', 'rimuru tempest', 'rimura', 'hư vô thao thiết', 'vĩnh hằng cổ lĩnh chủ',
+        'klein moretti', 'klein', 'ngu giả'
+    ].some(n => npcCleanName.includes(n));
+
+    if (forceBypass || isUncappedCosmicEntity || npc?.isNightmare) return baseValue + change;
+
+    const currentStageConfig = getStageConfig(npc.level || 'Phàm Nhân');
+    const hasTrait = (name) => npc.traits?.some(t => (t.name || t) === name);
+    
+    if (isBonus) {
+        let finalLimit = 10 + (currentStageConfig.id * 5); 
+        if (statKey === 'maxHp') finalLimit *= 20; 
+        if (statKey === 'maxMp') finalLimit *= 10; 
+        finalLimit *= 3; 
+        
+        if (statKey === 'maxHp' && hasTrait('Bàn Cổ Huyết Mạch')) finalLimit *= 5;
+
+        if (change > finalLimit) {
+            const excess = change - finalLimit;
+            const absorbedExcess = Math.min(Math.floor(excess * 0.05), finalLimit * 2);
+            const saturatedChange = finalLimit + absorbedExcess; 
+            return baseValue + saturatedChange;
+        }
+        return baseValue + change;
+    }
+
+    let minorCapPct = 1.0;
+    const lvlStr = String(npc.level || '').toLowerCase();
+    if (lvlStr.includes('sơ kỳ')) minorCapPct = 0.30;
+    else if (lvlStr.includes('trung kỳ')) minorCapPct = 0.55;
+    else if (lvlStr.includes('hậu kỳ')) minorCapPct = 0.80;
+    else if (lvlStr.includes('viên mãn')) minorCapPct = 1.0;
+    else {
+        const match = lvlStr.match(/tầng\s+(\d+)/);
+        if (match) {
+            const tang = parseInt(match[1]);
+            minorCapPct = Math.min(1.0, Math.max(0.1, tang / 9));
+        }
+    }
+
+    let HARD_CAP = 2625 * Math.pow(currentStageConfig.id, 3) * minorCapPct; 
+    if (statKey === 'defense' && hasTrait('Bàn Cổ Huyết Mạch')) HARD_CAP *= 1.5;
+    if (statKey === 'spiritPower' && hasTrait('Ngộ Tính Siêu Phàm')) HARD_CAP *= 1.5;
+    if (statKey === 'speed' && hasTrait('Phong Ảnh Thể')) HARD_CAP *= 1.5;
+    if (statKey === 'attack' && hasTrait('Tuyệt Thế Kiếm Tu')) HARD_CAP *= 1.2;
+
+    const capRatio = baseValue / HARD_CAP;
+    
+    let effectiveChange = change;
+    let multiplier = 1.0;
+    if (capRatio >= 0.99) multiplier = 0.01;
+    else if (capRatio >= 0.95) multiplier = 0.02;
+    else if (capRatio >= 0.90) multiplier = 0.10;
+    else if (capRatio >= 0.80) multiplier = 0.30;
+    
+    effectiveChange = change * multiplier;
+
+    let maxChangePerTurn = Math.floor(15 * Math.pow(currentStageConfig.id, 1.8)) * 3;
+    if (hasTrait('Thôn Kim Phệ Cốt Thể')) maxChangePerTurn *= 5;
+
+    if (effectiveChange > maxChangePerTurn) {
+        const excess = effectiveChange - maxChangePerTurn;
+        const absorbedExcess = Math.min(Math.floor(excess * 0.05), maxChangePerTurn * 2);
+        effectiveChange = maxChangePerTurn + absorbedExcess; 
+    }
+    
+    return Math.floor(baseValue + effectiveChange);
+};

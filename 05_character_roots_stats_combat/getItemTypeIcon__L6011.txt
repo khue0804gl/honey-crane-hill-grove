@@ -1,0 +1,20 @@
+const getItemTypeIcon = (item: any, size = 14, className = '') => {
+  if (!item) return <Package size={size} className={className}/>;
+  if (item.type === 'sealed_spatial') return <Lock size={size} className="text-orange-400 shrink-0"/>;
+  if (['spatial', 'soul_spatial'].includes(item.type)) return <Package size={size} className={className}/>;
+  if (item.type === 'equip') {
+    const n = String(item.name || '').toLowerCase();
+    if (/(giáp|y|bào|khải|sam|đai|mũ|nón|ủng|hài|ngoa)/.test(n)) return <Shield size={size} className={className}/>;
+    return <Swords size={size} className={className}/>;
+  }
+  if (item.type === 'food') return <FlaskRound size={size} className={className}/>;
+  if (item.type === 'demon_soul') return <Flame size={size} className={className}/>;
+  if (item.type === 'mount') return <PawPrint size={size} className={className}/>;
+  if (item.type === 'misc') {
+    const n = String(item.name || '').toLowerCase();
+    if (/(ngọc giản|bí kíp|tàn quyển|thư|phù)/.test(n)) return <ScrollText size={size} className={className}/>;
+    if (/(quặng|khoáng|ngọc|tinh thạch|châu|thạch)/.test(n)) return <Gem size={size} className={className}/>;
+    return <Sparkles size={size} className={className}/>;
+  }
+  return <Package size={size} className={className}/>;
+};

@@ -1,0 +1,13 @@
+export const getVisionRadiusByStage = (stageId: number = 1, spiritPower: number = 10, isFlying: boolean = false): number => {
+  let baseRadius = 1;
+  if (stageId <= 2) baseRadius = 1;
+  else if (stageId <= 4) baseRadius = 2;
+  else if (stageId <= 6) baseRadius = 3;
+  else if (stageId <= 9) baseRadius = 4;
+  else baseRadius = 5;
+
+  if (spiritPower > 500) baseRadius += 1;
+  if (isFlying) baseRadius += 1;
+
+  return Math.min(6, Math.max(1, baseRadius));
+};

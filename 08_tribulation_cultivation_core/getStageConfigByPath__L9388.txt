@@ -1,0 +1,41 @@
+const getStageConfigByPath = (levelName, cultivationPath) => {
+  if (!cultivationPath || !CULTIVATION_PATHS[cultivationPath]) return getStageConfig(levelName);
+  const pathLevels = CULTIVATION_PATHS[cultivationPath];
+  const cleanLvl = String(levelName || '').replace(/\s+Kỳ$/i, '').trim().toLowerCase();
+  let idx = pathLevels.findIndex(l => l && l.toLowerCase() === String(levelName || '').toLowerCase());
+  if (idx < 0) {
+    idx = pathLevels.findIndex(l => l && l.replace(/\s+Kỳ$/i, '').trim().toLowerCase() === cleanLvl);
+  }
+  if (idx > 0) {
+    const id = idx;
+    const baseConfig = getStageConfig(levelName);
+    if (baseConfig.id !== id) {
+      if (id >= 21) return getStageConfigById(id);
+      const STAGE_TABLE = [null,
+        { id:1, statMult:1, coefNo:0.9, coefMp:0.1, autoMpRegenPct:0, mpPrio:false, baseMaxAge:80 },
+        { id:2, statMult:2, coefNo:0.8, coefMp:0.2, autoMpRegenPct:0, mpPrio:false, baseMaxAge:120 },
+        { id:3, statMult:4, coefNo:0.5, coefMp:0.5, autoMpRegenPct:0, mpPrio:false, baseMaxAge:200 },
+        { id:4, statMult:8, coefNo:0, coefMp:1.0, autoMpRegenPct:0, mpPrio:true, baseMaxAge:500 },
+        { id:5, statMult:14, coefNo:0, coefMp:1.0, autoMpRegenPct:0, mpPrio:true, baseMaxAge:1000 },
+        { id:6, statMult:22, coefNo:0, coefMp:1.0, autoMpRegenPct:0.5, mpPrio:true, baseMaxAge:2000 },
+        { id:7, statMult:34, coefNo:0, coefMp:1.0, autoMpRegenPct:1, mpPrio:true, baseMaxAge:3000 },
+        { id:8, statMult:50, coefNo:0, coefMp:1.0, autoMpRegenPct:2, mpPrio:true, baseMaxAge:4000 },
+        { id:9, statMult:75, coefNo:0, coefMp:1.0, autoMpRegenPct:3, mpPrio:true, baseMaxAge:8000 },
+        { id:10, statMult:110, coefNo:0, coefMp:1.0, autoMpRegenPct:4, mpPrio:true, baseMaxAge:15000 },
+        { id:11, statMult:160, coefNo:0, coefMp:1.0, autoMpRegenPct:5, mpPrio:true, baseMaxAge:50000 },
+        { id:12, statMult:230, coefNo:0, coefMp:1.0, autoMpRegenPct:6, mpPrio:true, baseMaxAge:999999 },
+        { id:13, statMult:320, coefNo:0, coefMp:1.0, autoMpRegenPct:7, mpPrio:true, baseMaxAge:999999 },
+        { id:14, statMult:440, coefNo:0, coefMp:1.0, autoMpRegenPct:8, mpPrio:true, baseMaxAge:999999 },
+        { id:15, statMult:600, coefNo:0, coefMp:1.0, autoMpRegenPct:10, mpPrio:true, baseMaxAge:999999 },
+        { id:16, statMult:800, coefNo:0, coefMp:1.0, autoMpRegenPct:12, mpPrio:true, baseMaxAge:999999 },
+        { id:17, statMult:1100, coefNo:0, coefMp:1.0, autoMpRegenPct:15, mpPrio:true, baseMaxAge:999999 },
+        { id:18, statMult:1500, coefNo:0, coefMp:1.0, autoMpRegenPct:20, mpPrio:true, baseMaxAge:999999 },
+        { id:19, statMult:2000, coefNo:0, coefMp:1.0, autoMpRegenPct:25, mpPrio:true, baseMaxAge:999999 },
+        { id:20, statMult:3000, coefNo:0, coefMp:1.0, autoMpRegenPct:30, mpPrio:true, baseMaxAge:999999 },
+      ];
+      return STAGE_TABLE[id] || baseConfig;
+    }
+    return baseConfig;
+  }
+  return getStageConfig(levelName);
+};

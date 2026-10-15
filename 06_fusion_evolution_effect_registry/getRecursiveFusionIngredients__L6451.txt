@@ -1,0 +1,26 @@
+export const getRecursiveFusionIngredients = (fusedName: string): string[] => {
+    if (!fusedName || typeof MASTER_FUSION_MATRIX === 'undefined') return [];
+    const fLow = String(fusedName).toLowerCase().trim();
+    const directRecipe = MASTER_FUSION_MATRIX.find(r => r.name.toLowerCase() === fLow);
+    if (!directRecipe) return [];
+    const result = new Set<string>();
+    const queue = [
+        ...directRecipe.ingredients,
+        ...(directRecipe.alternativeIngredients ? directRecipe.alternativeIngredients.flat() : [])
+    ];
+    while (queue.length > 0) {
+        const ing = queue.shift()!;
+        const ingLow = ing.toLowerCase().trim();
+        if (!result.has(ingLow)) {
+            result.add(ingLow);
+            const subRecipe = MASTER_FUSION_MATRIX.find(r => r.name.toLowerCase() === ingLow);
+            if (subRecipe) {
+                queue.push(...subRecipe.ingredients);
+                if (subRecipe.alternativeIngredients) {
+                    queue.push(...subRecipe.alternativeIngredients.flat());
+                }
+            }
+        }
+    }
+    return Array.from(result);
+};

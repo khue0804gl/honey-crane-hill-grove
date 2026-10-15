@@ -1,0 +1,21 @@
+export const resolveCanonicalEffect = (inputNameOrId: string, currentStageId: number = 1, bgId: string = '') => {
+  if (!inputNameOrId) return null;
+  const raw = String(inputNameOrId).trim().toLowerCase();
+  
+  if (MASTER_EFFECTS_REGISTRY[raw]) {
+    const def = MASTER_EFFECTS_REGISTRY[raw];
+    const isImmune = def.tier === 1 && def.type !== 'buff' && (currentStageId >= 3 || ['bg_20', 'bg_21', 'bg_22', 'bg_ctan', 'bg_undead'].includes(bgId));
+    return { effect: def, isImmune };
+  }
+  
+  for (const k in MASTER_EFFECTS_REGISTRY) {
+    const def = MASTER_EFFECTS_REGISTRY[k];
+    const dName = def.name.toLowerCase();
+    if (dName === raw || raw.includes(dName) || dName.includes(raw)) {
+      const isImmune = def.tier === 1 && def.type !== 'buff' && (currentStageId >= 3 || ['bg_20', 'bg_21', 'bg_22', 'bg_ctan', 'bg_undead'].includes(bgId));
+      return { effect: def, isImmune };
+    }
+  }
+  
+  return null;
+};

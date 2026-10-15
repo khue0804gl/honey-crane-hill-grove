@@ -1,0 +1,11 @@
+  const syncGlobalStats = async (floor = null, meta = null) => {
+      if (!user || !currentProfileId) return;
+      try {
+          const docId = `${user?.uid}_${currentProfileId}`; // Khóa chính chống trùng lặp NVC
+          const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'global_records', docId);
+          const dataToSave = { uid: user?.uid, profileId: currentProfileId, name: gameState.name || 'Vô Danh', level: gameState.cultivationLevel || 'Phàm Nhân', lastUpdated: Date.now() };
+          if (floor !== null) dataToSave.towerFloor = floor;
+          if (meta !== null) { dataToSave.weekStr = meta.weekStr; dataToSave.weekCount = meta.weekCount; dataToSave.monthStr = meta.monthStr; dataToSave.monthCount = meta.monthCount; }
+          await setDoc(docRef, dataToSave, { merge: true });
+      } catch(e) {}
+  };

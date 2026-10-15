@@ -1,0 +1,8 @@
+  const addMyRoom = (id) => {
+      setMyCoopRooms(prev => {
+          if (prev.includes(id)) return prev;
+          const next = [id, ...prev];
+          localStorage.setItem('tuTienMyRooms', JSON.stringify(next));
+          return next;
+      });
+  };

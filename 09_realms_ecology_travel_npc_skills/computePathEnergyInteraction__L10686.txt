@@ -1,0 +1,77 @@
+const computePathEnergyInteraction = (cultivationPath, stageId, monthsPassed, actionText, currentAura, currentDemonicQi) => {
+    const act = String(actionText || '').toLowerCase();
+    const isDevour = /(thôn phệ|hút cạn|cướp đoạt|ma công|hóa công|huyết tế|thao thiết|vạn ác)/.test(act);
+    const isPeaceful = /(bế quan|tu luyện|đả tọa|nghỉ ngơi|dưỡng thương|chữa trị|hồi phục|luyện đan|chế phù|vẽ bùa|đọc sách|uống trà|ngủ|tĩnh tâm)/.test(act);
+
+    // Tiêu chuẩn tiêu hao theo cảnh giới (Luyện Khí 2, Trúc Cơ 8, Kim Đan 30, Nguyên Anh 120, Hóa Thần 500)
+    let baseRate = 2;
+    if (stageId === 1) baseRate = 2;
+    else if (stageId === 2) baseRate = 8;
+    else if (stageId === 3) baseRate = 30;
+    else if (stageId === 4) baseRate = 120;
+    else if (stageId === 5) baseRate = 500;
+    else baseRate = Math.floor(1500 * Math.pow(2.2, Math.max(0, stageId - 6)));
+
+    let auraChange = 0;
+    let demonicQiChange = 0;
+    let pollutionChange = 0;
+    let pathLog = "";
+
+    const path = cultivationPath || 'tu_tien';
+    const effectiveMonths = Math.max(0.1, monthsPassed);
+
+    if (path === 'the_tu') {
+        // Thể Tu: Dĩ khí huyết nhục thân vi bản, chỉ tiêu hao vi lượng 20% linh khí thiên địa
+        if (isPeaceful) {
+            auraChange = -Math.ceil(baseRate * 0.2 * effectiveMonths);
+        }
+    } else if (path === 'ma_tu') {
+        // Ma Tu: Ưu tiên cắn nuốt Ma Khí. Nếu thiếu Ma Khí, cắn nuốt Linh Khí và chuyển hóa thải ra Ma Khí/Trọc Khí
+        const totalDemand = Math.ceil(baseRate * (isDevour ? 3 : 1) * effectiveMonths);
+        if (currentDemonicQi >= totalDemand) {
+            demonicQiChange = -totalDemand;
+        } else {
+            const auraDrain = Math.min(currentAura, totalDemand);
+            auraChange = -auraDrain;
+            // Duyên khởi: Ma công thải trọc — 25% linh khí bị biến chất thành ma khí phóng xuất ra môi trường
+            demonicQiChange = Math.floor(auraDrain * 0.25);
+            pollutionChange = Math.floor(auraDrain * 0.05);
+            if (demonicQiChange >= 15) {
+                pathLog = `[Ma Khí Tán Phát] Ma công uẩn chuyển đã làm biến chất một phần địa mạch, ma khí tăng thêm +${demonicQiChange}.`;
+            }
+        }
+    } else if (path === 'quy_tu') {
+        // Quỷ Tu: Tiêu hao âm khí, nếu ở nơi linh khí thuần dương cao (> 15000) bị áp chế nhẹ
+        const demand = Math.ceil(baseRate * 0.8 * effectiveMonths);
+        if (currentDemonicQi > 0) {
+            demonicQiChange = -Math.min(currentDemonicQi, demand);
+        } else {
+            auraChange = -Math.ceil(demand * 0.5);
+        }
+    } else if (path === 'nho_tu') {
+        // Nho Tu: Hạo Nhiên Chính Khí tự động tịnh hóa tạp khí và tiêu trừ ma khí xung quanh
+        const demand = Math.ceil(baseRate * effectiveMonths);
+        auraChange = -demand;
+        if (currentDemonicQi > 0) {
+            demonicQiChange = -Math.min(currentDemonicQi, Math.ceil(baseRate * 0.5 * effectiveMonths));
+        }
+    } else if (path === 'phat_tu') {
+        // Phật Tu: Công đức tịnh hóa, siêu độ ma khí chuyển hóa thành linh khí lành tính trả về đất trời
+        const demand = Math.ceil(baseRate * effectiveMonths);
+        auraChange = -demand;
+        if (currentDemonicQi > 0) {
+            const purifyAmount = Math.min(currentDemonicQi, Math.ceil(baseRate * 0.8 * effectiveMonths));
+            demonicQiChange = -purifyAmount;
+            // Duyên khởi: Oán niệm tiêu trừ thì đất mẹ hồi sinh, 50% ma khí hóa thành linh khí
+            auraChange += Math.floor(purifyAmount * 0.5);
+            pathLog = `[Tịnh Hóa Đạo Trường] Phạm âm phổ độ chúng sinh, thanh tẩy -${purifyAmount} Ma Khí và chuyển hóa thành linh khí trả về cho sơn hà!`;
+        }
+    } else {
+        // Tiên Tu / Yêu Tu: Hấp thu linh khí thanh tịnh bình thường
+        if (isPeaceful) {
+            auraChange = -Math.ceil(baseRate * effectiveMonths);
+        }
+    }
+
+    return { auraChange, demonicQiChange, pollutionChange, pathLog };
+};

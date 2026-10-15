@@ -1,0 +1,13 @@
+  const getEquipSlot = (item) => {
+      if (!item) return 'artifact';
+      if (item.equipSlot && ['weapon', 'armor', 'head', 'boots', 'accessory', 'artifact'].includes(item.equipSlot)) return item.equipSlot;
+      
+      const textToMatch = String(item.name + " " + (item.desc || "")).toLowerCase();
+      if (/(kiếm|đao|thương|kích|côn|búa|rìu|cung|trượng|xích|roi|chùy|súng|pháo|ám khí)/.test(textToMatch)) return 'weapon';
+      if (/(áo|giáp|bào|pháp\s*y|y\s*phục|tơ|khiên|thuẫn|quần|(?:^|\s)y(?:\s|$))/.test(textToMatch)) return 'armor';
+      if (/(mũ|quán|trâm|nón|miện|khăn|cài|vương miện|scouter|máy đo)/.test(textToMatch)) return 'head';
+      if (/(giày|hài|ngoa|ủng)/.test(textToMatch)) return 'boots';
+      if (/(nhẫn|ngọc|bội|liên|vòng|phù|chuyền|xuyến|lệnh bài)/.test(textToMatch) && !textToMatch.includes('hỏa phù')) return 'accessory';
+      if (/(đỉnh|chuông|ấn|tháp|kính|kỳ|phiến|đài|lồng|nghiễn|bình|châu|đồ|họa|cờ|trống|kèn|radar|tàu vũ trụ|viên nang|capsule)/.test(textToMatch)) return 'artifact';
+      return 'artifact'; // Đồ quá kỳ dị không rõ hình thù thì auto coi là Pháp bảo bay lơ lửng
+  };

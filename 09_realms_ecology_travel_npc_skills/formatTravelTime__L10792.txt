@@ -1,0 +1,12 @@
+const formatTravelTime = (distance, speed) => {
+    if (distance === 0) return "Đang ở đây";
+    if (speed <= 0) return "Không thể di chuyển";
+    const hours = distance / speed;
+    if (hours < 0.016) return "Thuấn di (Nháy mắt)";
+    if (hours < 1) return `${Math.ceil(hours * 60)} phút`;
+    if (hours < 24) return `${Math.floor(hours)} giờ ${Math.ceil((hours%1)*60)} phút`;
+    const days = Math.floor(hours / 24);
+    const remHours = Math.floor(hours % 24);
+    if (days > 365) return `${Math.floor(days/365)} năm ${days%365} ngày`;
+    return `${days} ngày ${remHours > 0 ? remHours + ' giờ' : ''}`;
+};

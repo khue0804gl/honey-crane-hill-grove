@@ -1,0 +1,14 @@
+const isForbiddenThienDaoKhuocTuTrait = (t: any): boolean => {
+    if (!t) return false;
+    const n = (t.name || '').toLowerCase();
+    const d = (t.desc || '').toLowerCase();
+    return (
+        Boolean(t.isSystemParent) || Boolean(t.isSystemChild) ||
+        n.includes('thiên mệnh') || n.includes('khí vận chi tử') || n.includes('khí vận chi nữ') ||
+        n.includes('may mắn') || n.includes('phúc duyên') || n.includes('hệ thống') ||
+        n.includes('quý nhân') || n.includes('hồng vận') || n.includes('đại vận') ||
+        d.includes('thiên đạo gia hộ') || d.includes('may mắn') || d.includes('quý nhân phù trợ') ||
+        [201, 202, 203, 2002, 901, 902, 903, 904, 905, 710, 409, 411].includes(t.id) ||
+        t.name === 'Thiên Đạo Áp Chế' || t.name === 'Thiên Sinh Phế Vật' || t.name === 'Thiên Sinh Rác Rưởi'
+    );
+};

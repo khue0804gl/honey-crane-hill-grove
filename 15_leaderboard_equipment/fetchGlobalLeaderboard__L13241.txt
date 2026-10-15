@@ -1,0 +1,24 @@
+  const fetchGlobalLeaderboard = async () => {
+      setGlobalBoardData(prev => ({ ...prev, isLoading: true }));
+      try {
+          // Lấy dữ liệu Tháp & Chương
+          const statsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'global_records'));
+          let records = [];
+          statsSnap.forEach(doc => records.push({ id: doc.id, ...doc.data() }));
+
+          // Lấy dữ liệu Võ Đài
+          const arenaSnap = await getDocs(collection(db, 'artifacts', ARENA_APP_ID, 'public', 'data', 'ranked_arena'));
+          let arenaRecords = [];
+          arenaSnap.forEach(doc => arenaRecords.push({ id: doc.id, ...doc.data() }));
+
+          setGlobalBoardData({
+              tower: [...records].filter(r => r.towerFloor > 1).sort((a, b) => b.towerFloor - a.towerFloor),
+              chapters: records, // Sẽ filter ở phần Render
+              arena: arenaRecords.filter(r => r.rankPosition !== 999999 && !String(r.id).startsWith('npc_')).sort((a, b) => a.rankPosition - b.rankPosition),
+              isLoading: false
+          });
+      } catch (e) {
+          console.error("Lỗi lấy BXH:", e);
+          setGlobalBoardData(prev => ({ ...prev, isLoading: false }));
+      }
+  };

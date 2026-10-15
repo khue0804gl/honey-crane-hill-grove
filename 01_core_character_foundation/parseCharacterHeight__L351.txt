@@ -1,0 +1,27 @@
+const parseCharacterHeight = (rawHeight: any, gender: string = 'Nam'): { meters: number, display: string } => {
+    let str = String(rawHeight || '').trim();
+    if (!str) {
+        const defM = gender === 'Nữ' ? 1.65 : 1.78;
+        return { meters: defM, display: `${defM.toFixed(2)} m` };
+    }
+    let m = 0;
+    const mMatch = str.match(/^([0-2])\s*[mM]\s*(\d{1,2})$/);
+    if (mMatch) {
+        m = parseFloat(mMatch[1]) + parseFloat(mMatch[2]) / 100;
+    } else {
+        const numMatch = str.match(/([0-9]+(?:\.[0-9]+)?)/);
+        if (numMatch) {
+            let val = parseFloat(numMatch[1]);
+            if (val >= 100 && val <= 300) {
+                m = val / 100;
+            } else if (val >= 0.5 && val <= 3.5) {
+                m = val;
+            }
+        }
+    }
+    if (!m || isNaN(m)) {
+        m = gender === 'Nữ' ? 1.65 : 1.78;
+    }
+    m = Math.min(2.5, Math.max(1.2, Math.round(m * 100) / 100));
+    return { meters: m, display: `${m.toFixed(2)} m` };
+};

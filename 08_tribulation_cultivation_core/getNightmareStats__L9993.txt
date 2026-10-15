@@ -1,0 +1,31 @@
+const getNightmareStats = (levelString) => {
+  const lv = String(levelString || '').toLowerCase().trim();
+  if (!lv || lv.includes('phàm nhân') || lv.includes('người thường')) {
+    return { atk: 100, def: 100, spd: 100, spp: 100, hp: 1000, mp: 1000, valueOf() { return this.atk; } };
+  }
+
+  let subKey = 'default';
+  const tangM = lv.match(/tầng\s*(\d+)/);
+  if (tangM) {
+    const t = parseInt(tangM[1], 10);
+    subKey = 't' + Math.max(1, Math.min(10, t));
+  } else if (lv.includes('sơ kỳ')) subKey = 'so';
+  else if (lv.includes('trung kỳ')) subKey = 'trung';
+  else if (lv.includes('hậu kỳ')) subKey = 'hau';
+  else if (lv.includes('viên mãn') || lv.includes('cực cảnh') || lv.includes('đỉnh phong')) subKey = 'vien';
+
+  for (let i = NIGHTMARE_DATA.length - 1; i >= 0; i--) {
+    const item = NIGHTMARE_DATA[i];
+    if (item.regex.test(lv)) {
+      const v4 = item.r4[subKey] || item.r4.default || 100;
+      const v3 = item.r3[subKey] || item.r3.default || 1000;
+      return {
+        atk: v4, def: v4, spd: v4, spp: v4,
+        hp: v3, mp: v3,
+        valueOf() { return this.atk; }
+      };
+    }
+  }
+
+  return { atk: 100, def: 100, spd: 100, spp: 100, hp: 1000, mp: 1000, valueOf() { return this.atk; } };
+};

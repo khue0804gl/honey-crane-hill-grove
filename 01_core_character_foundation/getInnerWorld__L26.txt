@@ -1,0 +1,3 @@
+const getInnerWorld = (_state: any) => ({
+  unlocked: false, level: 0, originPoints: 0, population: 0, faithPoints: 0, herbs: [], beasts: []
+});

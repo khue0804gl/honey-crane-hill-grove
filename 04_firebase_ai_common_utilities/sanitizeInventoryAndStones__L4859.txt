@@ -1,0 +1,68 @@
+const sanitizeInventoryAndStones = (inventory, currentStones) => {
+  let newStones = Number(currentStones) || 0;
+  const newInventory = [];
+  
+  const removeAccents = (str) => String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  
+  (inventory || []).forEach(item => {
+    if (!item || !item.name) return;
+    // V2.80 FIX (GÓP Ý VŨ ĐỨC): Tiêu hủy vĩnh viễn túi trữ vật ma Mặt Đất / Góc Phòng tồn dư
+    if (item.savedId === 'ground' || (item.type === 'spatial' && (String(item.name).includes('Mặt Đất') || String(item.name).includes('Góc Phòng')))) {
+        return;
+    }
+    
+    let cleanName = String(item.name).trim();
+            let extractedQty = 0;
+            const nameQtyMatch = cleanName.match(/(.*)\s+[xX]\s*(\d+)\s*$/);
+            if (nameQtyMatch) {
+                cleanName = nameQtyMatch[1].trim();
+                extractedQty = parseInt(nameQtyMatch[2], 10);
+            }
+
+            if (cleanName.toLowerCase().replace(/\s+/g, '').startsWith('ngọctứhồn')) {
+                cleanName = 'Ngọc Tứ Hồn';
+            }
+
+            const finalItemQty = Math.max(Number(item.quantity) || 1, extractedQty || 1);
+
+            const nameNoMark = removeAccents(cleanName);
+    const descNoMark = removeAccents(item.desc || '');
+    const nameStr = cleanName.toLowerCase();
+    
+    const isCurrency = (
+        nameNoMark.includes('linh thach') || 
+        nameNoMark.includes('kim te') || 
+        nameNoMark.match(/^(ha|trung|thuong|cuc)\s*pham$/) ||
+        (nameNoMark.includes('ha pham') && descNoMark.includes('linh thach')) ||
+        (nameNoMark.includes('trung pham') && descNoMark.includes('linh thach'))
+    ) && 
+    !nameNoMark.includes('quang') && 
+    !nameNoMark.includes('mo ') && 
+    !nameNoMark.includes('ban do') && 
+    !nameNoMark.includes('tinh tuy') &&
+    !nameNoMark.includes('manh');
+                   
+    if (isCurrency) {
+                  let multiplier = 1;
+                  if (nameNoMark.includes('cuc')) multiplier = 1000000;
+                  else if (nameNoMark.includes('thuong')) multiplier = 10000;
+                  else if (nameNoMark.includes('trung')) multiplier = 100;
+                  
+                  const match = nameStr.match(/^(\d+)\s*/);
+                  const qtyFromName = match ? parseInt(match[1], 10) : 0;
+                  const finalQty = Math.max(finalItemQty, qtyFromName);
+                  
+                  newStones += finalQty * multiplier;
+                } else {
+                  if (finalItemQty > 0) {
+                    const existIdx = newInventory.findIndex(i => i.name === cleanName && i.containerId === item.containerId && i.type === item.type && i.rarity === item.rarity && i.desc === item.desc && !i.durability && !i.attackBonus);
+                    if (existIdx >= 0 && item.type !== 'equip') {
+                        newInventory[existIdx].quantity += finalItemQty;
+                    } else {
+                        newInventory.push({ ...item, name: cleanName, quantity: finalItemQty });
+                    }
+                  }
+                }
+              });
+              return { inventory: newInventory, spiritStones: newStones };
+            };

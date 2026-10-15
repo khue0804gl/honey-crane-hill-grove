@@ -1,0 +1,31 @@
+const resolveItemRarity = (item: any): string => {
+  if (!item) return 'Trắng';
+  const rawRarity = String(item.rarity || '').trim();
+  if (rawRarity && rawRarity !== 'Trắng' && RARITY_COLORS[rawRarity]) return rawRarity;
+
+  const tier = String(item.tier || '').toLowerCase();
+  const name = String(item.name || '').toLowerCase();
+
+  if (tier.includes('hỗn độn') || tier.includes('thần khí') || tier.includes('sáng thế') || name.includes('hỗn độn') || name.includes('chén thánh') || name.includes('behelit') || name.includes('tụ bảo bồn')) {
+    return 'Đỏ';
+  }
+  if (tier.includes('tiên khí') || tier.includes('thông thiên linh bảo') || tier.includes('thánh khí') || tier.includes('thần giai') || name.includes('tiên khí')) {
+    return 'Cam';
+  }
+  if (tier.includes('pháp bảo') || tier.includes('cổ bảo') || tier.includes('chân khí') || tier.includes('tiên giai') || tier.includes('yêu hoàng')) {
+    return 'Vàng';
+  }
+  if (tier.includes('bảo khí') || tier.includes('linh khí') || tier.includes('địa giai') || tier.includes('huyền giai') || tier.includes('linh đan') || tier.includes('yêu vương')) {
+    return 'Tím';
+  }
+  if (tier.includes('pháp khí') || tier.includes('yêu khí') || tier.includes('linh giai') || tier.includes('yêu thú')) {
+    return 'Xanh lam';
+  }
+  if (tier.includes('tinh lương') || tier.includes('hạ phẩm') || tier.includes('tài nguyên') || name.includes('linh thảo') || name.includes('thảo dược')) {
+    return 'Xanh lá';
+  }
+  if (/(rách|mẻ|gãy|cùn|rỉ sét|phế phẩm|hỏng|vỡ)/.test(name) || tier.includes('phế phẩm')) {
+    return 'Xám';
+  }
+  return rawRarity || 'Trắng';
+};

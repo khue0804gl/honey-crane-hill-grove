@@ -1,0 +1,82 @@
+const calculateMaxAge = (level, traits = [], bgId = 'bg_0', bonusMaxAge = 0, race = 'Nhân tộc', currentAge = 0) => {
+  const stageCfg = getStageConfig(level);
+  let maxAge = stageCfg.baseMaxAge;
+  const safeTraits = Array.isArray(traits) ? traits : [];
+  const getTName = (t: any): string => (typeof t === 'string' ? t : (t?.name || ''));
+  
+  // V1.75: THỂ CHẤT THIÊN ĐỐ - Khóa trần thọ nguyên cơ bản 300 năm (chỉ tăng qua cắn đan diên thọ)
+  if (hasThienDoTrait(safeTraits)) {
+      maxAge = 300;
+  }
+  const raceStr = String(race).toLowerCase();
+  
+  // V1.22.4: BẢO TOÀN VÀ TĂNG THỌ CHO CÁC THẦN THỂ DUNG HỢP
+  if (safeTraits.some(t => getTName(t) === 'Vạn Kiếp Chân Tôn Thể')) maxAge += 500000;
+  if (safeTraits.some(t => getTName(t) === 'Tiên Thiên Bách Thảo Bất Tử Khu')) maxAge += 10000;
+  if (safeTraits.some(t => (getTName(t) === 'Hỗn Độn Bàn Cổ Khu' || getTName(t) === 'Thập Nhị Đô Thiên Thần Sát Chân Thân'))) maxAge += 500;
+  if (safeTraits.some(t => (getTName(t) === 'Hoang Cổ Chí Tôn Thể' || getTName(t) === 'Hỗn Độn Vạn Khí Cốt'))) maxAge += 200;
+  if (safeTraits.some(t => getTName(t) === 'Đạo Tổ Toàn Tri Thể')) maxAge += 1000000;
+  // V1.22.11b FIX: Thêm thọ nguyên cho 5 Thần Thể fusion thiếu
+  if (safeTraits.some(t => getTName(t) === 'Bồ Đề Ma La Bất Hoại Thân')) maxAge += 9999999; // Bất hoại = gần bất tử
+  if (safeTraits.some(t => (getTName(t) === 'Cơ Giới Hắc Quang Thể' || getTName(t) === 'Hạch Tâm Cơ Thần Khôi Lỗi' || getTName(t) === 'Chung Yên Điểm Kỳ Dị Thể'))) maxAge += 5000; // Cơ giới thể = bền bỉ
+  if (safeTraits.some(t => getTName(t) === 'Vạn Trận Quy Tông Thể')) maxAge += 500; // Trận sư
+
+  if (safeTraits.some(t => getTName(t) === 'Bàn Cổ Huyết Mạch')) maxAge += 50;
+  if (safeTraits.some(t => getTName(t) === 'Trường Sinh Thể')) maxAge += 100;
+  // V10.76 FIX: Đặc quyền thọ nguyên của Đạo Tổ hóa phàm
+  if (safeTraits.some(t => getTName(t) === 'Đạo Tổ Niết Bàn')) maxAge += 100000; 
+  if (safeTraits.some(t => getTName(t) === 'Trường Sinh Bất Lão')) maxAge += 9999999;
+  if (safeTraits.some(t => getTName(t) === 'Tiên Phong Đạo Cốt')) maxAge += 10;
+  if (safeTraits.some(t => getTName(t) === 'Đại Nạn Bất Tử')) maxAge += 20;
+  if (safeTraits.some(t => getTName(t) === 'Tai Kiếp Liên Miên')) maxAge -= 20;
+  if (safeTraits.some(t => getTName(t) === 'Ách Vận Bám Thân')) maxAge -= 15;
+  // Dù có bị giảm nửa tuổi thọ, thì cộng với Vô Hạn vẫn là Vô Hạn
+  if (safeTraits.some(t => getTName(t) === 'Thiên Đố Anh Tài')) maxAge = Math.floor(maxAge / 2);
+
+  if (safeTraits.some(t => getTName(t) === 'Bán Tinh Linh (Huyết Mạch Lai)')) maxAge += 150;
+  if (safeTraits.some(t => getTName(t) === 'Bán Long (Huyết Mạch Lai)')) maxAge += 300;
+  if (safeTraits.some(t => getTName(t) === 'Bán Thần (Huyết Mạch Lai)')) maxAge += 500;
+  if (safeTraits.some(t => (getTName(t) === 'Bán Yêu (Huyết Mạch Lai)' || getTName(t) === 'Bán Ma (Huyết Mạch Lai)' || getTName(t) === 'Bán Mị Ma (Huyết Mạch Lai)'))) maxAge += 50;
+
+  // V10.94: Áp dụng Lớp Giáp Thứ 2 - Hệ Số Tuổi Thọ Chủng Tộc
+if (/(rồng|long|thần|thái thản|titan)/.test(raceStr)) maxAge *= 100;
+else if (/(cây|thảo mộc|thụ|linh sâm|mộc)/.test(raceStr)) maxAge *= 10;
+else if (/(yêu|thú|cáo|sói|hổ|báo|hung|cự nhân)/.test(raceStr)) maxAge *= 5;
+
+// Nhận diện kép (Đề phòng file bị mất ID xuất thân trong lúc tính toán)
+const isPlant = bgId === 'bg_20' || safeTraits.some(t => getTName(t) === 'Bản Thể Thảo Mộc');
+const isTreasure = bgId === 'bg_24' || safeTraits.some(t => getTName(t) === 'Thiên Tài Địa Bảo');
+const isDemon = bgId === 'bg_25' || safeTraits.some(t => getTName(t) === 'Tiên Thiên Đại Yêu');
+// V7.16 & V10.64 & V2.55 FIX: Bất tử cảnh giới (Chân Tiên ID >= 9 trở lên, Đạo Tổ, v.v.) và các dị loại Thạch Thần, Thi Tộc
+const hasImmortalTrait = safeTraits.some(t => ['Thạch Thần Bất Diệt', 'Cơ Quan Hạch Tâm', 'Bảo Vật Hóa Hình', 'Trường Sinh Cửu Thị', 'Trường Sinh Bất Lão', 'Đạo Tổ Toàn Tri Thể'].includes(getTName(t)));
+const isImmortal = stageCfg.id >= 9 || /(đạo tổ|tiên đế|tiên vương|tiên hoàng|tiên tôn|đại la|thái ất|kim tiên|huyền tiên|chân tiên|hư tiên|độ kiếp|đại thừa|chí tôn)/i.test(String(level || '')) || ['bg_21', 'bg_22', 'bg_23', 'bg_undead', 'bg_ctan'].includes(bgId) || hasImmortalTrait || /(đá|thạch|máy|khôi lỗi|kiếm|bảo vật|vong linh|cương thi)/.test(raceStr);
+
+if (isPlant && maxAge < 500) maxAge += 500; 
+if (isTreasure && maxAge < 1000) maxAge += 1000; 
+if (isDemon && maxAge < 300) maxAge += 300; 
+
+// V1.49: THỌ NGUYÊN YÊU TỘC THUẦN CHỦNG (Long tộc 200, Phượng hoàng 150 - Góp ý Ethan195)
+if (bgId === 'bg_yeu_thuan_long') {
+    if (stageCfg.id <= 2 && maxAge < 200) maxAge = 200;
+    else maxAge += 100;
+} else if (bgId === 'bg_yeu_thuan_phuong') {
+    if (stageCfg.id <= 2 && maxAge < 150) maxAge = 150;
+    else maxAge += 50;
+} else if (['bg_yeu_thuan_mieu', 'bg_yeu_thuan_ho', 'bg_yeu_thuan_dieu', 'bg_yeu_thuan_di_toc', 'bg_yeu_thuan_ngu'].includes(bgId)) {
+    if (stageCfg.id <= 2 && maxAge < 120) maxAge = 120;
+    else maxAge += 20;
+} 
+if (isImmortal) maxAge += 9999999; // Bất tử tuyệt đối (10 triệu năm)
+
+// V2.22 ETHAN195 FIX & V3.27 DARK FIX: Khóa sàn thọ nguyên bảo hiểm toàn diện
+const effectiveBonus = Number(bonusMaxAge) || 0;
+let finalMaxAge = maxAge + effectiveBonus;
+// V3.27 FIX: Các bậc Bất Tử (Cấp 9+, Đạo Tổ, Vạn Ma Chi Chủ...) khóa cứng sàn thọ nguyên tối thiểu 10 triệu năm
+if (isImmortal) {
+    finalMaxAge = Math.max(10000000, finalMaxAge);
+}
+if (currentAge && Number(currentAge) > 0) {
+    finalMaxAge = Math.max(Math.floor(Number(currentAge)) + 1, finalMaxAge);
+}
+return Math.max(10, finalMaxAge);
+};

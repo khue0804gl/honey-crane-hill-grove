@@ -1,0 +1,93 @@
+const getCultivationPath = (bgId, traits = [], currentLevel = '') => {
+    const tNames = traits.map(t => t?.name || '');
+    const lvlStr = String(currentLevel).toLowerCase();
+
+    // V2.68 FIX (Báo lỗi Hào Vip Pro): ƯU TIÊN TUYỆT ĐỐI 0 - KHÓA CỨNG ĐẠO LỘ THEO CẢNH GIỚI HIỆN TẠI
+    // Một khi đã rời khỏi Phàm Nhân (như Yêu Tướng, Kim Thân, Luyện Hư...), cảnh giới hiện tại là Single Source of Truth.
+    // Các khí vận cũ (Đại Đạo Trùng Tu (Ma Khí)...) tuyệt đối không được đè làm lệch nhánh tu vi gốc của nhân vật!
+    if (lvlStr !== '' && lvlStr !== 'phàm nhân') {
+        if (/(tiểu yêu|đại yêu|yêu đan|hóa hình|yêu tướng|yêu vương|yêu hoàng|yêu đế|hư yêu|chân yêu|huyền yêu|thiên yêu|yêu tôn|yêu thần|tổ vu|thái cổ yêu tổ)/.test(lvlStr)) return 'yeu_tu';
+        if (/(du hồn|oán quỷ|ác quỷ|lệ quỷ|quỷ tướng|quỷ vương|quỷ đế|dạ xoa|tu la|quỷ tiên|cửu u tiên|diêm la|minh tướng|minh vương|minh đế|minh tôn|thập điện diêm vương|phong đô đại đế|u minh chi chủ)/.test(lvlStr)) return 'quy_tu';
+        if (/(sa di|tăng lữ|hành giả|võ tăng|thiền sư|pháp sư|thượng nhân|đại đức|la hán|kim thân la hán|bồ tát|đại bồ tát|thánh tăng|phật đà|chân phật|cổ phật|thế tôn|phật đế|vạn phật chi tổ)/.test(lvlStr)) return 'phat_tu';
+        if (/(tụ khí|ngưng mạch|ma đan|ma anh|hóa ma|luyện ma|hợp ma|đại ma|độ ma kiếp|hư ma|chân ma|huyền ma|thiên ma|ma tôn|thái ất ma tôn|đại la ma tôn|ma vương|ma hoàng|ma đế|vạn ma chi chủ)/.test(lvlStr)) return 'ma_tu';
+        if (/(luyện bì|luyện cốt|hoán huyết|kim thân(?! la hán)|phá hư|hư không|niết bàn|bất diệt|huyết hải|tôn giả|võ tôn|võ vương|võ thánh|võ đế|thần thể|bất hủ|hỗn độn thể|đại đạo nhục thân|bàn cổ chân thân)/.test(lvlStr)) return 'the_tu';
+        if (/(cơ giới binh|bậc thầy ngoại cốt|lõi lượng tử|nguyên anh cơ hồn|hóa thần cơ quân|cơ khí hư không|kỳ dị máy móc|lõi máy hành tinh|ý thức thiên hà|lõi kỹ thuật số|vạn cơ quy luật|thực thể phản chất|thần cơ vĩnh hằng|trình biên dịch|thực thể đa chiều|cơ bản quy luật|cơ khí khởi nguyên|vật chất nhân quả|đấng toàn tri)/.test(lvlStr)) return 'co_gioi_su';
+        if (/(học đồng|đồng sinh|tú tài|cử nhân|tiến sĩ|hàn lâm|đại nho|tông sư|đại tông sư|bán thánh|á thánh|chân thánh|đại thánh|chí thánh|thiên thánh|thánh tôn|thánh vương|thánh đế|vạn thế sư biểu)/.test(lvlStr)) return 'nho_tu';
+        if (/(tam lưu võ giả|nhị lưu võ giả|nhất lưu võ giả|hậu thiên cảnh|tiên thiên cảnh|võ lâm thần thoại|toái hư không|võ đạo kim đan|chân vũ cảnh|võ hoàng|phá không võ thần|chí tôn võ đạo|võ đạo chi chủ|võ tổ)/.test(lvlStr)) return 'vo_cong';
+        if (/(đấu chi khí|đấu sư|đại đấu sư|đấu linh|đấu tông|đấu tôn|đấu thánh|đấu đế|đấu thần|đại đấu thần|thiên đấu thần|chí cao đấu thần|đấu phá cảnh|đại đạo đấu chủ|chúa tể đấu khí)/.test(lvlStr)) return 'dau_khi';
+        if (/(học đồ ma pháp|pháp sư sơ cấp|pháp sư trung cấp|pháp sư cao cấp|đại pháp sư|ma đạo sư|đại ma đạo sư|thánh ma đạo sư|pháp thần|hạ vị thần|trung vị thần|thượng vị thần|chủ thần|thần vương|chí cao thần|sáng thế thần|pháp tắc chi chủ|vạn pháp khởi nguyên)/.test(lvlStr)) return 'ma_phap';
+        if (/(luyện khí|trúc cơ|kết đan|nguyên anh|hóa thần|luyện hư|hợp thể|đại thừa|độ kiếp|hư tiên|chân tiên|huyền tiên|kim tiên|thái ất kim tiên|đại la kim tiên|tiên tôn|tiên vương|tiên đế|đạo tổ)/.test(lvlStr)) return 'tu_tien';
+    }
+
+    // V2.68 & V3.3: Nhóm Khí Vận Nghịch Đạo Trùng Tu (Chỉ áp dụng khi ở Phàm Nhân hoặc chưa rõ cảnh giới)
+    const hasPathTrungTuMa = tNames.some(n => String(n).includes('Đại Đạo Trùng Tu (Ma Khí)'));
+    const hasPathTrungTuLinh = tNames.some(n => String(n).includes('Đại Đạo Trùng Tu (Linh Lực)'));
+    if (hasPathTrungTuMa && hasPathTrungTuLinh) {
+        if (['bg_19', 'bg_succubus', 'bg_nightmare', 'bg_undead', 'bg_thi_am_tong', 'bg_hu_khong', 'bg_blood_angel'].includes(bgId)) return 'ma_tu';
+        return 'tu_tien';
+    }
+    if (hasPathTrungTuMa) return 'ma_tu';
+    if (tNames.some(n => String(n).includes('Đại Đạo Trùng Tu (Yêu Lực)'))) return 'yeu_tu';
+    if (tNames.some(n => String(n).includes('Đại Đạo Trùng Tu (Phật Lực)'))) return 'phat_tu';
+    if (tNames.some(n => String(n).includes('Đại Đạo Trùng Tu (Cương Khí)'))) return 'the_tu';
+    if (hasPathTrungTuLinh) return 'tu_tien';
+    if (tNames.some(n => String(n).includes('Đại Đạo Trùng Tu (Đấu Khí)'))) return 'dau_khi';
+    if (tNames.some(n => String(n).includes('Đại Đạo Trùng Tu (Võ Công)'))) return 'vo_cong';
+    if (tNames.some(n => String(n).includes('Đại Đạo Trùng Tu (Ma Pháp)'))) return 'ma_phap';
+
+    // V1.22.4 & V3.3: ĐỒNG BỘ ĐẠO LỘ TU LUYỆN CHO CÁC THẦN THỂ DUNG HỢP TỐI CAO
+    if (tNames.includes('Hỗn Độn Bàn Cổ Khu') || tNames.includes('Thập Nhị Đô Thiên Thần Sát Chân Thân')) return 'the_tu';
+    if (tNames.includes('Cơ Giới Hắc Quang Thể') || tNames.includes('Hạch Tâm Cơ Thần Khôi Lỗi') || tNames.includes('Chung Yên Điểm Kỳ Dị Thể')) return 'co_gioi_su';
+    if (tNames.includes('Vạn Yêu Thánh Hoàng Thể')) return 'yeu_tu';
+    if (tNames.includes('Cực Đạo Ma Hoàng Khí Vận')) return 'ma_tu';
+    if (tNames.includes('Cửu U Minh Mị Thể')) return 'quy_tu';
+    if (tNames.includes('Bồ Đề Ma La Bất Hoại Thân')) return 'phat_tu';
+    // V1.22.11b FIX: Thêm 4 Thần Thể fusion thiếu
+    if (tNames.includes('Hoang Cổ Chí Tôn Thể')) return 'the_tu';
+    if (tNames.includes('Vạn Kiếp Chân Tôn Thể')) return 'tu_tien';
+    if (tNames.includes('Đạo Tổ Toàn Tri Thể')) return 'tu_tien';
+    if (tNames.includes('Vạn Trận Quy Tông Thể')) return 'tu_tien';
+    if (tNames.includes('Vạn Khí Quy Nguyên Thể')) return 'tu_tien';
+
+    if (tNames.includes('Cơ Khí Chân Lý (Iron Suit)')) return 'co_gioi_su';
+
+    // V7.51: ƯU TIÊN 1 - Khí Vận Tối Thượng bẩm sinh (Đè nát mọi ranh giới Xuất thân và Cảnh giới ảo tưởng của AI)
+    if (tNames.includes('Quỷ Đạo Truyền Nhân') || tNames.includes('Thái Âm Táng Thể') || tNames.includes('Thi Âm Luyện Sư')) return 'quy_tu';
+    if (tNames.includes('Phật Cốt Xá Lợi')) return 'phat_tu';
+    // V2.2 FIX (Báo lỗi Dark): Mị Ma & Bán Mị Ma quy chuẩn Ma Tu (Ma Khí), không bị xếp nhầm Yêu Tu
+    if (tNames.includes('Ma Tôn Chuyển Thế') || tNames.includes('Thiên Ma Thể') || tNames.includes('Vạn Ác Tội Thể') || tNames.includes('Bán Ma (Huyết Mạch Lai)') || tNames.includes('Bán Mị Ma (Huyết Mạch Lai)') || tNames.includes('Hợp Hoan Mị Cốt')) return 'ma_tu';
+    // V2.6 FIX (Báo lỗi HOENGGG): Ưu tiên tuyệt đối Xuất Thân Yêu Tộc Thuần Chủng & Cổ Thú bẩm sinh (Chống trait nhục thân đè nhầm thành Thể Tu)
+    const isYeuBackground = isPureYeuTocBg(bgId) || ['bg_10', 'bg_25', 'bg_taotie', 'bg_long_toc', 'bg_con_bang', 'bg_ho_toc', 'bg_vien_co_cu_long'].includes(bgId);
+    if (isYeuBackground && !tNames.some(n => String(n).includes('Đại Đạo Trùng Tu'))) {
+        return 'yeu_tu';
+    }
+    if (tNames.includes('Bàn Cổ Huyết Mạch') || tNames.includes('Cơ Quan Hạch Tâm') || tNames.includes('Thạch Thần Bất Diệt') || tNames.includes('Cự Nhân Thể') || tNames.some(t => t.includes('Tuyệt Thế'))) return 'the_tu';
+    if (tNames.includes('Tiên Thiên Đại Yêu') || tNames.includes('Bán yêu (Dị loại)') || tNames.includes('Bán Yêu (Nô Lệ)') || tNames.includes('Bán Yêu (Huyết Mạch Lai)') || tNames.includes('Bán Long (Huyết Mạch Lai)') || tNames.includes('Thái Cổ Ngự Yêu Sư') || tNames.includes('Thôn Phệ Tinh Không')) return 'yeu_tu';
+
+    if (tNames.includes('Võ Đạo Đỉnh Phong')) return 'vo_cong';
+    if (tNames.includes('Nghịch Mệnh Đấu Giả')) return 'dau_khi';
+    if (tNames.includes('Ma Pháp Khởi Nguyên')) return 'ma_phap';
+
+    // ƯU TIÊN 2: Mặc định theo Xuất Thân
+    if (['bg_nightmare', 'bg_undead'].includes(bgId)) return 'quy_tu';
+    if (['bg_19', 'bg_thi_am_tong', 'bg_hu_khong', 'bg_blood_angel', 'bg_succubus'].includes(bgId)) return 'ma_tu';
+    if (['bg_nho_sinh'].includes(bgId)) return 'nho_tu';
+    if (['bg_1', 'bg_16', 'bg_18', 'bg_titan', 'bg_behemoth', 'bg_ctan'].includes(bgId)) return 'the_tu';
+    if (['bg_10', 'bg_25', 'bg_taotie', 'bg_long_toc', 'bg_con_bang', 'bg_ho_toc', 'bg_vien_co_cu_long', 'bg_yeu_thuan_long', 'bg_yeu_thuan_phuong', 'bg_yeu_thuan_mieu', 'bg_yeu_thuan_ho', 'bg_yeu_thuan_dieu', 'bg_yeu_thuan_di_toc', 'bg_yeu_thuan_ngu'].includes(bgId)) return 'yeu_tu';
+    if (['vo_cong'].includes(bgId)) return 'vo_cong';
+    if (['dau_khi'].includes(bgId)) return 'dau_khi';
+    if (['ma_phap'].includes(bgId)) return 'ma_phap';
+
+    // V12.18 FIX: ƯU TIÊN 3 - TỰ ĐỘNG CHUẨN ĐOÁN QUA TÊN CẢNH GIỚI (Cứu Cánh Cuối Cùng Dành Cho Phàm Nhân Tu Luyện Tự Do)
+    if (lvlStr !== '' && lvlStr !== 'phàm nhân') {
+        if (/(du hồn|oán quỷ|ác quỷ|lệ quỷ|quỷ tướng|quỷ vương|quỷ đế|dạ xoa|tu la|quỷ tiên|cửu u tiên|diêm la|minh tướng|minh vương|minh đế|minh tôn|thập điện diêm vương|phong đô đại đế|u minh chi chủ)/.test(lvlStr)) return 'quy_tu';
+        if (/(sa di|tăng lữ|hành giả|võ tăng|thiền sư|pháp sư|thượng nhân|đại đức|la hán|kim thân|bồ tát|đại bồ tát|thánh tăng|phật đà|chân phật|cổ phật|thế tôn|phật đế|vạn phật chi tổ)/.test(lvlStr)) return 'phat_tu';
+        if (/(tụ khí|ngưng mạch|ma đan|ma anh|hóa ma|luyện ma|hợp ma|đại ma|độ ma kiếp|hư ma|chân ma|huyền ma|thiên ma|ma tôn|ma vương|ma hoàng|ma đế|vạn ma chi chủ)/.test(lvlStr)) return 'ma_tu';
+        if (/(luyện bì|luyện cốt|hoán huyết|kim thân|phá hư|hư không|niết bàn|bất diệt|huyết hải|tôn giả|võ tôn|võ vương|võ thánh|võ đế|thần thể|bất hủ|hỗn độn thể|đại đạo nhục thân|bàn cổ chân thân)/.test(lvlStr)) return 'the_tu';
+        if (/(tiểu yêu|đại yêu|yêu đan|hóa hình|yêu tướng|yêu vương|yêu hoàng|yêu đế|hư yêu|chân yêu|huyền yêu|thiên yêu|yêu tôn|yêu thần|tổ vu|thái cổ yêu tổ)/.test(lvlStr)) return 'yeu_tu';
+        if (/(học đồng|đồng sinh|tú tài|cử nhân|tiến sĩ|hàn lâm|đại nho|tông sư|đại tông sư|bán thánh|á thánh|chân thánh|đại thánh|chí thánh|thiên thánh|thánh tôn|thánh vương|thánh đế|vạn thế sư biểu)/.test(lvlStr)) return 'nho_tu';
+    }
+    
+    // Cột Mặc định
+    return 'tu_tien';
+};

@@ -1,0 +1,396 @@
+export const generateWorldGridCell = (x: number, y: number, z: number, activeDLCs: string[] = [], mapSeed: number = 0): GridCellData => {
+  // 1. Kiểm tra nếu trùng với điểm nút cố định lớn trên đồ thị Cửu Châu (Base + Active DLC)
+  let fixedNode = Object.values(FIXED_WORLD_GRAPH).find(n => n.coordinates.x === x && n.coordinates.y === y && n.coordinates.z === z);
+  if (!fixedNode && activeDLCs && activeDLCs.length > 0) {
+    fixedNode = Object.values(DLC_WORLD_GRAPH).find(n => {
+      if (n.coordinates.x === x && n.coordinates.y === y && n.coordinates.z === z) {
+        const needed = n.requiredDLC || (n.id.includes('hong_hoang') ? 'dlc_hong_hoang' : n.id.includes('cyberpunk') || n.id.includes('khoa_ky') ? 'dlc_cyberpunk' : 'dlc_dark_fantasy');
+        return activeDLCs.includes(needed);
+      }
+      return false;
+    });
+  }
+  if (fixedNode) {
+    let terrain: TerrainType = 'thanh_tran';
+    let terrainName = 'Thành Trấn';
+    if (fixedNode.facilities.includes('KiemTrang') || fixedNode.rulingFaction.includes('Kiếm Tông')) {
+      terrain = 'tong_mon'; terrainName = 'Kiếm Tông Sơn Môn';
+    } else if (fixedNode.facilities.includes('ThuVien')) {
+      terrain = 'tong_mon'; terrainName = 'Nho Đạo Học Viện';
+    } else if (fixedNode.facilities.includes('XaLoiThap')) {
+      terrain = 'tong_mon'; terrainName = 'Phật Tự Cổ Tự';
+    } else if (fixedNode.facilities.includes('PhanTich')) {
+      terrain = 'sa_mac'; terrainName = 'Sa Mạc Cổ Mộ';
+    } else if (fixedNode.facilities.includes('DocPhong')) {
+      terrain = 'dam_lay'; terrainName = 'Đầm Lầy U Cốc';
+    } else if (fixedNode.facilities.includes('BangTuyetDong')) {
+      terrain = 'bang_nguyen'; terrainName = 'Băng Nguyên Tuyệt Lĩnh';
+    } else if (fixedNode.facilities.includes('LuyenThiTrang')) {
+      terrain = 'phe_tich'; terrainName = 'Bãi Tha Ma Luyện Thi';
+    }
+
+    return {
+      x, y, z,
+      id: fixedNode.id,
+      name: fixedNode.name,
+      region: fixedNode.region,
+      regionName: fixedNode.regionName,
+      terrain,
+      terrainName,
+      rulingFaction: fixedNode.rulingFaction,
+      aura: fixedNode.auraDensity,
+      integrity: 4500,
+      pollution: fixedNode.id.includes('thi_am') ? 80 : fixedNode.id.includes('van_doc') ? 95 : 0,
+      facilities: fixedNode.facilities,
+      resources: ["Linh Thạch", "Linh Thảo"],
+      npcIds: [...fixedNode.fixedNpcIds],
+      description: fixedNode.description
+    };
+  }
+
+  // 2. Tầng Thượng Giới / Bí Cảnh Lơ Lửng (z = 1)
+  if (z === 1) {
+    const isRift = (x === 0 && y === 0) || (x === 5 && y === 5);
+    return {
+      x, y, z,
+      id: `upper_${x}_${y}`,
+      name: isRift ? `Kẽ Nứt Hư Không (${x},${y})` : `Thượng Vị Đảo Mây (${x},${y})`,
+      region: "NgoaiCanhDLC",
+      regionName: "Thượng Giới & Bí Cảnh Lơ Lửng",
+      terrain: isRift ? 'ke_nut_khong_gian' : 'dong_co',
+      terrainName: isRift ? 'Cổng Xuyên Không' : 'Đảo Tiên Bồng Bềnh',
+      rulingFaction: "Thiên Đình Thượng Giới",
+      aura: 6000 + Math.abs((x * 123 + y * 456) % 3000),
+      integrity: 4800,
+      pollution: 0,
+      facilities: isRift ? ["KhongGianMon"] : ["DaoTrangThienGioi"],
+      resources: ["Tiên Thạch Thượng Phẩm", "Ngộ Đạo Trà"],
+      npcIds: [],
+      isRiftPortal: isRift,
+      targetRiftZ: 0,
+      description: isRift ? "Vết nứt không gian lấp lánh nối liền giữa Mặt Đất và Thượng Giới." : "Hòn đảo tiên trôi lơ lửng trên biển mây thần thoại, linh khí dày đặc tụ thành sương mờ."
+    };
+  }
+
+  // 3. Tầng Âm Ti / Cửu U / Địa Ngục (z = -1)
+  if (z === -1) {
+    const isRift = (x === -5 && y === -5) || (x === 0 && y === 0);
+    return {
+      x, y, z,
+      id: `under_${x}_${y}`,
+      name: isRift ? `U Minh Vực Khuyết (${x},${y})` : `Âm Ti Cửu U (${x},${y})`,
+      region: "NgoaiCanhDLC",
+      regionName: "Minh Giới & Mười Tám Tầng Địa Ngục",
+      terrain: isRift ? 'ke_nut_khong_gian' : 'ma_vuc_chuan',
+      terrainName: isRift ? 'Cổng Luân Hồi' : 'Vực Sâu Âm Khí',
+      rulingFaction: "Thập Điện Diêm Vương",
+      aura: 1500,
+      integrity: 3500,
+      pollution: 300 + Math.abs((x * 77 + y * 89) % 400),
+      facilities: isRift ? ["LuanHoiDai"] : ["HuyetHa", "VongXuyen"],
+      resources: ["Âm Hồn Tinh", "U Minh Thạch"],
+      npcIds: [],
+      isRiftPortal: isRift,
+      targetRiftZ: 0,
+      description: "Vực sâu tăm tối ngập tràn tiếng quỷ gào oán hận, dòng sông Vong Xuyên chảy xiết dưới lòng đất ngàn trượng."
+    };
+  }
+
+  // 4. Hiệu ứng xâm thực vi diện DLC (Biome Corruption)
+  let dlcCorruption: 'none' | 'co_khi' | 'quang_am' | 'hong_hoang' = 'none';
+  if (activeDLCs.includes('dlc_cyberpunk') && (x >= 10 || y <= -10)) {
+    dlcCorruption = 'co_khi';
+  } else if (activeDLCs.includes('dlc_dark_fantasy') && (x <= -10 || y >= 10)) {
+    dlcCorruption = 'quang_am';
+  } else if (activeDLCs.includes('dlc_hong_hoang') && Math.abs(x) >= 14) {
+    dlcCorruption = 'hong_hoang';
+  }
+
+  if (dlcCorruption === 'co_khi') {
+    return {
+      x, y, z,
+      id: `grid_${x}_${y}_${z}`,
+      name: `Hoang Địa Cơ Khí (${x},${y})`,
+      region: "NgoaiCanhDLC",
+      regionName: "Vùng Xâm Lấn Cơ Khí Giáng Lâm",
+      terrain: 'hoang_dia_co_khi',
+      terrainName: 'Rỉ Sét Cơ Khí',
+      rulingFaction: "Máy Móc Thần Giáo",
+      aura: 1000,
+      integrity: 3200,
+      pollution: 250,
+      facilities: ["LoNangLuongNano"],
+      resources: ["Hợp Kim Adamantium", "Lõi Năng Lượng Uranos"],
+      npcIds: [],
+      dlcCorruption,
+      description: "Mặt đất bị cơ khí hóa, các đường ống dẫn dầu lượng tử và kim loại rỉ sét chồi lên mặt đất thay thế cho cây cỏ."
+    };
+  }
+
+  if (dlcCorruption === 'quang_am') {
+    return {
+      x, y, z,
+      id: `grid_${x}_${y}_${z}`,
+      name: `Chiến Hào Lưu Huỳnh (${x},${y})`,
+      region: "NgoaiCanhDLC",
+      regionName: "Vùng Xâm Lấn Quang Ám Thánh Chiến",
+      terrain: 'chien_hao_luu_huynh',
+      terrainName: 'Chiến Hào Thánh Chiến',
+      rulingFaction: "Ác Ma Thất Mang Tinh",
+      aura: 1800,
+      integrity: 2500,
+      pollution: 400,
+      facilities: ["HuyetTeTran"],
+      resources: ["Warpstone Tà Năng", "Máu Fel"],
+      npcIds: [],
+      dlcCorruption,
+      description: "Chiến hào ngập mùi lưu huỳnh khét lẹt và khói súng, nơi binh đoàn quỷ dữ và thiên thần sa ngã giao tranh khốc liệt."
+    };
+  }
+
+  // 5. THIẾT KẾ ĐỊA HÌNH CỬU CHÂU (z = 0): Phân chia ranh giới theo khu vực liền mạch và nhà cửa rải rác
+  let region: "DongThang" | "TayNguu" | "NamThiem" | "BacCau" | "TrungCuc" = "TrungCuc";
+  let regionName = "Trung Cực Hoàng Triều";
+  let faction = "Hoàng Triều Đại Càn";
+
+  // Hàm băm tọa độ tạo số ngẫu nhiên kết hợp Hạt Giống Bản Đồ (mapSeed) để mỗi ván chơi địa hình vi mô mới mẻ
+  const seedShift = (mapSeed % 1000) * 0.137;
+  const posHash = Math.abs(Math.sin((x + seedShift) * 12.9898 + (y + seedShift) * 78.233) * 43758.5453) % 1;
+  const clusterHash = Math.abs(Math.sin((Math.floor(x / 3) + seedShift) * 19.19 + (Math.floor(y / 3) + seedShift) * 47.47) * 43758.5453) % 1;
+
+  // Xác định ranh giới Đại Châu địa lý theo trục tọa độ chuẩn toàn cầu Cửu Châu
+  const distFromCenter = Math.max(Math.abs(x), Math.abs(y));
+  const isBorder = (Math.abs(x) === 5 && Math.abs(y) <= 15) || (Math.abs(y) === 5 && Math.abs(x) <= 15) || (Math.abs(x) === Math.abs(y) && distFromCenter >= 5);
+
+  if (distFromCenter <= 4) {
+    region = "TrungCuc";
+    regionName = "Trung Cực Hoàng Triều";
+    faction = "Hoàng Triều Đại Càn";
+  } else if (x > 0 && Math.abs(x) >= Math.abs(y)) {
+    region = "DongThang";
+    regionName = "Đông Thắng Thần Châu";
+    faction = "Thanh Vân Kiếm Tông";
+  } else if (x < 0 && Math.abs(x) >= Math.abs(y)) {
+    region = "TayNguu";
+    regionName = "Tây Ngưu Hạ Châu";
+    faction = "Kim Thiền Phật Tông";
+  } else if (y < 0 && Math.abs(y) > Math.abs(x)) {
+    region = "NamThiem";
+    regionName = "Nam Thiểm Bộ Châu";
+    faction = "Nam Man Yêu Tộc";
+  } else if (y > 0 && Math.abs(y) > Math.abs(x)) {
+    region = "BacCau";
+    regionName = "Bắc Câu Lư Châu";
+    faction = "U Minh Thi Âm Tông";
+  } else {
+    region = "TrungCuc";
+    regionName = "Trung Cực Hoàng Triều";
+    faction = "Hoàng Triều Đại Càn";
+  }
+
+  let terrain: TerrainType = 'dong_co';
+  let terrainName = 'Thảo Nguyên Đồng Bằng';
+  let aura = 2000;
+  let facilities: string[] = [];
+  let resources: string[] = ["Nước Ngọt", "Lương Thảo"];
+  let description = `Vùng đất thuộc quyền quản hạt của ${regionName}.`;
+
+  // KIỂM TRA ĐIỂM DÂN CƯ / NHÀ CỬA / CÔNG TRÌNH RẢI RÁC THEO QUY LUẬT THỰC TẾ:
+  // A. Nếu nằm ngay trên RANH GIỚI BIÊN PHÒNG giữa các vùng:
+  if (isBorder) {
+    if (posHash < 0.35) {
+      terrain = 'quan_ai';
+      terrainName = region === 'DongThang' ? 'Kiếm Môn Quan Ải' : region === 'TayNguu' ? 'Ngọc Môn Quan Ải' : region === 'NamThiem' ? 'Nam Cương Quan Ải' : region === 'BacCau' ? 'Hắc Thủy Quan Ải' : 'Càn Long Quan Ải';
+      facilities = ["TramKiemSoat", "VongLau", "QuanDoi"];
+      resources = ["Quân Lương", "Mũi Tên Sắt"];
+      aura = 2400;
+      description = `Cửa ải biên phòng kiên cố ngăn cách ranh giới giữa các châu quận. Binh lính ngày đêm canh gác nghiêm ngặt.`;
+    } else if (posHash < 0.65) {
+      terrain = 'dich_tram';
+      terrainName = 'Dịch Trạm Ranh Giới';
+      facilities = ["QuanTro", "TraQuan", "ChuongNgua"];
+      resources = ["Nước Sôi", "Cỏ Khô"];
+      aura = 2100;
+      description = `Dịch trạm sầm uất nằm ngay đường ranh giới giao thương. Thương nhân và lữ khách khắp nơi dừng chân nghỉ ngựa.`;
+    } else if (posHash < 0.8) {
+      terrain = 'song_ho';
+      terrainName = 'Giang Hà Biên Giới';
+      facilities = ["BenDo", "CauDa"];
+      resources = ["Cá Sông", "Phù Sa"];
+      aura = 2800;
+      description = `Dòng sông tự nhiên uốn lượn đóng vai trò như ranh giới chia cắt hai miền đất đai. Bến đò cổ đưa người qua sông.`;
+    } else {
+      terrain = 'miu_co';
+      terrainName = 'Cổ Miếu Biên Cương';
+      facilities = ["NhangDen", "TuVienNho"];
+      resources = ["Tro Nhang", "Bùa Bình An"];
+      aura = 2600;
+      description = `Ngôi miếu cổ dựng bên mốc ranh giới từ trăm năm trước để trấn áp tà khí và cầu bình an cho lữ khách qua lại.`;
+    }
+  } 
+  // B. Nếu nằm bên trong từng vùng lãnh thổ:
+  else {
+    // Tỷ lệ xuất hiện nhà cửa / thôn xóm / thị trấn nhỏ rải rác bên trong tự nhiên (khoảng 22% số ô)
+    const isSettlement = posHash < 0.22;
+
+    if (isSettlement) {
+      if (posHash < 0.08) {
+        terrain = 'thanh_tran';
+        terrainName = region === 'TrungCuc' ? 'Phố Thị Phồn Hoa' : region === 'DongThang' ? 'Thanh Trấn Kiếm Thị' : region === 'TayNguu' ? 'Sa Thành Cát Vàng' : region === 'NamThiem' ? 'Man Hoang Phường Trại' : 'U Thị Đêm Đen';
+        facilities = ["PhuongThi", "QuanTro", "TiemThuoc"];
+        resources = ["Linh Thạch", "Vải Lụa", "Dược Dịch"];
+        aura = 2600;
+        description = `Thành thị sầm uất rải rác giữa vùng đất, nơi tụ họp dân cư, tán tu mua bán và trao đổi đan dược, pháp bảo.`;
+      } else if (posHash < 0.16) {
+        terrain = 'thon_lang';
+        terrainName = region === 'TrungCuc' ? 'Bình An Thôn' : region === 'DongThang' ? 'Trúc Diệp Thôn' : region === 'TayNguu' ? 'Ốc Đảo Thôn' : region === 'NamThiem' ? 'Thảo Mộc Thôn' : 'Tuyết Cốt Thôn';
+        facilities = ["NongTrang", "GiengNuoc", "ChiemThu"];
+        resources = ["Lúa Mì", "Rau Rừng", "Thịt Khô"];
+        aura = 1900;
+        description = `Thôn làng mộc mạc của phàm nhân định cư yên ả, khói bếp chiều hôm bay lượn trên những mái ngói đơn sơ.`;
+      } else {
+        terrain = 'miu_co';
+        terrainName = region === 'TayNguu' ? 'Cổ Tự Thờ Phật' : region === 'DongThang' ? 'Kiếm Ý Thảo Đình' : 'Thổ Địa Miếu Cổ';
+        facilities = ["BiaDa", "LinhHuong"];
+        resources = ["Nước Cam Lộ", "Linh Mộc"];
+        aura = 2700;
+        description = `Cổ miếu thanh tịnh ẩn sâu giữa thiên nhiên hoang sơ, hương khói nghi ngút tĩnh tại lòng người.`;
+      }
+    } 
+    // Nếu là địa hình tự nhiên: Phân chia thành MẢNG RỘNG LIỀN MẠCH dựa theo clusterHash (không caro luân phiên)
+    else {
+      if (region === 'DongThang') {
+        // Đông Thắng: Rừng rậm bạt ngàn hoặc dãy núi chạy dài liên tục thành mảng
+        if (clusterHash < 0.55) {
+          terrain = 'rung_ram';
+          terrainName = 'Trúc Lâm Kiếm Khí';
+          resources = ["Linh Trúc", "Măng Rừng", "Linh Thảo"];
+          aura = 3200;
+          description = `Rừng trúc ngút ngàn xanh biếc, gió thổi qua phát ra thanh âm tựa tiếng kiếm reo vang dội.`;
+        } else if (clusterHash < 0.85) {
+          terrain = 'nui_cao';
+          terrainName = 'Hiểm Sơn Kỳ Lĩnh';
+          resources = ["Quặng Thiết", "Huyền Thạch"];
+          aura = 3500;
+          description = `Dãy núi đá vôi hùng vĩ sừng sững giữa biển mây, vách đá cheo leo nghìn trượng nối dài vô tận.`;
+        } else {
+          terrain = 'dong_co';
+          terrainName = 'Kiếm Khí Bình Nguyên';
+          resources = ["Lương Thảo", "Nước Ngọt"];
+          aura = 2800;
+          description = `Bình nguyên bằng phẳng thảm cỏ xanh mượt trải dài dưới chân các dãy núi của Đông Vực.`;
+        }
+      } else if (region === 'TayNguu') {
+        // Tây Ngưu: Đại mạc cát vàng rộng lớn, có ốc đảo và tàn tích cổ mộ
+        if (clusterHash < 0.7) {
+          terrain = 'sa_mac';
+          terrainName = 'Cát Vàng Sa Mạc';
+          resources = ["Cát Vàng", "Hỏa Tinh Thạch"];
+          aura = 1200;
+          description = `Biển cát mênh mông vô tận, bão cát che khuất mặt trời, dấu vết lữ hành nhanh chóng bị xóa sạch.`;
+        } else if (clusterHash < 0.85) {
+          terrain = 'song_ho';
+          terrainName = 'Ốc Đảo Nguyệt Hồ';
+          resources = ["Nước Ngọt", "Linh Tuyền Thảo"];
+          aura = 3100;
+          facilities = ["LinhTuyen"];
+          description = `Hồ nước ngọt trong vắt kỳ diệu giữa lòng sa mạc, cây cỏ sinh sôi quanh bờ cát trắng.`;
+        } else {
+          terrain = 'phe_tich';
+          terrainName = 'Sa Mạc Cổ Mộ';
+          resources = ["Bảo Vật Cổ", "Xương Thú"];
+          aura = 2400;
+          description = `Tàn tích của các vương quốc cổ đại bị vùi lấp dưới cát bụi, lộ ra sau những cơn bão cát lớn.`;
+        }
+      } else if (region === 'NamThiem') {
+        // Nam Thiểm: Đầm lầy chướng khí và rừng mưa nhiệt đới cổ thụ thành từng vùng lớn
+        if (clusterHash < 0.5) {
+          terrain = 'dam_lay';
+          terrainName = 'Đầm Lầy Chướng Khí';
+          resources = ["Độc Thảo", "Bùn Đen"];
+          aura = 3400;
+          pollution = 60;
+          description = `Đầm lầy nước đen bốc khói chướng khí ngũ sắc độc hại, muông thú dị loài ẩn nấp dưới đáy bùn.`;
+        } else if (clusterHash < 0.85) {
+          terrain = 'rung_ram';
+          terrainName = 'Rừng Nhiệt Đới Cổ Thụ';
+          resources = ["Gỗ Ngàn Năm", "Yêu Thảo"];
+          aura = 3600;
+          description = `Cánh rừng nguyên sinh rợp bóng cây đại thụ ngàn năm, cành lá rậm rạp che kín bầu trời.`;
+        } else {
+          terrain = 'nui_cao';
+          terrainName = 'Thập Vạn Man Sơn';
+          resources = ["Khoáng Thạch", "Yêu Đan"];
+          aura = 3800;
+          description = `Dãy núi non trùng điệp hiểm trở của Nam Cương, nơi trú ngụ của muôn vàn mãnh thú yêu tộc.`;
+        }
+      } else if (region === 'BacCau') {
+        // Bắc Câu: Băng nguyên tuyết phủ và bãi tha ma tà đạo lạnh giá
+        if (clusterHash < 0.55) {
+          terrain = 'bang_nguyen';
+          terrainName = 'Tuyết Lĩnh Băng Giá';
+          resources = ["Băng Tinh", "Tuyết Liên"];
+          aura = 3600;
+          description = `Cánh đồng tuyết trắng xóa và núi băng nguyên vĩnh cửu, gió lạnh buốt xương cắt da thịt.`;
+        } else if (clusterHash < 0.8) {
+          terrain = 'phe_tich';
+          terrainName = 'Bãi Tha Ma Cổ';
+          resources = ["Âm Cốt", "Tử Khí Thạch"];
+          aura = 3900;
+          pollution = 70;
+          description = `Bãi tha ma chôn xác vạn dặm ngập tràn âm khí u uất của Bắc Vực, lò luyện thi khói đen mịt mù.`;
+        } else {
+          terrain = 'nui_cao';
+          terrainName = 'Băng Phong Tuyệt Đỉnh';
+          resources = ["Băng Phách Thạch"];
+          aura = 4000;
+          description = `Đỉnh núi băng tuyết ngút trời lạnh lẽo cô độc, nơi các kiếm tu hàn băng rèn giũa đạo tâm.`;
+        }
+      } else {
+        // Trung Cực Hoàng Triều: Thảo nguyên, bình nguyên phì nhiêu màu mỡ
+        if (clusterHash < 0.6) {
+          terrain = 'dong_co';
+          terrainName = 'Thảo Nguyên Đồng Bằng';
+          resources = ["Lương Thảo", "Gia Súc"];
+          aura = 2300;
+          description = `Bình nguyên trù phú đất đai phì nhiêu của trung tâm Cửu Châu, đường sá bằng phẳng ngựa xe qua lại tấp nập.`;
+        } else if (clusterHash < 0.8) {
+          terrain = 'song_ho';
+          terrainName = 'Hoàng Hà Phù Sa';
+          resources = ["Cá Sông", "Thủy Thảo"];
+          aura = 2600;
+          description = `Dòng sông lớn chảy qua trung tâm hoàng triều, bồi đắp phù sa màu mỡ cho ruộng đồng đôi bờ.`;
+        } else {
+          terrain = 'rung_ram';
+          terrainName = 'Ngự Uyển Rừng Xanh';
+          resources = ["Gỗ Quý", "Thú Săn"];
+          aura = 2900;
+          description = `Khu rừng sinh thái được hoàng triều che chở bảo tồn, cây cối xanh tươi linh khí bình hòa.`;
+        }
+      }
+    }
+  }
+
+  // Cổng kẽ nứt không gian
+  const isRiftPortal = (x === 3 && y === 3) || (x === -3 && y === -3);
+
+  return {
+    x, y, z,
+    id: `grid_${x}_${y}_${z}`,
+    name: `${terrainName} (${x},${y})`,
+    region,
+    regionName,
+    terrain: isRiftPortal ? 'ke_nut_khong_gian' : terrain,
+    terrainName: isRiftPortal ? 'Kẽ Nứt Không Gian' : terrainName,
+    rulingFaction: faction,
+    aura: aura + Math.abs((x * 37 + y * 53) % 400),
+    integrity: 4000,
+    pollution: region === 'BacCau' ? 60 : region === 'NamThiem' ? 50 : 0,
+    facilities,
+    resources,
+    npcIds: [],
+    isRiftPortal,
+    targetRiftZ: isRiftPortal ? (x > 0 ? 1 : -1) : undefined,
+    description: isRiftPortal ? "Một kẽ nứt không gian lơ lửng giữa trời, tỏa ra luồng hấp lực kỳ dị dẫn sang tầng không gian khác." : description
+  };
+};

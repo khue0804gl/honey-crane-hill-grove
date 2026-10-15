@@ -1,0 +1,38 @@
+const getItemUnitWeight = (item) => {
+    if (!item || typeof item !== 'object') return 0;
+    const name = String(item.name || '').toLowerCase();
+    const nNoMark = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    // V8.40 FIX: Linh thạch là tiền tệ, sẽ tự động hóa thành số dư nên không chiếm dung lượng vật lý trong lúc tính toán
+    if ((nNoMark.includes('linh thach') || nNoMark.includes('kim te') || nNoMark.match(/^(ha|trung|thuong|cuc)\s*pham$/)) && !nNoMark.includes('quang') && !nNoMark.includes('mo ') && !nNoMark.includes('ban do') && !nNoMark.includes('tinh tuy') && !nNoMark.includes('manh')) {
+        return 0; 
+    }
+    
+    // Rất nhẹ (10g - 50g): Giấy tờ, bùa chú, đan dược, linh thảo
+    if (name.match(/(đan|dịch|thuốc|bùa|phù|giấy|thư|ngọc giản|tơ|lông|chỉ)/)) return 0.05;
+    if (name.match(/(cỏ|thảo|lá|hoa|quả|trái|sâm|nấm|tủy|phấn)/)) return 0.1;
+    
+    // Nhẹ (100g - 200g): Đồ ăn nhỏ, trang sức, hồn tinh
+    if (name.match(/(bánh|thịt|cơm|nhẫn|túi|vòng|trâm|ngọc bội|hồn tinh|yêu đan)/)) return 0.2;
+
+    if (item.type === 'equip') {
+        // Vũ khí hạng nặng (15kg - 50kg+)
+        if (name.match(/(trọng kiếm|búa|rìu|kích|chùy|cự|đỉnh|lò|chuông|bia|cột|trụ)/)) return 30.0; 
+        // Phòng cụ nặng
+        if (name.match(/(giáp|khiên|thuẫn|áo thiếc|xích)/)) return 8.0;
+        // Vũ khí thường (Cầm tay)
+        if (name.match(/(kiếm|đao|thương|cung|trượng|côn|roi|quạt)/)) return 3.0; 
+        // Y phục nhẹ
+        if (name.match(/(áo|quần|đạo bào|giày|mũ|hài|khố|choàng|khăn)/)) return 0.5; 
+        return 2.0;
+    }
+    
+    // Vật liệu thô (Đá, sắt, quặng, gỗ)
+    if (name.match(/(đá|thạch|quặng|sắt|đồng|kim loại|thép|gỗ|thiết|khối|ngọc thạch)/)) return 15.0;
+
+    if (item.type === 'demon_soul') return 0.1;
+    if (['spatial', 'sealed_spatial', 'soul_spatial'].includes(item.type)) return 0.1;
+    if (item.type === 'food') return 0.5;
+    
+    return 0.5; // Mặc định cho các thứ khác
+};

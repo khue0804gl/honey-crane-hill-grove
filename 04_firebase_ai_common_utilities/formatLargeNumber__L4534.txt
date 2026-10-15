@@ -1,0 +1,30 @@
+const formatLargeNumber = (num) => {
+  if (num === undefined || num === null || isNaN(num) || !isFinite(num)) return '0';
+  const absNum = Math.abs(num);
+  if (absNum < 1000) return Math.floor(num).toLocaleString('vi-VN');
+
+  let formatted = '';
+  if (absNum >= 1e18) {
+    const tyTy = (absNum / 1e18).toFixed(2);
+    formatted = `${tyTy} Tỷ Tỷ`;
+  } else if (absNum >= 1e15) {
+    const trTy = (absNum / 1e15).toFixed(2);
+    formatted = `${trTy} Triệu Tỷ`;
+  } else if (absNum >= 1e12) {
+    const nghinTy = (absNum / 1e12).toFixed(2);
+    formatted = `${nghinTy} Nghìn Tỷ`;
+  } else if (absNum >= 1e9) {
+    const ty = Math.floor(absNum / 1e9);
+    const tr = Math.floor((absNum % 1e9) / 1e8);
+    formatted = tr > 0 ? `${ty}Tỷ ${tr}` : `${ty}Tỷ`;
+  } else if (absNum >= 1e6) {
+    const tr = Math.floor(absNum / 1e6);
+    const k = Math.floor((absNum % 1e6) / 1e5);
+    formatted = k > 0 ? `${tr}Tr ${k}` : `${tr}Tr`;
+  } else if (absNum >= 1e3) {
+    const k = Math.floor(absNum / 1e3);
+    const h = Math.floor((absNum % 1e3) / 1e2);
+    formatted = h > 0 ? `${k}N ${h}` : `${k}N`;
+  }
+  return num < 0 ? `-${formatted}` : formatted;
+};

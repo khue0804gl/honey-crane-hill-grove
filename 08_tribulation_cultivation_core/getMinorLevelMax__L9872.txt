@@ -1,0 +1,8 @@
+const getMinorLevelMax = (majorId: number, levelName: string = '', traits: any = null): number => {
+    if (majorId === 1) return 1;
+    if (majorId === 2) {
+        if (hasThienDoTrait(traits)) return 999999;
+        return 10;
+    }
+    return 4;
+}; 

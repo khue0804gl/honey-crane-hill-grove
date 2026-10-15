@@ -1,0 +1,27 @@
+export const checkCanonConditions = (evt: CanonEvent, ctx: { curYear: number; curLocationId: string; activeState: any }): boolean => {
+  const conds = evt?.requiredConditions || [];
+  if (conds.length === 0) return true;
+  return conds.every((raw) => {
+    const token = String(raw).trim();
+    if (!token) return true;
+    const low = token.toLowerCase();
+    try {
+      if (low.startsWith('year>=')) return ctx.curYear >= Number(token.slice(6));
+      if (low.startsWith('year<=')) return ctx.curYear <= Number(token.slice(6));
+      if (low.startsWith('loc=')) return ctx.curLocationId.includes(token.slice(4).trim());
+      if (low.startsWith('z=')) return String(ctx.activeState?.coordinates?.z ?? 0) === token.slice(2).trim();
+      if (low.startsWith('dlc:')) return (ctx.activeState?.activeDLCs || []).includes(token.slice(4).trim());
+      if (low.startsWith('trait:')) {
+        const t = token.slice(6).trim();
+        return (ctx.activeState?.traits || []).some((x: any) => String(x?.name || x) === t);
+      }
+      if (low.startsWith('hasitem:')) {
+        const it = token.slice(8).trim();
+        return (ctx.activeState?.inventory || []).some((x: any) => String(x?.name || '').includes(it));
+      }
+    } catch (err) {
+      return true;
+    }
+    return true; // Token chưa nhận dạng được -> bỏ qua để không phá dữ liệu save cũ
+  });
+};

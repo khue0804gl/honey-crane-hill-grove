@@ -1,0 +1,11 @@
+const parseAIStat = (val) => {
+  if (val === undefined || val === null) return 0;
+  if (typeof val === 'number') {
+      if (isNaN(val) || !isFinite(val)) return 0;
+      return Math.min(1e15, Math.max(-1e15, val)); // V12.04 FIX: Tăng giới hạn lên 1 Triệu Tỷ (1e15)
+  }
+  const strVal = String(val).replace(/[^0-9.-]+/g, ''); 
+  const parsed = parseFloat(strVal);
+  if (isNaN(parsed) || !isFinite(parsed)) return 0;
+  return Math.min(1e15, Math.max(-1e15, parsed)); // V12.04 FIX
+};

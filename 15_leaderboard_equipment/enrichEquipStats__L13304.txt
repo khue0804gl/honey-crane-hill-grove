@@ -1,0 +1,85 @@
+  const enrichEquipStats = (item) => {
+      if (!item) return null;
+      let enriched = { ...item };
+      
+      // 1. Hệ số sức mạnh theo Màu sắc (Rarity Multiplier)
+      const rarityBase = { 'Trắng': 1, 'Xanh lá': 2, 'Xanh lam': 5, 'Tím': 15, 'Vàng': 50, 'Cam': 150, 'Đỏ': 400 };
+      const baseMult = rarityBase[item.rarity || 'Trắng'] || 1;
+      
+      let subLvl = Number(item.subLevel);
+      if (!subLvl || isNaN(subLvl)) {
+          const lvlMatch = String(item.name).match(/Cấp\s*(\d+)/i);
+          subLvl = lvlMatch ? parseInt(lvlMatch[1], 10) : 1;
+      }
+      subLvl = Math.max(1, Math.min(20, subLvl)); // Giãn từ 10 lên 20 cấp độ
+      enriched.subLevel = subLvl;
+      
+      // Lấy Hệ số Cảnh giới (statMult) làm mỏ neo sức mạnh
+      const stageConfigEquip = getStageConfigById(subLvl);
+      const stageMult = stageConfigEquip ? stageConfigEquip.statMult : 1;
+      
+      // Công thức mới: Hệ Số Sức Mạnh Trang Bị = Rarity Multiplier * Stage statMult
+      const mult = baseMult * stageMult;
+      
+      // 2. Phân loại vị trí mặc (Slot)
+      const slot = getEquipSlot(item); 
+      enriched.equipSlot = slot;
+      
+      // 3. Xóa sạch chỉ số ảo tưởng do AI tự bịa
+      enriched.attackBonus = 0;
+      enriched.defenseBonus = 0;
+      enriched.speedBonus = 0;
+      enriched.spiritPowerBonus = 0;
+
+      // Hàm roll random từ 80% - 120% số Base gốc
+      const rollStat = (min, max) => {
+          const base = min + Math.random() * (max - min);
+          const variance = 0.8 + Math.random() * 0.4;
+          return Math.floor(base * variance * mult);
+      };
+
+      // 4. Cấp phát chỉ số Toán học chuẩn xác (Cân bằng tuyệt đối)
+      if (slot === 'weapon') {
+          enriched.attackBonus = rollStat(15, 25);
+          enriched.speedBonus = rollStat(2, 5);
+      } else if (slot === 'accessory' || slot === 'artifact') {
+          // Bắt đặc tính nhẫn không gian (CẤM biến đan dược/thảo dược thành nhẫn không gian)
+          const isFoodOrConsumable = /(đan|hoàn|tán|cao|dược|linh dịch|thảo|linh quả|quả|thịt|cơm|bánh|tửu|rượu|ma dược|potion)/i.test(item.name || '');
+          const isRealSpatial = /(túi\s+trữ\s+vật|nhẫn\s+trữ\s+vật|túi\s+càn\s+khôn|nhẫn\s+càn\s+khôn|tu\s+di\s+giới|nhẫn\s+không\s+gian|túi\s+không\s+gian|bảo\s+hạp\s+trữ\s+vật|hồ\s+lô\s+trữ\s+vật|vòng\s+trữ\s+vật|giới\s+chỉ\s+trữ\s+vật|trữ\s+vật\s+đại|trữ\s+vật\s+giới)/i.test(item.name || '') || item.type === 'spatial' || item.type === 'sealed_spatial';
+          if (!isFoodOrConsumable && isRealSpatial) {
+               const rCaps = { 'Trắng': 50, 'Xanh lá': 100, 'Xanh lam': 300, 'Tím': 1000, 'Vàng': 5000, 'Cam': 50000, 'Đỏ': 999999 };
+               enriched.capacity = rCaps[item.rarity || 'Trắng'] || 50;
+               enriched.type = 'spatial'; // Ép kiểu về Không Gian nếu AI gán nhầm sang Phụ Kiện
+          }
+          if (slot === 'accessory') {
+               enriched.spiritPowerBonus = rollStat(15, 25);
+          } else {
+               enriched.attackBonus = rollStat(6, 10);
+               enriched.defenseBonus = rollStat(6, 10);
+               enriched.spiritPowerBonus = rollStat(6, 10);
+          }
+      } else if (slot === 'armor') {
+          enriched.defenseBonus = rollStat(15, 25);
+      } else if (slot === 'head') {
+          enriched.defenseBonus = rollStat(8, 12);
+          enriched.spiritPowerBonus = rollStat(5, 8);
+      } else if (slot === 'boots') {
+          enriched.speedBonus = rollStat(15, 20);
+          enriched.defenseBonus = rollStat(2, 5);
+      }
+      
+      // 5. Cấp phát Độ bền (Durability)
+      // Độ bền tối đa = (Rarity Multiplier) * 50 * Cấp độ trang bị (1-20)
+      let baseDura = baseMult * 50 * subLvl;
+      enriched.maxDurability = baseDura;
+      
+      // Nếu item cũ đã có độ bền, giữ tỷ lệ % độ bền hiện tại để không làm đầy bình máu đồ cũ
+      if (item.durability !== undefined && item.maxDurability) {
+          const ratio = item.durability / item.maxDurability;
+          enriched.durability = Math.floor(baseDura * ratio);
+      } else {
+          enriched.durability = baseDura;
+      }
+      
+      return enriched;
+  };

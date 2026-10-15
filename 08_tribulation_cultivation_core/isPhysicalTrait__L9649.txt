@@ -1,0 +1,15 @@
+export const isPhysicalTrait = (t: any): boolean => {
+    if (!t) return false;
+    const name = typeof t === 'string' ? t : (t.name || '');
+    const desc = typeof t === 'object' ? (t.desc || '') : '';
+    if (typeof MASTER_FUSION_MATRIX !== 'undefined' && MASTER_FUSION_MATRIX.some(r => r.name.toLowerCase() === name.toLowerCase())) {
+        return true;
+    }
+    if (/(thể|thân|cốt|huyết mạch|chân thân|nhục thân|thánh thể|thần thể|bá thể|ma thể|bất hoại|kim thân|khu\b|nhãn\b|mị cốt|thiên đố|phôi)/i.test(name)) {
+        return true;
+    }
+    if (/(thể chất|nhục thân|huyết mạch|thần thể|thánh thể|cốt tủy)/i.test(desc)) {
+        return true;
+    }
+    return false;
+};

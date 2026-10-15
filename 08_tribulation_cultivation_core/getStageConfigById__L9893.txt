@@ -1,0 +1,37 @@
+const getStageConfigById = (id, _legacyUniverseFlag = false) => { // V1.21: nhan co thu 2 de khong con tham so bi bo qua am tham
+  const numId = Number(id) || 1;
+  // V3.31 HÀO VIP PRO & THÀNH KHÔN (LỆNH TỐI CAO): Khóa cứng trần Cấp 21, xóa bỏ toàn bộ cấp độ cao hơn (Cấp 22+)
+  if (numId >= 21) {
+    const mult = Math.min(Number.MAX_SAFE_INTEGER, Math.floor(3000 * 2.5));
+    return {
+      id: 21,
+      name: 'Siêu Thoát Cảnh',
+      statMult: mult,
+      coefNo: 0,
+      coefMp: 1.0,
+      autoMpRegenPct: 35,
+      mpPrio: true,
+      baseMaxAge: 999999
+    };
+  }
+  if (numId === 20) return { id: 20, name: 'Đạo Tổ', statMult: 3000, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 30, mpPrio: true, baseMaxAge: 999999 };
+  if (id === 19) return { id: 19, name: 'Tiên Đế', statMult: 2000, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 25, mpPrio: true, baseMaxAge: 999999 };
+  if (id === 18) return { id: 18, name: 'Tiên Vương', statMult: 1500, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 20, mpPrio: true, baseMaxAge: 999999 };
+  if (id === 17) return { id: 17, name: 'Tiên Tôn', statMult: 1100, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 15, mpPrio: true, baseMaxAge: 999999 };
+  if (id === 16) return { id: 16, name: 'Đại La Kim Tiên', statMult: 800, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 12, mpPrio: true, baseMaxAge: 999999 };
+  if (id === 15) return { id: 15, name: 'Thái Ất Kim Tiên', statMult: 600, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 10, mpPrio: true, baseMaxAge: 999999 };
+  if (id === 14) return { id: 14, name: 'Kim Tiên', statMult: 440, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 8, mpPrio: true, baseMaxAge: 999999 };
+  if (id === 13) return { id: 13, name: 'Huyền Tiên', statMult: 320, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 7, mpPrio: true, baseMaxAge: 999999 };
+  if (id === 12) return { id: 12, name: 'Chân Tiên', statMult: 230, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 6, mpPrio: true, baseMaxAge: 999999 };
+  if (id === 11) return { id: 11, name: 'Hư Tiên', statMult: 160, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 5, mpPrio: true, baseMaxAge: 50000 };
+  if (id === 10) return { id: 10, name: 'Độ Kiếp Kỳ', statMult: 110, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 4, mpPrio: true, baseMaxAge: 15000 };
+  if (id === 9) return { id: 9, name: 'Đại Thừa Kỳ', statMult: 75, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 3, mpPrio: true, baseMaxAge: 8000 };
+  if (id === 8) return { id: 8, name: 'Hợp Thể Kỳ', statMult: 50, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 2, mpPrio: true, baseMaxAge: 4000 };
+  if (id === 7) return { id: 7, name: 'Luyện Hư Kỳ', statMult: 34, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 1, mpPrio: true, baseMaxAge: 3000 };
+  if (id === 6) return { id: 6, name: 'Hóa Thần Kỳ', statMult: 22, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 0.5, mpPrio: true, baseMaxAge: 2000 };
+  if (id === 5) return { id: 5, name: 'Nguyên Anh Kỳ', statMult: 14, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 0, mpPrio: true, baseMaxAge: 1000 };
+  if (id === 4) return { id: 4, name: 'Kim Đan Kỳ', statMult: 8, coefNo: 0, coefMp: 1.0, autoMpRegenPct: 0, mpPrio: true, baseMaxAge: 500 };
+  if (id === 3) return { id: 3, name: 'Trúc Cơ Kỳ', statMult: 4, coefNo: 0.5, coefMp: 0.5, autoMpRegenPct: 0, mpPrio: false, baseMaxAge: 200 };
+  if (id === 2) return { id: 2, name: 'Luyện Khí Kỳ', statMult: 2, coefNo: 0.8, coefMp: 0.2, autoMpRegenPct: 0, mpPrio: false, baseMaxAge: 120 };
+  return { id: 1, name: 'Phàm Nhân', statMult: 1, coefNo: 0.9, coefMp: 0.1, autoMpRegenPct: 0, mpPrio: false, baseMaxAge: 80 };
+};

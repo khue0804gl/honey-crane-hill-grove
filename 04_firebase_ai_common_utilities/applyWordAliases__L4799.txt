@@ -1,0 +1,47 @@
+const applyWordAliases = (text, aliasesText, isEnabled = true) => {
+    if (!text || typeof text !== 'string') return text;
+    let processedText = filterRestrictedNames(text);
+    if (!isEnabled || !aliasesText || typeof aliasesText !== 'string') return processedText;
+    try {
+        const lines = aliasesText.split('\n');
+        lines.forEach(line => {
+            const parts = line.split('-');
+            if (parts.length >= 2) {
+                const originalPart = parts[0].trim();
+                const replacement = parts.slice(1).join('-').trim();
+                if (originalPart && replacement) {
+                    let wordsToReplace = [];
+                    // Hỗ trợ cả định dạng (từ 1, từ 2) lẫn từ 1, từ 2 không cần ngoặc đơn
+                    const cleanOriginal = (originalPart.startsWith('(') && originalPart.endsWith(')'))
+                        ? originalPart.slice(1, -1)
+                        : originalPart;
+                    wordsToReplace = cleanOriginal.split(',').map(w => w.trim().replace(/^\(|\)$/g, '')).filter(w => w);
+                    
+                    // Sắp xếp từ dài nhất lên trước để tránh việc từ ngắn nuốt từ dài (VD: "cậu ta" trước "cậu")
+                    wordsToReplace.sort((a, b) => b.length - a.length);
+
+                    wordsToReplace.forEach(word => {
+                        if (!word) return;
+                        const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const regex = new RegExp(escapeRegExp(word), 'gi'); // Dùng 'gi' để tìm cả chữ hoa lẫn chữ thường
+                        
+                        processedText = processedText.replace(regex, (match) => {
+                            const firstChar = match.charAt(0);
+                            // Kiểm tra xem chữ cái đầu tiên của từ bị thay thế (trên nội dung) đang là viết hoa hay viết thường
+                            if (firstChar === firstChar.toUpperCase() && firstChar !== firstChar.toLowerCase()) {
+                                // Tự động viết hoa chữ cái đầu cho từ thay thế
+                                return replacement.charAt(0).toUpperCase() + replacement.slice(1);
+                            } else {
+                                // Chuyển từ thay thế về chữ thường (nếu từ gốc đang là chữ thường)
+                                return replacement.charAt(0).toLowerCase() + replacement.slice(1);
+                            }
+                        });
+                    });
+                }
+            }
+        });
+        return processedText;
+    } catch(e) {
+        return text;
+    }
+};

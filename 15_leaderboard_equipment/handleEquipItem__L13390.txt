@@ -1,0 +1,50 @@
+  const handleEquipItem = (item) => {
+      // V8.25 FIX: Đánh chặn bóng ma giao diện và Double-click
+      if (isGenerating) return showAlert("Thiên Đạo đang bận rộn, không thể thay đồ lúc này!");
+      if (!item || item.quantity <= 0) return showAlert("Ảo giác! Vật phẩm này không thực sự tồn tại trong túi đồ của bạn.");
+
+      const slot = getEquipSlot(item); // V7.11 Update
+      const enrichedItem = enrichEquipStats(item);
+      
+      setGameState(prev => {
+          let newInv = [...prev.inventory];
+          let newEquipped = { ...(prev.equipped || {}) };
+          
+          // Trừ đồ trong túi
+          const idx = newInv.findIndex(i => i.name === item.name && i.containerId === item.containerId);
+          if (idx >= 0) {
+              newInv[idx].quantity -= 1;
+              if (newInv[idx].quantity <= 0) newInv.splice(idx, 1);
+          }
+          
+          // Tháo đồ cũ (nếu có) bỏ lại vào túi
+          if (newEquipped[slot]) {
+              const oldItem = newEquipped[slot];
+              const existIdx = newInv.findIndex(i => i.name === oldItem.name && i.containerId === (item.containerId || 'default') && i.type === oldItem.type);
+              if (existIdx >= 0) newInv[existIdx].quantity += 1;
+              else newInv.push({ ...oldItem, quantity: 1, containerId: item.containerId || 'default' });
+          }
+          
+          // V1.25.7: Xóa bất biến khỏi mảng containers nếu vật phẩm này là Túi đang đeo
+          let newContainers = [...(prev.containers || [])];
+          if (item.type === 'spatial' || item.type === 'sealed_spatial') {
+               newContainers = newContainers.filter(c => c.id !== item.savedId);
+          }
+
+          // V11.54 FIX: Tráo Đồ Giây Cuối - Trừ 1% độ bền khi mặc vào
+          if (enrichedItem.durability !== undefined && enrichedItem.maxDurability) {
+              const duraCost = Math.max(1, Math.floor(enrichedItem.maxDurability * 0.01));
+              enrichedItem.durability = Math.max(0, enrichedItem.durability - duraCost);
+          }
+          
+          newEquipped[slot] = enrichedItem;
+          
+          setStoryLog(logs => {
+              const newLog = [...logs, { type: 'system', text: `[Trang Bị] Đã khắc ấn [${item.name}] lên nhục thân.`, chapter: prev.chapterCount }];
+              return newLog.length > 50 ? newLog.slice(-50) : newLog;
+          });
+          
+          return { ...prev, inventory: newInv, equipped: newEquipped, containers: newContainers };
+      });
+      setSelectedInvItem(null);
+  };

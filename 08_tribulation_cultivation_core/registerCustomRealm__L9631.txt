@@ -1,0 +1,17 @@
+export const registerCustomRealm = (r: { id: number, name: string, authority?: string, statMult?: number }) => {
+    if (!r || !r.name) return;
+    const key = String(r.name).toLowerCase().trim();
+    const id = Number(r.id) || 21;
+    const statMult = Number(r.statMult) || Math.min(Number.MAX_SAFE_INTEGER, Math.floor(3000 * Math.pow(2.5, id - 20)));
+    CUSTOM_REALMS_REGISTRY[key] = {
+        id,
+        name: r.name,
+        authority: r.authority || '',
+        statMult,
+        coefNo: 0,
+        coefMp: 1.0,
+        autoMpRegenPct: Math.min(100, 30 + (id - 20) * 5),
+        mpPrio: true,
+        baseMaxAge: 999999
+    };
+};

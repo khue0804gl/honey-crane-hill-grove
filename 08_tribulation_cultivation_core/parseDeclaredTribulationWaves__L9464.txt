@@ -1,0 +1,9 @@
+const parseDeclaredTribulationWaves = (text) => {
+  const t = String(text || '').toLowerCase();
+  let m = t.match(/(\d{1,3})\s*(?:đạo|đợt|tia|luồng|nhịp|đòn)/);
+  if (!m) m = t.match(/(?:lãnh|chịu|đỡ|gồng|chống|hứng|nhận|vượt|lướt qua|đón)\s*(\d{1,3})/);
+  if (!m) m = t.match(/(\d{1,3})\s*(?:lôi|sét|kiếp)/);
+  if (!m) return 0;
+  const n = parseInt(m[1], 10);
+  return (isFinite(n) && n > 0) ? n : 0;
+};

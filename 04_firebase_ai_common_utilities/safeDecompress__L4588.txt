@@ -1,0 +1,20 @@
+const safeDecompress = (str) => {
+    if (!str) return null;
+    if (typeof str === 'object') return str;
+    if (typeof str === 'string' && str.trim().startsWith('{')) {
+        try { return JSON.parse(str.trim()); } catch(e) {}
+    }
+    try {
+        const decodedBase64 = LZString.decompressFromBase64(str);
+        if (decodedBase64) return JSON.parse(decodedBase64);
+    } catch(e) {}
+    try {
+        const decodedURI = LZString.decompressFromEncodedURIComponent(str);
+        if (decodedURI) return JSON.parse(decodedURI);
+    } catch(e) {}
+    try {
+        const decodedUTF16 = LZString.decompressFromUTF16(str);
+        if (decodedUTF16) return JSON.parse(decodedUTF16);
+    } catch(e) {}
+    return null;
+};

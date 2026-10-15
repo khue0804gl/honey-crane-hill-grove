@@ -1,0 +1,9 @@
+export const getEventNpcsForEvent = (evt: CanonEvent, curYear: number): EventNpc[] => {
+  if (!evt) return [];
+  const ids = new Set<string>(evt.eventNpcIds || []);
+  Object.values(EVENT_NPCS).forEach(n => { if (n && n.attachEventId === evt.id) ids.add(n.id); });
+  return Array.from(ids)
+    .map(id => EVENT_NPCS[id])
+    .filter(Boolean)
+    .filter(n => curYear >= (n.activeWindow?.fromYear ?? 1) && curYear <= (n.activeWindow?.toYear ?? 9999));
+};

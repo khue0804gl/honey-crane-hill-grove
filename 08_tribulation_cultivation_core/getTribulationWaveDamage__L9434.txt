@@ -1,0 +1,24 @@
+const getTribulationWaveDamage = (intendedStageId, maxHp, bgId = 'bg_0') => {
+  const id = Number(intendedStageId) || 2;
+  const hp = Math.max(1, Number(maxHp) || 1);
+  // V1.39 DARK & SƯ PHỤ: Cân bằng giảm mạnh sát thương lôi kiếp 5 cảnh giới đầu chống chết sốc
+  let pct;
+  if (id <= 2) {
+    pct = 0.035; // 3.5% HP/đạo cho Phàm Nhân -> Luyện Khí
+  } else if (id === 3) {
+    pct = 0.045; // 4.5% HP/đạo cho Trúc Cơ
+  } else if (id === 4) {
+    // V1.49: HÓA HÌNH LÔI KIẾP X2 CHO YÊU TỘC THUẦN CHỦNG (Góp ý Ethan195)
+    pct = (typeof bgId !== 'undefined' && isPureYeuTocBg(bgId)) ? 0.11 : 0.055;
+  } else if (id === 5) {
+    pct = 0.065; // 6.5% HP/đạo cho Nguyên Anh
+  } else {
+    pct = 0.07 + Math.min(0.06, Math.max(0, id - 6) * 0.005);
+  }
+  let resDmg = Math.max(1, Math.floor(hp * pct));
+  // V1.79: THIÊN ĐẠO KHƯỚC TỪ (Góp ý Kha) - Lôi kiếp x2 sát thương chuẩn
+  if (typeof bgId !== 'undefined' && bgId === 'bg_thien_dao_khuoc_tu') {
+    resDmg = resDmg * 2;
+  }
+  return resDmg;
+};

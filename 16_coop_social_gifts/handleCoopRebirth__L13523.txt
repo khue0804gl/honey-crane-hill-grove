@@ -1,0 +1,38 @@
+  const handleCoopRebirth = () => {
+      const hasLuanHoiChiTon = (gameState.traits || []).some(t => t && (t.name === 'Luân Hồi Chí Tôn' || t.name === 'Luân Hồi Chi Tôn' || t.id === 702));
+      const roll = Math.random();
+      const retainSuccess = hasLuanHoiChiTon && roll < 0.70;
+
+      setGameState(prev => {
+          const currentLevel = prev.cultivationLevel || 'Phàm Nhân';
+          const curMaxHp = 100 * (getStageConfig(retainSuccess ? currentLevel : 'Phàm Nhân').statMult || 1);
+          const curMaxMp = 50 * (getStageConfig(retainSuccess ? currentLevel : 'Phàm Nhân').statMult || 1);
+          
+          const newLogs = [...(prev.deathHistory || []), {
+              time: `Năm thứ ${Math.floor(prev.age || 18)}`,
+              reason: prev.deathReason || 'Vẫn lạc nơi chiến trường liên giới',
+              surviveReason: retainSuccess ? `[Luân Hồi Chí Tôn] 70% đại thành công! Giữ nguyên cảnh giới [${currentLevel}]` : 'Luân hồi chuyển sinh về Phàm Nhân'
+          }];
+
+          return {
+              ...prev,
+              health: curMaxHp,
+              spiritualEnergy: curMaxMp,
+              stamina: 100,
+              cultivationLevel: retainSuccess ? currentLevel : 'Phàm Nhân',
+              minorLevel: retainSuccess ? (prev.minorLevel || 1) : 1,
+              cultivationProgress: retainSuccess ? (prev.cultivationProgress || 0) : 0,
+              rebirthCount: (Number(prev.rebirthCount) || 0) + 1,
+              deathHistory: newLogs,
+              deathReason: null
+          };
+      });
+
+      setCoopDeathModal(null);
+      setIsGameOverDismissed(false);
+      if (retainSuccess) {
+          showAlert(`🎉 [LUÂN HỒI CHÍ TÔN ĐẠI ĐẠO]\nThần thông Luân Hồi bộc phát tỷ lệ 70% thành công mỹ mãn!\nNgươi giữ nguyên trọn vẹn cảnh giới [${gameState.cultivationLevel}] và toàn bộ thực lực, phá kén trùng sinh!`);
+      } else {
+          showAlert(`🌀 [LUÂN HỒI CHUYỂN SINH]\nĐạo thể đã hoàn sinh, bắt đầu lại hành trình từ cảnh giới Phàm Nhân!`);
+      }
+  };

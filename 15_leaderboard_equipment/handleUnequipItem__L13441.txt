@@ -1,0 +1,42 @@
+  const handleUnequipItem = (slot) => {
+      // V8.25 FIX: Khóa thao tác khi AI đang tính toán
+      if (isGenerating) return showAlert("Thiên Đạo đang bận rộn, không thể tháo đồ lúc này!");
+
+      setGameState(prev => {
+          if (!prev.equipped || !prev.equipped[slot]) return prev;
+          const itemToUnequip = prev.equipped[slot];
+          let newInv = [...prev.inventory];
+          let newEquipped = { ...prev.equipped };
+          
+          const targetContainerId = prev.containers[0]?.id || 'default';
+          
+          const targetContainer = prev.containers.find(c => c.id === targetContainerId);
+          const currentWeight = newInv.filter(i => i.containerId === targetContainerId).reduce((sum, i) => sum + getItemTotalWeight(i), 0);
+          const itemWeight = getItemUnitWeight(itemToUnequip);
+          
+          if (targetContainer && currentWeight + itemWeight > (targetContainer.capacity || 30)) {
+              showAlert(`Túi [${targetContainer.name}] đã đầy, không thể tháo [${itemToUnequip.name}] vào lúc này!`);
+              return prev;
+          }
+
+          // V6.37 FIX: Kiểm tra xem đồ có buff ẩn không. Nếu có thì KHÔNG ĐƯỢC GỘP để tránh mất chỉ số!
+          const hasBonusStats = itemToUnequip.attackBonus || itemToUnequip.defenseBonus || itemToUnequip.speedBonus || itemToUnequip.spiritPowerBonus || (itemToUnequip.perks && itemToUnequip.perks.length > 0) || itemToUnequip.type === 'spatial';
+          
+          if (hasBonusStats) {
+              newInv.push({ ...itemToUnequip, quantity: 1, containerId: targetContainerId }); // Tách thành 1 dòng riêng trong túi
+          } else {
+              const existIdx = newInv.findIndex(i => i.name === itemToUnequip.name && i.containerId === targetContainerId && !i.attackBonus && !i.defenseBonus && i.type === itemToUnequip.type);
+              if (existIdx >= 0) newInv[existIdx].quantity += 1;
+              else newInv.push({ ...itemToUnequip, quantity: 1, containerId: targetContainerId });
+          }
+          
+          newEquipped[slot] = null;
+          
+          setStoryLog(logs => {
+              const newLog = [...logs, { type: 'system', text: `[Trang Bị] Đã tháo gỡ [${itemToUnequip.name}] khỏi người.`, chapter: prev.chapterCount }];
+              return newLog.length > 50 ? newLog.slice(-50) : newLog;
+          });
+          
+          return { ...prev, inventory: newInv, equipped: newEquipped };
+      });
+  };

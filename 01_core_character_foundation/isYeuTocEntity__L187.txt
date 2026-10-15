@@ -1,0 +1,23 @@
+const isYeuTocEntity = (stateOrBg: any, path?: string, level?: string, traits?: any[]) => {
+    let bgId = '';
+    let cPath = '';
+    let cLevel = '';
+    let tList: any[] = [];
+    if (stateOrBg && typeof stateOrBg === 'object') {
+        bgId = String(stateOrBg.backgroundId || stateOrBg.id || '');
+        cPath = String(stateOrBg.cultivationPath || '');
+        cLevel = String(stateOrBg.cultivationLevel || '');
+        tList = Array.isArray(stateOrBg.traits) ? stateOrBg.traits : [];
+    } else {
+        bgId = String(stateOrBg || '');
+        cPath = String(path || '');
+        cLevel = String(level || '');
+        tList = Array.isArray(traits) ? traits : [];
+    }
+    const tNames = tList.map((t: any) => (typeof t === 'string' ? t : String(t?.name || '')));
+    const isYeuBg = isPureYeuTocBg(bgId) || ['bg_10', 'bg_25', 'bg_taotie', 'bg_long_toc', 'bg_con_bang', 'bg_ho_toc', 'bg_vien_co_cu_long'].includes(bgId);
+    const isYeuPath = cPath === 'yeu_tu';
+    const isYeuLevel = /(thông trí|khai quang|yêu đan|hóa hình|yêu tướng|yêu vương|yêu hoàng|yêu đế|thái cổ yêu tổ)/i.test(cLevel);
+    const isYeuTrait = tNames.some((n: string) => /tiên thiên đại yêu|thái cổ ngự yêu sư|chân long huyết mạch|nhục thân cự long|viễn cổ cự long|yêu tộc/i.test(n));
+    return isYeuBg || isYeuPath || isYeuLevel || isYeuTrait;
+};

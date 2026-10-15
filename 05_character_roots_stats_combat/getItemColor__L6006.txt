@@ -1,0 +1,4 @@
+const getItemColor = (item: any) => {
+  const r = resolveItemRarity(item);
+  return RARITY_COLORS[r] || RARITY_COLORS['Trắng'];
+};

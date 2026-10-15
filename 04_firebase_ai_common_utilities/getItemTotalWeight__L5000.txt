@@ -1,0 +1,1 @@
+const getItemTotalWeight = (item) => getItemUnitWeight(item) * (Number(item.quantity) || 1);

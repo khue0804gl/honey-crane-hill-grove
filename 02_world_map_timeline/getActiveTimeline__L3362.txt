@@ -1,0 +1,6 @@
+export const getActiveTimeline = (timelineId?: string): TimelineConfig => {
+  if (timelineId && TIMELINES_CONFIG[timelineId]) {
+    return TIMELINES_CONFIG[timelineId];
+  }
+  return TIMELINES_CONFIG["timeline_thanh_van"];
+};

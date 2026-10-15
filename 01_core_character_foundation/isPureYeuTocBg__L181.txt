@@ -1,0 +1,4 @@
+const isPureYeuTocBg = (bgId) => {
+    if (!bgId) return false;
+    return ['bg_yeu_thuan_long', 'bg_yeu_thuan_phuong', 'bg_yeu_thuan_mieu', 'bg_yeu_thuan_ho', 'bg_yeu_thuan_dieu', 'bg_yeu_thuan_di_toc', 'bg_yeu_thuan_ngu'].includes(bgId);
+};

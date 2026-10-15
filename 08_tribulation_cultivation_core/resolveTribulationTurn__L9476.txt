@@ -1,0 +1,132 @@
+const resolveTribulationTurn = (trib, health, maxHp, declaredWaves, traits = [], bgId = 'bg_0', innerWorld = null, defense = 0, cultivationPath = 'tu_tien', spiritualRoot = null, equippedCoreMethod = null) => {
+  const total = Math.max(1, Number(trib && trib.totalWaves) || 1);
+  const cur = Math.max(0, Number(trib && trib.currentWave) || 0);
+  const left = Math.max(0, total - cur);
+  const hp = Math.max(0, Number(health) || 0);
+  let perWave = getTribulationWaveDamage(trib && trib.intendedStageId, maxHp, bgId);
+
+  const tNames = Array.isArray(traits) ? traits.map(t => typeof t === 'string' ? t : (t?.name || '')) : [];
+  const hasLoiThanMoc = tNames.includes('Vạn Cổ Lôi Thần Mộc Khu') || (Array.isArray(traits) && traits.some(t => t?.id === 9805));
+  const hasThienLinhCan = tNames.some(n => n.includes('Thiên Linh Căn'));
+  const hasQuyKhu = tNames.includes('Đại Đạo Quy Khư');
+  const hasThienLoiThe = tNames.includes('Thiên Lôi Thể') || (Array.isArray(traits) && traits.some(t => t?.id === 1315));
+  const hasDiaThoMoc = tNames.includes('Địa Thổ Mộc Thể') || (Array.isArray(traits) && traits.some(t => t?.id === 1316));
+  const hasThanhQuang = tNames.includes('Thánh Quang Thần Thể') || (Array.isArray(traits) && traits.some(t => t?.id === 1314));
+
+  // V2.12 GÓP Ý DARK - HỆ THỐNG GIẢM TRỪ SÁT THƯƠNG LÔI KIẾP (THỂ TU, LINH CĂN & CÔNG PHÁP)
+  let totalMitigationPct = 0;
+
+  // 1. Giảm trừ từ chỉ số Phòng Thủ (Defense) & Đạo Lộ Thể Tu
+  const defVal = Math.max(0, Number(defense) || 0);
+  const isTheTu = cultivationPath === 'the_tu' || tNames.some(n => /thể|bàn cổ|kim thân|luyện bì|luyện cốt/i.test(n));
+  if (defVal > 0 && maxHp > 0) {
+    const defRatio = defVal / (defVal + maxHp * 0.8);
+    if (isTheTu) {
+      // Thể Tu nhục thân tôi luyện cực hạn: giảm tối đa 60% sát thương lôi kiếp từ chỉ số thủ
+      const theTuMitigation = Math.min(0.60, defRatio * 1.2 + 0.15);
+      totalMitigationPct += theTuMitigation;
+    } else {
+      // Các phái khác giảm tối đa 35% sát thương từ phòng thủ/hộ thể
+      const normalMitigation = Math.min(0.35, defRatio * 0.7);
+      totalMitigationPct += normalMitigation;
+    }
+  }
+
+  // 2. Giảm trừ từ Linh Căn (Lôi, Mộc, Quang)
+  const srElements = (spiritualRoot && Array.isArray(spiritualRoot.elements)) ? spiritualRoot.elements : [];
+  const srName = String(spiritualRoot?.name || '');
+  if (srElements.includes('Lôi') || /lôi/i.test(srName)) {
+    totalMitigationPct += 0.40; // Lôi Linh Căn: Lôi dẫn nhập thể giảm 40% sát thương
+  }
+  if (srElements.includes('Quang') || /quang/i.test(srName)) {
+    totalMitigationPct += 0.25; // Quang Linh Căn: Thánh quang tiêu tán giảm 25% sát thương
+  }
+  if (srElements.includes('Mộc') || /mộc/i.test(srName)) {
+    totalMitigationPct += 0.20; // Mộc Linh Căn: Sinh cơ dẫn lôi nhập địa giảm 20% sát thương
+  }
+
+  // 3. Giảm trừ từ Thể Chất đặc thù
+  if (hasThienLoiThe) {
+    totalMitigationPct += 0.20; // Thiên Lôi Thể miễn 20% sát thương lôi kiếp
+  }
+  if (hasThanhQuang) {
+    totalMitigationPct += 0.25; // Thánh Quang Thần Thể miễn 25% sát thương lôi kiếp
+  }
+  if (hasDiaThoMoc) {
+    totalMitigationPct += 0.20; // Địa Thổ Mộc Thể miễn 20% sát thương lôi kiếp
+  }
+
+  // 4. Giảm trừ từ Công Pháp phòng ngự / Thần thông hộ thể
+  const methodStr = String(equippedCoreMethod || '').toLowerCase();
+  if (/(hộ thể|kim chung|quy giáp|bất diệt|lôi pháp|lôi thần|toái ngọc|huyền giáp|phòng ngự|trận đồ|lạc tinh|kiên bích)/i.test(methodStr)) {
+    totalMitigationPct += 0.20; // Công pháp phòng thủ giảm 20% sát thương lôi kiếp
+  }
+
+  // Áp dụng trần giảm thương tối đa 85% để giữ độ thử thách
+  totalMitigationPct = Math.min(0.85, totalMitigationPct);
+  if (totalMitigationPct > 0) {
+    perWave = Math.max(1, Math.floor(perWave * (1 - totalMitigationPct)));
+  }
+
+  if (hasThienLinhCan) {
+    perWave = Math.max(1, Math.floor(perWave * 0.7)); // V1.89 THIÊN ĐẠO ƯU TIÊN: Giảm 30% sát thương lôi kiếp
+  }
+
+  // V2.81: Tiểu Thế Giới đã gỡ bỏ khỏi cơ chế cản lôi kiếp
+
+  const hasThienMenhMaTon = Array.isArray(traits) && traits.some(t => t && (t.name === 'Thiên Mệnh Ma Tôn' || t.id === 2088));
+  // V1.79: THIÊN ĐẠO KHƯỚC TỪ (Góp ý Kha) - Lôi kiếp x2 sát thương chuẩn
+  if (bgId === 'bg_thien_dao_khuoc_tu') {
+    perWave = perWave * 2;
+  }
+  if (hasThienMenhMaTon) {
+    perWave = perWave * 2; // V1.70 THIÊN ĐẠO CĂM GHÉT: Lôi kiếp x2 uy lực!
+  }
+
+  if (left <= 0 || hp <= 0) {
+    return { waves: 0, perWave: perWave, damage: 0, lethal: false, mercy: false, left: left, isLoiThanMoc: hasLoiThanMoc };
+  }
+
+  const dec = Math.max(0, Math.floor(Number(declaredWaves) || 0));
+  let waves = 0;
+  let mercy = false;
+
+  if (hasLoiThanMoc) {
+    // V1.36 FIX: Vạn Cổ Lôi Thần Mộc Khu — Cắn nuốt lôi kiếp, không nhận sát thương, không thể tử vong!
+    waves = dec > 0 ? Math.min(left, dec) : Math.min(left, Math.max(1, Math.min(3, left)));
+    return { waves: waves, perWave: perWave, damage: 0, lethal: false, mercy: false, left: left, isLoiThanMoc: true };
+  }
+  if (hasQuyKhu) {
+    // V1.89 ĐẠI ĐẠO QUY KHƯ: Quy khư cội nguồn hóa giải lôi kiếp!
+    waves = dec > 0 ? Math.min(left, dec) : Math.min(left, Math.max(1, Math.min(3, left)));
+    return { waves: waves, perWave: 0, damage: 0, lethal: false, mercy: false, left: left, isLoiThanMoc: true };
+  }
+
+  if (dec > 0) {
+    // Nguoi choi tu khai so -> KHONG thuong xot, dung dung so do.
+    waves = Math.min(left, dec);
+  } else {
+    // Khong khai -> Thien Dao gieo xu 50/50.
+    mercy = Math.random() < TRIB_MERCY_CHANCE;
+    if (mercy) {
+      waves = Math.max(1, Math.min(left, Math.floor(Math.max(0, hp - 1) / perWave)));
+    } else {
+      waves = Math.max(1, Math.min(left, Math.ceil(hp / perWave) + (Math.random() < 0.5 ? 1 : 0)));
+    }
+  }
+
+  let damage = waves * perWave;
+  // V1.39 DARK & SƯ PHỤ: Giữ ngưỡng sinh tử 5% HP cho 5 cảnh giới đầu (id <= 5), chống chết sốc đột ngột trừ khi chủ động khai số tự sát
+  const stageId = Number(trib && trib.intendedStageId) || 2;
+  if (stageId <= 5 && dec === 0) {
+    const survivalThreshold = Math.max(1, Math.floor(maxHp * 0.05));
+    if (damage >= hp) {
+      damage = Math.max(1, hp - survivalThreshold);
+      mercy = true;
+    }
+  } else if (mercy && damage >= hp) {
+    damage = Math.max(1, hp - 1);
+  }
+
+  return { waves: waves, perWave: perWave, damage: damage, lethal: damage >= hp, mercy: mercy, left: left, isLoiThanMoc: false };
+};

@@ -1,0 +1,11 @@
+const getMinorLevelName = (majorLevelName: string, minorLevel: number, traits: any = null): string => {
+    const majorStr = String(majorLevelName).toLowerCase();
+    if (majorStr.includes('phàm nhân') || majorStr.includes('chưa rõ')) return 'Chưa Nhập Đạo';
+    if (/(luyện khí|tụ khí|luyện bì|đấu chi khí|học đồ|sa di|du hồn|tiểu yêu|tam lưu)/.test(majorStr)) {
+        if (minorLevel <= 9) return `Tầng ${minorLevel}`;
+        if (minorLevel === 10 && !hasThienDoTrait(traits)) return `Viên Mãn`;
+        return `Tầng ${minorLevel}`;
+    }
+    const map: Record<number, string> = { 1: 'Sơ Kỳ', 2: 'Trung Kỳ', 3: 'Hậu Kỳ', 4: 'Viên Mãn' };
+    return map[minorLevel] || 'Sơ Kỳ';
+};

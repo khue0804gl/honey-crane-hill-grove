@@ -1,0 +1,13 @@
+const getCombatPower = (totalAtk, totalDef, totalSpd, totalSpp, stageId = 1, activeEffects = []) => {
+    let effectBonus = 0;
+    if (Array.isArray(activeEffects)) {
+        activeEffects.forEach(e => {
+            if (e && e.statMods) {
+                effectBonus += (Number(e.statMods.attack) || 0) + (Number(e.statMods.defense) || 0) + (Number(e.statMods.speed) || 0) + (Number(e.statMods.spiritPower) || 0);
+            }
+        });
+    }
+    // Lực chiến phản ánh trung thực năng lực chiến đấu thực tế sau mọi buff Đan Dược / Trận Pháp / Khí Vận
+    const realPower = Math.max(1, Math.floor(totalAtk + totalDef + totalSpd + totalSpp + effectBonus));
+    return realPower;
+};
