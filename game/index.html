@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Honey Crane Hill Grove</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="game-shell">
+      <aside class="hud-panel">
+        <div class="title-block">
+          <span class="tag">Grove adventure</span>
+          <h1>Honey Crane</h1>
+          <h2>Hill Grove</h2>
+        </div>
+
+        <div class="stats">
+          <div class="stat-box">
+            <span>Thu thập</span>
+            <strong id="score">0</strong>
+          </div>
+          <div class="stat-box">
+            <span>Máu</span>
+            <strong id="health">5</strong>
+          </div>
+          <div class="stat-box">
+            <span>Thời gian</span>
+            <strong id="time">60</strong>
+          </div>
+          <div class="stat-box">
+            <span>Mục tiêu</span>
+            <strong id="goal">12</strong>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="start-btn" class="primary">Bắt đầu</button>
+          <button id="reset-btn" class="secondary">Chơi lại</button>
+        </div>
+
+        <p id="message" class="message">
+          Hãy thu thập mật hoa trong rừng và tránh hạt mưa sương.
+        </p>
+      </aside>
+
+      <main class="arena-wrap">
+        <canvas id="gameCanvas" width="960" height="540" aria-label="Mini game canvas"></canvas>
+      </main>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
